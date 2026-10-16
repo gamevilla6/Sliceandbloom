@@ -1,5 +1,5 @@
 import React, { ReactNode, useEffect, useRef } from 'react';
-import { Animated, Pressable, StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
+import { Animated, Pressable, ScrollView, StyleProp, StyleSheet, Text, View, ViewStyle, useWindowDimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { F, P } from '@/constants/theme';
 import { Level } from '@/lib/levels';
@@ -9,12 +9,14 @@ export function PressScale({
   children,
   onPress,
   style,
+  containerStyle,
   disabled,
   testID,
 }: {
   children: ReactNode;
   onPress: () => void;
   style?: StyleProp<ViewStyle>;
+  containerStyle?: StyleProp<ViewStyle>;
   disabled?: boolean;
   testID?: string;
 }) {
@@ -22,6 +24,7 @@ export function PressScale({
   const to = (v: number) => Animated.spring(s, { toValue: v, useNativeDriver: true, speed: 40, bounciness: 8 }).start();
   return (
     <Pressable
+      style={containerStyle}
       testID={testID}
       disabled={disabled}
       onPressIn={() => to(0.9)}
@@ -128,13 +131,15 @@ export function LoseCard({ reason, onRetry, onHint, onLevels }: { reason: string
 }
 
 export function LevelPicker({ levels, unlocked, stars, current, onPick, onClose }: { levels: Level[]; unlocked: number; stars: Record<string, number>; current: number; onPick: (i: number) => void; onClose: () => void }) {
+  const { height } = useWindowDimensions();
   return (
     <Card title="Garden beds" onClose={onClose}>
+      <ScrollView style={{ maxHeight: height * 0.6 }} showsVerticalScrollIndicator testID="level-list">
       <View style={styles.grid}>
         {levels.map((l, i) => {
           const locked = i > unlocked;
           return (
-            <PressScale key={l.id} disabled={locked} onPress={() => onPick(i)} testID={`level-${l.id}`} style={[styles.tile, i === current && styles.tileCur, locked && { backgroundColor: P.paperDeep }]}>
+            <PressScale key={l.id} containerStyle={styles.tileSlot} disabled={locked} onPress={() => onPick(i)} testID={`level-${l.id}`} style={[styles.tile, i === current && styles.tileCur, locked && { backgroundColor: P.paperDeep }]}>
               {locked ? <Ionicons name="lock-closed" size={22} color={P.inkSoft} /> : <Text style={styles.tileNum}>{l.id}</Text>}
               <Text style={styles.tileName} numberOfLines={2}>{l.name}</Text>
               <Stars count={stars[i] ?? 0} size={14} />
@@ -142,6 +147,7 @@ export function LevelPicker({ levels, unlocked, stars, current, onPick, onClose 
           );
         })}
       </View>
+      </ScrollView>
     </Card>
   );
 }
@@ -202,7 +208,8 @@ const styles = StyleSheet.create({
   btnText: { fontFamily: F.bold, fontSize: 17 },
   starShadow: { textShadowColor: P.ink, textShadowRadius: 0, textShadowOffset: { width: 0, height: 2 } },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, justifyContent: 'space-between' },
-  tile: { width: '31%', minWidth: 96, aspectRatio: 0.9, backgroundColor: P.white, borderRadius: 20, borderWidth: 3, borderColor: P.ink, alignItems: 'center', justifyContent: 'center', gap: 4, padding: 6 },
+  tileSlot: { width: '31%' },
+  tile: { width: '100%', aspectRatio: 0.9, backgroundColor: P.white, borderRadius: 20, borderWidth: 3, borderColor: P.ink, alignItems: 'center', justifyContent: 'center', gap: 4, padding: 6 },
   tileCur: { backgroundColor: P.mint },
   tileNum: { fontFamily: F.bold, fontSize: 30, color: P.ink },
   tileName: { fontFamily: F.medium, fontSize: 12, color: P.inkSoft, textAlign: 'center' },

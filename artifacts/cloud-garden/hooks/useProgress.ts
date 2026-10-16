@@ -27,9 +27,16 @@ export function useProgress(total: number) {
         if (!raw) return;
         try {
           const p = JSON.parse(raw) as Partial<Progress>;
+          // A player who finished the previous final bed can enter new beds
+          // immediately, without replaying a level or losing earned stars.
+          const earnedNext = Object.entries(p.stars ?? {}).reduce((next, [key, stars]) => {
+            const index = Number(key);
+            return Number.isInteger(index) && index >= 0 && stars > 0 ? Math.max(next, index + 1) : next;
+          }, 0);
           setState({
             ...DEFAULT,
             ...p,
+            unlocked: Math.min(total - 1, Math.max(p.unlocked ?? 0, earnedNext)),
             stars: p.stars ?? {},
             settings: { ...DEFAULT.settings, ...(p.settings ?? {}) },
           });
@@ -39,7 +46,7 @@ export function useProgress(total: number) {
       })
       .catch(() => {})
       .finally(() => setReady(true));
-  }, []);
+  }, [total]);
 
   const update = useCallback((fn: (p: Progress) => Progress) => {
     setState((prev) => {
