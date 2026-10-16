@@ -1,0 +1,1 @@
+- [Physics release safety](physics-release.md) — create held droplets dynamically before freezing; check finite mass and hint solutions after physics changes.
