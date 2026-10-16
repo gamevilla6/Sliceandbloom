@@ -43,6 +43,14 @@ function assertFiniteCloud(body, context) {
 const SETTLE_STEPS = 120;
 const MAX_RUN_STEPS = Math.ceil(40_000 / STEP) + 1;
 
+test('campaign beds have stable sequential IDs, unique names and distinct puzzle layouts', () => {
+  assert.deepEqual(LEVELS.map((level) => level.id), LEVELS.map((_, i) => i + 1));
+  assert.equal(new Set(LEVELS.map((level) => level.name)).size, LEVELS.length);
+  const layouts = LEVELS.map(({ drop, flower, soil, wood, stones, thorns, ropes }) =>
+    JSON.stringify({ drop, flower, soil, wood, stones, thorns, ropes: ropes ?? [] }));
+  assert.equal(new Set(layouts).size, LEVELS.length, 'new beds must not duplicate an existing puzzle');
+});
+
 for (const level of LEVELS) {
   test(`level ${level.id}: "${level.name}" hint reaches the actual plant sensor`, (t) => {
     const game = garden(t, level);

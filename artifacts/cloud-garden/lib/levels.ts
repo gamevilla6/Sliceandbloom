@@ -1,3 +1,5 @@
+import { BONUS_LEVELS } from './bonusLevels';
+
 export interface V {
   x: number;
   y: number;
@@ -350,4 +352,5 @@ export const LEVELS: Level[] = [
       { kind: 'draw', pts: [{ x: 30, y: 190 }, { x: 120, y: 250 }, { x: 215, y: 330 }, { x: 275, y: 425 }] },
     ],
   },
+  ...BONUS_LEVELS,
 ];

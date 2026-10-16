@@ -38,7 +38,7 @@ export default function GameScreen() {
   const inkMax = level.ink;
   const inkLeft = live ? live.inkLeft : inkMax;
   const canDraw = inkMax > 0;
-  const canSlice = level.wood.length > 0 || !!level.ropes?.length;
+  const canSlice = level.wood.length > 0 || !!level.ropes?.length || level.stones.length > 0;
 
   useEffect(() => {
     if (ready && !loaded.current) {

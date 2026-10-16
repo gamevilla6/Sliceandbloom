@@ -1,7 +1,7 @@
 kind = "mobile"
 previewPath = "/"
 title = "Slice & Bloom"
-description = "A one-touch physics drawing puzzle: draw ramps, slice wood and ropes, and guide Cloud to a thirsty flower. Includes sixteen levels, hints, bloom particles, sound effects and saved progress."
+description = "A one-touch physics drawing puzzle: draw ramps, slice wood and ropes, and guide Cloud to a thirsty flower. Includes twenty-six levels, hints, bloom particles, sound effects and saved progress."
 version = "1.0.0"
 id = "artifacts/cloud-garden"
 router = "expo-domain"
