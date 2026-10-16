@@ -32,3 +32,9 @@ Thermal level design must account for every dynamic block, not only the droplet'
 **Why:** Mandatory cut timber could settle on a rotating arm inside a furnace and reset an otherwise solved route after two seconds. Different preparation delays exposed failures that a direct droplet-path check missed.
 
 **How to apply:** Keep unavoidable resting positions out of hot zones. Validate the whole scene with different waits before release and between actions; do not suppress block heating to make a level pass.
+
+Validate required mechanisms as well as a genuine flower collision.
+
+**Why:** A bidirectional portal exit near the launch column let Cloud bypass an unopened counterweight gate. Separately, a flower pedestal intercepted the key before it reached its switch.
+
+**How to apply:** Keep both portal ends clear of pre-unlock routes and target furniture out of falling-key columns. Assert that every required switch activates and each required portal is used before accepting a solution.
