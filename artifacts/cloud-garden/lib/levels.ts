@@ -1,5 +1,6 @@
 import { BONUS_LEVELS } from './bonusLevels';
 import { ADVANCED_LEVELS } from './advancedLevels';
+import { EXPANSION_LEVELS } from './expansionLevels';
 import type { BlockSwitch, PortalPair, Slider, WindZone } from './mechanics';
 
 export interface V {
@@ -361,4 +362,5 @@ export const LEVELS: Level[] = [
   },
   ...BONUS_LEVELS,
   ...ADVANCED_LEVELS,
+  ...EXPANSION_LEVELS,
 ];

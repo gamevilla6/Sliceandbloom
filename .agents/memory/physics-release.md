@@ -9,6 +9,12 @@ Create a movable droplet as a dynamic body and only then freeze it with `Body.se
 
 **How to apply:** Verify release yields finite position, velocity and mass. For changes to friction, colliders, targets or levels, simulate each supplied hint to an actual sensor collision; a visual preview alone cannot verify puzzle solvability.
 
+Validate hints with player-paced delays, not only actions submitted in one physics frame.
+
+**Why:** A boulder puzzle passed when both swipes happened instantly but failed after the stone settled or time elapsed between swipes. The hint was technically solvable yet unreliable for a person.
+
+**How to apply:** Simulate waiting before the first action and pauses between successive actions, including moving targets and falling timber. Prefer a more reliable layout over requiring frame-perfect input.
+
 Keep a running physics world independent of responsive presentation mounts.
 
 **Why:** Switching between portrait and landscape changes the board's position in the React tree and can remount it even when the level has not changed. A board-owned world silently resets an in-progress puzzle on rotation.

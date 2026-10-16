@@ -95,7 +95,7 @@ for (const level of LEVELS) {
     assert.equal(game.status, 'won',
       `level ${level.id} failed: ${game.failReason || 'did not finish'} at ${JSON.stringify(game.drop.position)}`);
     assert.ok(sensorContacts > 0, 'winning must involve the real Cloud/plant collision pair');
-    if (level.portals?.length) assert.ok(game.advanced.teleports > 0, 'portal puzzles must actually teleport Cloud');
+    if (level.portals?.length) assert.ok(game.advanced.teleports >= level.portals.length, 'portal puzzles must use every portal pair');
     if (level.switches?.length) assert.ok(game.advanced.switches.every((s) => s.active), 'switch puzzles must open their gates');
     assert.equal(wins, 1);
     assert.equal(game.stars, 3, 'the supplied hint should meet par');
@@ -407,6 +407,33 @@ for (const level of LEVELS.filter((l) => l.id >= 27)) {
       game.release();
       for (let i = 0; i < MAX_RUN_STEPS && game.status === 'running'; i++) game.step();
       assert.equal(game.status, 'won', `bed ${level.id}, waited ${waitingTicks} ticks: ${game.failReason}`);
+    }
+  });
+}
+
+for (const level of LEVELS.filter((l) => l.id >= 31)) {
+  test(`bed ${level.id} allows human-paced pauses between hint actions`, (t) => {
+    for (const pauseTicks of [15, 30, 60]) {
+      const game = garden(t, level);
+      for (let i = 0; i < 90; i++) game.step();
+      for (const [index, hint] of level.hint.entries()) {
+        if (hint.kind === 'draw') assert.equal(game.addStroke(hint.pts), true);
+        else {
+          let hits = 0;
+          for (let i = 1; i < hint.pts.length; i++) hits += game.slice(hint.pts[i - 1], hint.pts[i]);
+          assert.ok(hits > 0, `bed ${level.id}, action ${index + 1}, pause ${pauseTicks}: hint misses`);
+          game.actions++;
+          game.endSlice();
+        }
+        for (let i = 0; i < pauseTicks; i++) game.step();
+      }
+      if (level.hint.some((hint) => hint.kind === 'slice')) {
+        for (let i = 0; i < SETTLE_STEPS; i++) game.step();
+      }
+      game.release();
+      for (let i = 0; i < MAX_RUN_STEPS && game.status === 'running'; i++) game.step();
+      assert.equal(game.status, 'won', `bed ${level.id}, pause ${pauseTicks}: ${game.failReason}`);
+      assert.equal(game.stars, 3);
     }
   });
 }
