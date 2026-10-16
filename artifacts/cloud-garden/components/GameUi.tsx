@@ -1,10 +1,11 @@
-import React, { ReactNode, useEffect, useRef } from 'react';
+import React, { ReactNode, useEffect, useRef, useState } from 'react';
 import { Animated, Pressable, ScrollView, StyleProp, StyleSheet, Text, View, ViewStyle, useWindowDimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { F, P, R } from '@/constants/theme';
 import { useSafeInsets } from '@/components/layout';
 import { Level } from '@/lib/levels';
 import { haptic } from '@/lib/haptics';
+import { levelGrid } from '@/lib/levelGrid';
 
 export function PressScale({
   children,
@@ -69,20 +70,22 @@ export function Stars({ count, size = 30, pop = false }: { count: number; size?:
   );
 }
 
-function Card({ children, onClose, title, scrollID }: { children: ReactNode; onClose?: () => void; title?: string; scrollID?: string }) {
+function Card({ children, onClose, title, scrollID, expanded = false }: { children: ReactNode; onClose?: () => void; title?: string; scrollID?: string; expanded?: boolean }) {
   const a = useRef(new Animated.Value(0)).current;
   const { height } = useWindowDimensions();
   const ins = useSafeInsets();
   useEffect(() => {
     Animated.spring(a, { toValue: 1, useNativeDriver: true, bounciness: 10, speed: 12 }).start();
   }, [a]);
-  const pad = 14;
+  const pad = expanded ? 8 : 14;
+  const availableHeight = Math.max(0, height - ins.top - ins.bottom - pad * 2);
+  const short = expanded && availableHeight < 400;
   return (
     <Animated.View style={[styles.scrim, { opacity: a, paddingTop: ins.top + pad, paddingBottom: ins.bottom + pad, paddingLeft: ins.left + pad, paddingRight: ins.right + pad }]}>
-      <Animated.View style={[styles.card, { maxHeight: height - ins.top - ins.bottom - pad * 2, transform: [{ scale: a.interpolate({ inputRange: [0, 1], outputRange: [0.85, 1] }) }] }]}>
+      <Animated.View style={[styles.card, expanded && { maxWidth: 840, height: availableHeight }, short && { padding: 12 }, { maxHeight: availableHeight, transform: [{ scale: a.interpolate({ inputRange: [0, 1], outputRange: [0.85, 1] }) }] }]} accessibilityViewIsModal>
         {title !== undefined && (
-          <View style={styles.cardHead}>
-            <Text style={styles.cardTitle} numberOfLines={1}>{title}</Text>
+          <View style={[styles.cardHead, short && { marginBottom: 8 }]}>
+            <Text style={[styles.cardTitle, short && { fontSize: 22 }]} numberOfLines={1}>{title}</Text>
             {onClose && (
               <PressScale onPress={onClose} testID="close-sheet" label="Close" style={styles.closeBtn}>
                 <Ionicons name="close" size={22} color={P.white} />
@@ -90,7 +93,7 @@ function Card({ children, onClose, title, scrollID }: { children: ReactNode; onC
             )}
           </View>
         )}
-        <ScrollView style={styles.body} testID={scrollID} showsVerticalScrollIndicator contentContainerStyle={{ paddingBottom: 4 }}>
+        <ScrollView style={[styles.body, expanded && { flex: 1, minHeight: 0 }]} testID={scrollID} showsVerticalScrollIndicator contentContainerStyle={{ paddingBottom: expanded ? 8 : 4 }} alwaysBounceHorizontal={false}>
           {children}
         </ScrollView>
       </Animated.View>
@@ -146,22 +149,22 @@ export function LoseCard({ reason, onRetry, onHint, onLevels }: { reason: string
 }
 
 export function LevelPicker({ levels, unlocked, stars, current, onPick, onClose }: { levels: Level[]; unlocked: number; stars: Record<string, number>; current: number; onPick: (i: number) => void; onClose: () => void }) {
-  const { width } = useWindowDimensions();
+  const { width, height, fontScale } = useWindowDimensions();
   const ins = useSafeInsets();
-  const cardW = Math.min(420, width - ins.left - ins.right - 28);
-  const inner = cardW - 42;
-  const gap = 10;
-  const cols = Math.max(2, Math.floor((inner + gap) / 98));
-  const tileW = Math.floor((inner - gap * (cols - 1)) / cols);
+  const [measuredWidth, setMeasuredWidth] = useState(0);
+  const short = height - ins.top - ins.bottom - 16 < 400;
+  const estimatedWidth = Math.min(840, width - ins.left - ins.right - 16) - (short ? 32 : 44);
+  const { gap, tileWidth } = levelGrid(measuredWidth || Math.max(0, estimatedWidth), fontScale);
+  const tileHeight = Math.max(short ? 112 : 124, Math.ceil(84 * fontScale + 30));
   return (
-    <Card title="Garden beds" onClose={onClose} scrollID="level-list">
-      <View style={styles.grid}>
+    <Card title="Garden beds" onClose={onClose} scrollID="level-list" expanded>
+      <View style={[styles.grid, { gap }]} onLayout={(e) => setMeasuredWidth(e.nativeEvent.layout.width)}>
         {levels.map((l, i) => {
           const locked = i > unlocked;
           return (
-            <PressScale key={l.id} containerStyle={{ width: tileW }} disabled={locked} label={locked ? `Bed ${l.id}, locked` : `Bed ${l.id}, ${l.name}`} selected={i === current} onPress={() => onPick(i)} testID={`level-${l.id}`} style={[styles.tile, i === current && styles.tileCur, locked && { backgroundColor: P.paperDeep }]}>
+            <PressScale key={l.id} containerStyle={{ width: tileWidth }} disabled={locked} label={locked ? `Bed ${l.id}, ${l.name}, locked` : `Bed ${l.id}, ${l.name}`} selected={i === current} onPress={() => onPick(i)} testID={`level-${l.id}`} style={[styles.tile, { height: tileHeight }, i === current && styles.tileCur, locked && { backgroundColor: P.paperDeep }]}>
               {locked ? <Ionicons name="lock-closed" size={22} color={P.inkSoft} /> : <Text style={styles.tileNum}>{l.id}</Text>}
-              <Text style={styles.tileName} numberOfLines={2}>{l.name}</Text>
+              <Text style={[styles.tileName, { minHeight: 30 * Math.max(1, fontScale) }]} numberOfLines={2}>{l.name}</Text>
               <Stars count={stars[i] ?? 0} size={14} />
             </PressScale>
           );
@@ -229,10 +232,10 @@ const styles = StyleSheet.create({
   btnText: { fontFamily: F.bold, fontSize: 17 },
   starShadow: { textShadowColor: P.ink, textShadowRadius: 0, textShadowOffset: { width: 0, height: 2 } },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  tile: { width: '100%', aspectRatio: 0.9, backgroundColor: P.white, borderRadius: R.btn, borderWidth: 3, borderColor: P.ink, shadowColor: P.ink, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 1, shadowRadius: 0, alignItems: 'center', justifyContent: 'center', gap: 4, padding: 6 },
+  tile: { width: '100%', backgroundColor: P.white, borderRadius: R.btn, borderWidth: 3, borderColor: P.ink, shadowColor: P.ink, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 1, shadowRadius: 0, alignItems: 'center', justifyContent: 'center', gap: 4, padding: 8 },
   tileCur: { backgroundColor: P.marigold },
   tileNum: { fontFamily: F.bold, fontSize: 30, color: P.ink },
-  tileName: { fontFamily: F.semi, fontSize: 12, color: P.ink, textAlign: 'center' },
+  tileName: { width: '100%', fontFamily: F.semi, fontSize: 12, lineHeight: 15, color: P.ink, textAlign: 'center' },
   toggleRow: { flexDirection: 'row', alignItems: 'center', minHeight: 48, paddingVertical: 10, gap: 12 },
   toggleLabel: { fontFamily: F.semi, fontSize: 18, color: P.ink },
   toggleSub: { fontFamily: F.regular, fontSize: 13, color: P.inkSoft },
