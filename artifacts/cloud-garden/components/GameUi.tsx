@@ -1,11 +1,11 @@
 import React, { ReactNode, useEffect, useRef, useState } from 'react';
-import { Animated, Pressable, ScrollView, StyleProp, StyleSheet, Text, View, ViewStyle, useWindowDimensions } from 'react-native';
+import { Animated, Pressable, ScrollView, ScrollViewProps, StyleProp, StyleSheet, Text, View, ViewStyle, useWindowDimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { F, P, R } from '@/constants/theme';
 import { useSafeInsets } from '@/components/layout';
 import { Level } from '@/lib/levels';
 import { haptic } from '@/lib/haptics';
-import { levelGrid } from '@/lib/levelGrid';
+import { levelGrid, levelScrollOffset } from '@/lib/levelGrid';
 
 export function PressScale({
   children,
@@ -70,7 +70,17 @@ export function Stars({ count, size = 30, pop = false }: { count: number; size?:
   );
 }
 
-function Card({ children, onClose, title, scrollID, expanded = false }: { children: ReactNode; onClose?: () => void; title?: string; scrollID?: string; expanded?: boolean }) {
+function Card({ children, onClose, title, scrollID, expanded = false, scrollRef, onScrollLayout, onContentSizeChange, footer }: {
+  children: ReactNode;
+  onClose?: () => void;
+  title?: string;
+  scrollID?: string;
+  expanded?: boolean;
+  scrollRef?: React.Ref<ScrollView>;
+  onScrollLayout?: ScrollViewProps['onLayout'];
+  onContentSizeChange?: ScrollViewProps['onContentSizeChange'];
+  footer?: ReactNode;
+}) {
   const a = useRef(new Animated.Value(0)).current;
   const { height } = useWindowDimensions();
   const ins = useSafeInsets();
@@ -93,9 +103,10 @@ function Card({ children, onClose, title, scrollID, expanded = false }: { childr
             )}
           </View>
         )}
-        <ScrollView style={[styles.body, expanded && { flex: 1, minHeight: 0 }]} testID={scrollID} showsVerticalScrollIndicator contentContainerStyle={{ paddingBottom: expanded ? 8 : 4 }} alwaysBounceHorizontal={false}>
+        <ScrollView ref={scrollRef} onLayout={onScrollLayout} onContentSizeChange={onContentSizeChange} style={[styles.body, expanded && { flex: 1, minHeight: 0 }]} testID={scrollID} showsVerticalScrollIndicator contentContainerStyle={{ paddingBottom: expanded ? 8 : 4 }} alwaysBounceHorizontal={false}>
           {children}
         </ScrollView>
+        {footer}
       </Animated.View>
     </Animated.View>
   );
@@ -161,7 +172,7 @@ export function LevelPicker({ scores, bestTimes, levels, unlocked, stars, curren
   const [measuredWidth, setMeasuredWidth] = useState(0);
   const short = height - ins.top - ins.bottom - 16 < 400;
   const estimatedWidth = Math.min(840, width - ins.left - ins.right - 16) - (short ? 32 : 44);
-  const { gap, tileWidth } = levelGrid(measuredWidth || Math.max(0, estimatedWidth), fontScale);
+  const { gap, columns, tileWidth } = levelGrid(measuredWidth || Math.max(0, estimatedWidth), fontScale);
   const hc = !!levels[0]?.hardcore;
   const [records, setRecords] = useState(false);
   const pages: { n: string; a: number; b: number }[] | null = hc
@@ -173,8 +184,43 @@ export function LevelPicker({ scores, bestTimes, levels, unlocked, stars, curren
   const tileHeight = Math.max(short ? 112 : 124, Math.ceil(84 * fontScale + 30)) + (hc ? 20 : 0);
   const pg = pages ? pages[chap] ?? pages[0] : null;
   const range = pg ? levels.map((_, i) => i).filter((i) => i >= pg.a && i <= pg.b) : levels.map((_, i) => i);
+  const scrollRef = useRef<ScrollView>(null);
+  const [viewportHeight, setViewportHeight] = useState(0);
+  const [contentHeight, setContentHeight] = useState(0);
+  const [jump, setJump] = useState(0);
+  const [gridLayout, setGridLayout] = useState<{ key: string; top: number } | null>(null);
+  // A new layout must be measured after rotation, text resizing or chapter changes.
+  // Ordinary browsing does not change this key, so it never snaps back while scrolling.
+  const layoutKey = `${width}:${height}:${fontScale}:${measuredWidth}:${columns}:${tileHeight}:${chap}:${records}:${current}:${jump}`;
+  const currentPage = Math.max(0, pages ? pages.findIndex((p) => current >= p.a && current <= p.b) : 0);
+  const relativeIndex = range.indexOf(current);
+  useEffect(() => {
+    if (!viewportHeight || !contentHeight) return;
+    if (!records && gridLayout?.key !== layoutKey) return;
+    const y = records ? 0 : levelScrollOffset({
+      index: relativeIndex, columns, tileHeight, gap, gridTop: gridLayout?.top ?? 0,
+      viewportHeight, contentHeight,
+    });
+    // Wait for native content bounds to commit; cancel stale work on reflow/unmount.
+    const frame = requestAnimationFrame(() => scrollRef.current?.scrollTo({ y, animated: false }));
+    return () => cancelAnimationFrame(frame);
+  }, [layoutKey, gridLayout, records, relativeIndex, columns, tileHeight, gap, viewportHeight, contentHeight]);
+  const returnToCurrent = () => {
+    setRecords(false);
+    setChap(currentPage);
+    setJump((n) => n + 1);
+  };
   return (
-    <Card title={title} onClose={onClose} scrollID="level-list" expanded>
+    <Card title={title} onClose={onClose} scrollID="level-list" expanded
+      scrollRef={scrollRef}
+      onScrollLayout={(e) => setViewportHeight(e.nativeEvent.layout.height)}
+      onContentSizeChange={(_, h) => setContentHeight(h)}
+      footer={
+        <PressScale testID="current-level" label={`Return to current ${noun.toLowerCase()} ${levels[current]?.id ?? current + 1}`} onPress={returnToCurrent} containerStyle={styles.currentSlot} style={styles.currentBtn}>
+          <Ionicons name="locate" size={20} color={P.ink} />
+          <Text style={styles.currentText}>Current {noun.toLowerCase()} · {levels[current]?.id ?? current + 1}</Text>
+        </PressScale>
+      }>
       {hc && (
         <PressScale testID="records-toggle" selected={records} label={records ? 'Show level grid' : 'Show personal records, ranked by best score'} onPress={() => setRecords((r) => !r)} containerStyle={{ marginBottom: 10 }} style={[styles.chap, { flexDirection: 'row', gap: 6 }, records && { backgroundColor: P.marigold }]}>
           <Ionicons name="trophy" size={18} color={P.ink} />
@@ -201,7 +247,10 @@ export function LevelPicker({ scores, bestTimes, levels, unlocked, stars, curren
           ))}
         </View>
       )}
-      {!(hc && records) && <View style={[styles.grid, { gap }]} onLayout={(e) => setMeasuredWidth(e.nativeEvent.layout.width)}>
+      {!(hc && records) && <View key={layoutKey} style={[styles.grid, { gap }]} onLayout={(e) => {
+        setMeasuredWidth(e.nativeEvent.layout.width);
+        setGridLayout({ key: layoutKey, top: e.nativeEvent.layout.y });
+      }}>
         {range.map((i) => {
           const l = levels[i];
           const locked = i > unlocked;
@@ -264,6 +313,9 @@ const styles = StyleSheet.create({
   cardHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 },
   cardTitle: { flex: 1, fontFamily: F.bold, fontSize: 28, textTransform: 'uppercase', color: P.ink },
   body: { flexGrow: 0, flexShrink: 1 },
+  currentSlot: { marginTop: 10, flexShrink: 0 },
+  currentBtn: { minHeight: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, padding: 8, borderRadius: R.btn, borderWidth: 3, borderColor: P.ink, backgroundColor: P.marigold },
+  currentText: { fontFamily: F.bold, fontSize: 14, color: P.ink, flexShrink: 1 },
   closeBtn: { width: 44, height: 44, borderRadius: R.btn, backgroundColor: P.coral, borderWidth: 3, borderColor: P.ink, alignItems: 'center', justifyContent: 'center' },
   brand: { fontFamily: F.semi, fontSize: 12, color: P.inkSoft, textAlign: 'center', textTransform: 'uppercase', letterSpacing: 2, marginBottom: 4 },
   kicker: { fontFamily: F.bold, fontSize: 14, color: P.coralDeep, textAlign: 'center', textTransform: 'uppercase', letterSpacing: 1.5 },

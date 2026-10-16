@@ -11,5 +11,5 @@
     "noEmitOnError": true,
     "types": []
   },
-  "files": ["../lib/engine.ts", "../lib/objects.ts", "../lib/levels.ts", "../lib/hardcoreLevels.ts", "../lib/genesisLevels.ts", "../lib/progress.ts", "../lib/hints.ts"]
+  "files": ["../lib/engine.ts", "../lib/objects.ts", "../lib/levels.ts", "../lib/hardcoreLevels.ts", "../lib/genesisLevels.ts", "../lib/progress.ts", "../lib/hints.ts", "../lib/levelGrid.ts"]
 }
