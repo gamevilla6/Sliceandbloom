@@ -65,6 +65,9 @@ export function GameBoard({ engine, level, attempt, tool, showHint, guides, paus
   const scale = size.w && size.h ? Math.min(size.w / W, size.h / H) : 1;
   const ox = (size.w - W * scale) / 2;
   const oy = (size.h - H * scale) / 2;
+  const sceneryLeft = -ox / scale;
+  const sceneryRight = (size.w - ox) / scale;
+  const sceneryBottom = Math.max(H, (size.h - oy) / scale);
   xf.current = { s: scale, ox, oy };
 
   const toLogical = (px: number, py: number): V => ({
@@ -279,13 +282,13 @@ export function GameBoard({ engine, level, attempt, tool, showHint, guides, paus
               <Ellipse cx={10} cy={-11} rx={17} ry={13} fill={P.white} />
             </G>
           ))}
-          <Path d={`M-300 ${GROUND} Q-60 480 120 540 T 420 520 T 700 ${GROUND} L700 900 L-300 900 Z`} fill={mix(P.leaf, P.skyBottom, 0.35)} />
-          <Rect x={-300} y={GROUND} width={1000} height={400} fill={P.soil} />
-          <Rect x={-300} y={GROUND} width={1000} height={9} fill={P.leaf} />
+          <Path d={`M${sceneryLeft} ${GROUND} L-300 ${GROUND} Q-60 480 120 540 T 420 520 T 700 ${GROUND} L${sceneryRight} ${GROUND} L${sceneryRight} ${sceneryBottom} L${sceneryLeft} ${sceneryBottom} Z`} fill={mix(P.leaf, P.skyBottom, 0.35)} />
+          <Rect x={sceneryLeft} y={GROUND} width={sceneryRight - sceneryLeft} height={sceneryBottom - GROUND} fill={P.soil} />
+          <Rect x={sceneryLeft} y={GROUND} width={sceneryRight - sceneryLeft} height={9} fill={P.leaf} />
           {Array.from({ length: 14 }).map((_, i) => (
             <Rect key={`chk${i}`} x={-300 + i * 80} y={GROUND + 12} width={40} height={14} fill={P.soilDeep} opacity={0.25} />
           ))}
-          <Rect x={-300} y={GROUND + 9} width={1000} height={3} fill={P.ink} opacity={0.35} />
+          <Rect x={sceneryLeft} y={GROUND + 9} width={sceneryRight - sceneryLeft} height={3} fill={P.ink} opacity={0.35} />
           {[20, 90, 170, 240, 320].map((x, i) => (
             <Ellipse key={i} cx={x} cy={GROUND + 24 + (i % 2) * 14} rx={7} ry={3} fill={P.soilDeep} opacity={0.5} />
           ))}

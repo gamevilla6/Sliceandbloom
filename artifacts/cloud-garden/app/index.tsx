@@ -3,7 +3,7 @@ import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { GameBoard, Hud, Tool } from '@/components/GameBoard';
 import { LevelPicker, LoseCard, PressScale, SettingsSheet, Stars, WinCard } from '@/components/GameUi';
-import { fitStage, useLayoutMode } from '@/components/layout';
+import { useLayoutMode } from '@/components/layout';
 import { useProgress } from '@/hooks/useProgress';
 import { GardenEngine } from '@/lib/engine';
 import { LEVELS } from '@/lib/levels';
@@ -92,8 +92,6 @@ export default function GameScreen() {
   const caption = hint ? level.hintText : status === 'ready' ? level.lesson : '';
   const { landscape, compact, panelW, availW, insets } = useLayoutMode();
   const tightTools = !landscape && availW < 380;
-  const [area, setArea] = useState({ w: 0, h: 0 });
-  const stage = fitStage(area.w, area.h);
   const unit = compact ? 48 : 56;
   const showBrand = !landscape && availW >= 360;
 
@@ -151,12 +149,8 @@ export default function GameScreen() {
     </View>
   );
   const frame = (
-    <View style={styles.stageArea} onLayout={(e) => setArea({ w: e.nativeEvent.layout.width, h: e.nativeEvent.layout.height })} testID="region-stage">
-      {stage.w > 20 && stage.h > 20 && (
-        <View style={[styles.boardFrame, { width: stage.w, height: stage.h }]}>
-          <GameBoard engine={gameEngine} level={level} attempt={attempt} tool={tool} showHint={hint} guides={progress.settings.guides} paused={sheet !== 'none'} playSound={playSound} engineRef={engineRef} onHud={onHud} />
-        </View>
-      )}
+    <View style={styles.stageArea} testID="region-stage">
+      <GameBoard engine={gameEngine} level={level} attempt={attempt} tool={tool} showHint={hint} guides={progress.settings.guides} paused={sheet !== 'none'} playSound={playSound} engineRef={engineRef} onHud={onHud} />
     </View>
   );
 
@@ -245,10 +239,10 @@ const styles = StyleSheet.create({
   outer: { flex: 1, backgroundColor: P.paper },
   root: { flex: 1, backgroundColor: P.paper },
   rootRow: { alignItems: 'stretch', justifyContent: 'center' },
-  column: { flex: 1, width: '100%', maxWidth: 560, alignSelf: 'center', minHeight: 0 },
-  landGroup: { flex: 1, flexDirection: 'row', maxWidth: 1000, alignSelf: 'center', width: '100%', gap: 14, minHeight: 0 },
+  column: { flex: 1, width: '100%', alignSelf: 'center', minHeight: 0 },
+  landGroup: { flex: 1, flexDirection: 'row', alignSelf: 'center', width: '100%', gap: 14, minHeight: 0 },
   panelContent: { flexGrow: 1, justifyContent: 'center', gap: 10, paddingVertical: 6 },
-  stageArea: { flex: 1, minHeight: 0, minWidth: 0, alignItems: 'center', justifyContent: 'center' },
+  stageArea: { flex: 1, minHeight: 0, minWidth: 0, overflow: 'hidden', backgroundColor: P.skyTop },
   topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
   pillSlot: { flexShrink: 1, flexGrow: 1, minWidth: 0 },
   levelPill: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: P.marigold, borderWidth: 3, borderColor: P.ink, borderRadius: R.btn, minHeight: 48, paddingVertical: 4, paddingHorizontal: 10, ...lift },
@@ -261,7 +255,6 @@ const styles = StyleSheet.create({
   inkTrack: { flex: 1, height: 16, borderRadius: 8, backgroundColor: P.paperDeep, borderWidth: 2.5, borderColor: P.ink, overflow: 'hidden' },
   inkFill: { height: '100%', borderRadius: 5 },
   inkText: { fontFamily: F.bold, fontSize: 13, color: P.ink, minWidth: 58, textAlign: 'right' },
-  boardFrame: { borderRadius: R.frame, borderWidth: 4, borderColor: P.ink, overflow: 'hidden', backgroundColor: P.skyTop, ...lift, shadowOffset: { width: 0, height: 5 } },
   caption: { backgroundColor: P.drop, borderRadius: R.btn, borderWidth: 3, borderColor: P.ink, paddingVertical: 6, paddingHorizontal: 12, marginTop: 10, justifyContent: 'center' },
   captionText: { fontFamily: F.semi, fontSize: 14, color: P.white, textAlign: 'center' },
   toolbar: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', marginTop: 10, columnGap: 8, rowGap: 8 },

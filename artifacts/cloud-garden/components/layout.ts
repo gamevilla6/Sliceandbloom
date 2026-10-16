@@ -3,7 +3,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { H, W } from '@/lib/levels';
 
 export const ASPECT = W / H;
-export const FRAME_BORDER = 4;
 
 export function useSafeInsets() {
   const i = useSafeAreaInsets();
@@ -22,10 +21,3 @@ export function useLayoutMode() {
   return { width, height, availW, availH, landscape, compact, panelW, insets };
 }
 
-/** Largest 9:16 framed stage that fits an area (frame includes its border). */
-export function fitStage(areaW: number, areaH: number) {
-  const b = FRAME_BORDER * 2;
-  const innerH = Math.max(0, Math.min(areaH - b, (areaW - b) / ASPECT));
-  const innerW = innerH * ASPECT;
-  return { w: Math.floor(innerW + b), h: Math.floor(innerH + b) };
-}
