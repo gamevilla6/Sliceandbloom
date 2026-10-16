@@ -4,6 +4,7 @@ const Matter = require('matter-js');
 const { GardenEngine, STEP } = require('../.physics-test-build/engine.js');
 const { LEVELS } = require('../.physics-test-build/levels.js');
 const { createCloud, createWood } = require('../.physics-test-build/objects.js');
+const { hintReducer, INITIAL_HINT_VIEW } = require('../.physics-test-build/hints.js');
 const { Body, Composite, Events } = Matter;
 
 function garden(t, level = LEVELS[0]) {
@@ -42,6 +43,48 @@ function assertFiniteCloud(body, context) {
 // settle while Cloud is held, as the rope/shelf hints tell the player to do.
 const SETTLE_STEPS = 120;
 const MAX_RUN_STEPS = Math.ceil(40_000 / STEP) + 1;
+
+test('hint browsing follows each bed order, clamps at the ends and resets on a fresh attempt', () => {
+  for (const level of LEVELS) {
+    let view = hintReducer(INITIAL_HINT_VIEW, { type: 'show' });
+    assert.deepEqual(view, { visible: true, step: 0, overview: false });
+    view = hintReducer(view, { type: 'previous', count: level.hint.length });
+    assert.equal(view.step, 0);
+    for (let i = 0; i < level.hint.length; i++) {
+      assert.equal(view.step, i);
+      assert.ok(level.hint[view.step]);
+      if (i + 1 < level.hint.length) view = hintReducer(view, { type: 'next', count: level.hint.length });
+    }
+    assert.equal(hintReducer(view, { type: 'next', count: level.hint.length }).step, level.hint.length - 1);
+    view = hintReducer(view, { type: 'overview' });
+    assert.equal(view.overview, true);
+    view = hintReducer(view, { type: 'previous', count: level.hint.length });
+    assert.equal(view.overview, false);
+    assert.equal(view.step, Math.max(0, level.hint.length - 2));
+    assert.deepEqual(hintReducer(view, { type: 'reset' }), INITIAL_HINT_VIEW);
+    view = hintReducer(view, { type: 'toggle' });
+    assert.deepEqual(view, INITIAL_HINT_VIEW);
+    assert.deepEqual(hintReducer(view, { type: 'toggle' }), { visible: true, step: 0, overview: false });
+  }
+  assert.equal(hintReducer(INITIAL_HINT_VIEW, { type: 'next', count: 0 }).step, 0);
+});
+
+test('hint controls never change the world, ink, actions, scoring or level definitions', (t) => {
+  const level = LEVELS.find((l) => l.hint.length >= 4);
+  assert.ok(level, 'exercise a complex multi-step bed');
+  const game = garden(t, level);
+  const snapshot = () => JSON.stringify({
+    level, ink: game.inkLeft, actions: game.actions, stars: game.stars, status: game.status,
+    strokes: game.strokes, ropes: game.ropes.map((r) => r.id),
+    bodies: game.bodies.map((b) => ({ id: b.id, position: b.position, velocity: b.velocity, isStatic: b.isStatic })),
+  });
+  const before = snapshot();
+  let view = INITIAL_HINT_VIEW;
+  for (const type of ['toggle', 'next', 'next', 'overview', 'previous', 'next', 'reset', 'show', 'toggle']) {
+    view = hintReducer(view, { type, count: level.hint.length });
+    assert.equal(snapshot(), before, type);
+  }
+});
 
 test('campaign beds have stable sequential IDs, unique names and distinct puzzle layouts', () => {
   assert.deepEqual(LEVELS.map((level) => level.id), LEVELS.map((_, i) => i + 1));

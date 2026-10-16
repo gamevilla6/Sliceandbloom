@@ -1,6 +1,6 @@
 import React, { MutableRefObject, useEffect, useRef, useState } from 'react';
 import { AccessibilityInfo, LayoutChangeEvent, PanResponder, Platform, StyleSheet, View } from 'react-native';
-import Svg, { Circle, Defs, Ellipse, G, LinearGradient, Path, Polyline, Rect, Stop } from 'react-native-svg';
+import Svg, { Circle, Defs, Ellipse, G, LinearGradient, Path, Polyline, Rect, Stop, Text as SvgText } from 'react-native-svg';
 import { GardenEngine, DROP_R, Status } from '@/lib/engine';
 import { GROUND, H, Level, V, W } from '@/lib/levels';
 import { haptic } from '@/lib/haptics';
@@ -34,6 +34,8 @@ interface Props {
   attempt: number;
   tool: Tool;
   showHint: boolean;
+  hintStep: number;
+  hintOverview: boolean;
   guides: boolean;
   modeKey?: string;
   paused?: boolean;
@@ -47,7 +49,7 @@ const dist = (a: V, b: V) => Math.hypot(a.x - b.x, a.y - b.y);
 const pts2 = (p: V[]) => p.map((q) => `${q.x.toFixed(1)},${q.y.toFixed(1)}`).join(' ');
 const DROP_PATH = 'M0 -17 C5 -9 11 -3 11 3 A11 11 0 0 1 -11 3 C-11 -3 -5 -9 0 -17 Z';
 
-export function GameBoard({ engine, level, attempt, modeKey = 'classic', tool, showHint, guides, paused, playSound, engineRef, onHud }: Props) {
+export function GameBoard({ engine, level, attempt, modeKey = 'classic', tool, showHint, hintStep, hintOverview, guides, paused, playSound, engineRef, onHud }: Props) {
   'use no memo';
   // Matter mutates bodies in place; every frame must read current world state.
   const [size, setSize] = useState({ w: 0, h: 0 });
@@ -472,27 +474,41 @@ export function GameBoard({ engine, level, attempt, modeKey = 'classic', tool, s
 
           <AdvancedLayer engine={engine} level={level} />
 
-          {showHint &&
-            level.hint.map((h, i) => (
-              <Polyline
-                key={i}
-                points={pts2(h.pts)}
-                fill="none"
-                stroke={h.kind === 'draw' ? P.dropDeep : P.coralDeep}
-                strokeWidth={4}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeDasharray="8 9"
-                strokeDashoffset={ghostOff}
-                opacity={0.85}
-              />
-            ))}
-
           {bodies
             .filter((b) => b.label === 'stone' && engine.isObstacleVisible(b))
             .map((b) => (
               <Circle key={b.id} cx={b.position.x} cy={b.position.y} r={b.circleRadius ?? 20} fill={P.stone} stroke={P.ink} strokeWidth={3} />
             ))}
+
+          {showHint && [
+            // Draw the current path last so an overlapping overview cannot obscure it.
+            ...(hintOverview ? level.hint.map((h, i) => ({ h, i })).filter(({ i }) => i !== hintStep) : []),
+            ...(level.hint[hintStep] ? [{ h: level.hint[hintStep], i: hintStep }] : []),
+          ].map(({ h, i }) => {
+            const active = i === hintStep;
+            const start = h.pts[0];
+            return (
+              <G key={i} opacity={active ? 1 : 0.3} testID={`hint-path-${i + 1}`}>
+                {active && <Polyline points={pts2(h.pts)} fill="none" stroke={P.white} strokeWidth={8} strokeLinecap="round" strokeLinejoin="round" />}
+                <Polyline
+                  points={pts2(h.pts)}
+                  fill="none"
+                  stroke={h.kind === 'draw' ? P.dropDeep : P.coralDeep}
+                  strokeWidth={active ? 4 : 3}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeDasharray="8 9"
+                  strokeDashoffset={ghostOff}
+                />
+                {start && (
+                  <G transform={`translate(${start.x} ${start.y})`}>
+                    <Circle r={12} fill={active ? P.marigold : P.white} stroke={P.ink} strokeWidth={2.5} />
+                    <SvgText y={5} textAnchor="middle" fontSize={14} fontWeight="bold" fill={P.ink}>{i + 1}</SvgText>
+                  </G>
+                )}
+              </G>
+            );
+          })}
 
           <G opacity={engine.status === 'won' ? Math.max(0, 1 - Math.max(0, engine.winT - 0.25) / 0.25) : 1}>
             <G transform={`translate(${dx} ${dy}) scale(${(dScale / stretch).toFixed(3)} ${(dScale * stretch).toFixed(3)})`}>

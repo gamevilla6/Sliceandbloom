@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { GameBoard, Hud, Tool } from '@/components/GameBoard';
@@ -13,6 +13,7 @@ import { GENESIS_LEVELS } from '@/lib/genesisLevels';
 import { useSound } from '@/lib/audio';
 import { setHapticsEnabled } from '@/lib/haptics';
 import { F, P, R } from '@/constants/theme';
+import { hintReducer, INITIAL_HINT_VIEW } from '@/lib/hints';
 
 type Sheet = 'none' | 'levels' | 'settings';
 
@@ -39,7 +40,8 @@ export default function GameScreen() {
   const [idx, setIdx] = useState(0);
   const [attempt, setAttempt] = useState(0);
   const [tool, setTool] = useState<Tool>('draw');
-  const [hint, setHint] = useState(false);
+  const [hintView, dispatchHint] = useReducer(hintReducer, INITIAL_HINT_VIEW);
+  const hint = hintView.visible;
   const [sheet, setSheet] = useState<Sheet>('none');
   const [hud, setHud] = useState<Hud | null>(null);
   const [overlay, setOverlay] = useState(false);
@@ -126,13 +128,13 @@ export default function GameScreen() {
     setIdx(i);
     setLast(i);
     setAttempt((a) => a + 1);
-    setHint(false);
+    dispatchHint({ type: 'reset' });
     setSheet('none');
     setOverlay(false);
   };
   const reset = () => {
     setAttempt((a) => a + 1);
-    setHint(false);
+    dispatchHint({ type: 'reset' });
     setOverlay(false);
   };
   resetRef.current = reset;
@@ -143,7 +145,7 @@ export default function GameScreen() {
     setMode(m);
     setIdx(Math.min(p.last, p.unlocked, n - 1));
     setAttempt((a) => a + 1);
-    setHint(false);
+    dispatchHint({ type: 'reset' });
     setSheet('none');
     setOverlay(false);
     setHud(null);
@@ -154,6 +156,7 @@ export default function GameScreen() {
   const inkPct = inkMax > 0 ? inkLeft / inkMax : 0;
   const rules = 'First touch starts the timer. Undo: no refunds.';
   const caption = hint ? level.hintText : status === 'ready' ? (hc ? `${level.lesson.replace(/^HARDCORE · /, '')} ${rules}` : level.lesson) : '';
+  const currentHint = level.hint[hintView.step];
   const noun = isGenesis ? 'Challenge' : hardcore ? 'Hardcore' : 'Bed';
   const modeName = isGenesis ? 'The Genesis Gauntlet' : hardcore ? 'Hardcore levels' : 'Garden beds';
   const maxMoves = hc?.maxStrokes ?? 0;
@@ -228,7 +231,24 @@ export default function GameScreen() {
   );
   const captionEl = (!!caption || !landscape) && (
     <View style={[styles.caption, !caption && { opacity: 0 }, !landscape && { minHeight: compact ? 44 : 52 }]} testID="region-caption" accessibilityLiveRegion="polite">
+      {hint && currentHint && (
+        <View style={styles.hintHeading}>
+          <Ionicons name={currentHint.kind === 'draw' ? 'brush' : 'cut'} size={17} color={P.marigold} />
+          <Text style={styles.hintTitle} testID="hint-step">
+            Step {hintView.step + 1} of {level.hint.length} · {currentHint.kind === 'draw' ? 'Draw' : 'Slice'}
+          </Text>
+        </View>
+      )}
       <Text style={[styles.captionText, compact && { fontSize: 12.5 }]} numberOfLines={landscape ? undefined : 3}>{caption || ' '}</Text>
+      {hint && level.hint.length > 1 && (
+        <View style={styles.hintControls} testID="hint-controls">
+          <MiniBtn name="Previous hint step" icon="chevron-back" disabled={hintView.step === 0} onPress={() => dispatchHint({ type: 'previous', count: level.hint.length })} id="hint-previous" />
+          <PressScale onPress={() => dispatchHint({ type: 'overview' })} testID="hint-overview" label={hintView.overview ? 'Show only the current hint path' : 'Show all hint paths'} selected={hintView.overview} style={styles.hintOverview}>
+            <Text style={styles.hintOverviewText}>{hintView.overview ? 'Current path' : 'All paths'}</Text>
+          </PressScale>
+          <MiniBtn name="Next hint step" icon="chevron-forward" disabled={hintView.step === level.hint.length - 1} onPress={() => dispatchHint({ type: 'next', count: level.hint.length })} id="hint-next" />
+        </View>
+      )}
     </View>
   );
   const tools = (
@@ -240,7 +260,7 @@ export default function GameScreen() {
       <View style={[styles.toolGroup, tightTools && { gap: 4 }]}>
         <MiniBtn name="Undo" icon="arrow-undo" disabled={!live || live.strokes === 0 || (status !== 'ready' && status !== 'running')} onPress={undo} id="undo" />
         <MiniBtn name={Platform.OS === 'web' ? 'Retry level (R)' : 'Retry level'} icon="refresh" onPress={reset} id="reset" />
-        <MiniBtn name={hint ? 'Hide hint' : 'Show hint'} icon="bulb" active={hint} onPress={() => setHint((h) => !h)} id="hint" />
+        <MiniBtn name={hint ? 'Hide hint' : 'Show hint'} icon="bulb" active={hint} disabled={level.hint.length === 0} onPress={() => dispatchHint({ type: 'toggle' })} id="hint" />
       </View>
       <PressScale onPress={release} disabled={status !== 'ready'} testID="release" label="Drop water" containerStyle={[styles.releaseSlot, tightTools && { flexGrow: 0, flexBasis: 44, minWidth: 44 }]} style={[styles.release, { height: tightTools ? 44 : unit }, tightTools && { paddingHorizontal: 0 }]}>
         <Ionicons name="water" size={24} color={P.white} />
@@ -250,7 +270,7 @@ export default function GameScreen() {
   );
   const frame = (
     <View style={styles.stageArea} testID="region-stage">
-      <GameBoard key={tag} modeKey={mode} engine={gameEngine} level={level} attempt={attempt} tool={tool} showHint={hint} guides={progress.settings.guides} paused={sheet !== 'none'} playSound={playSound} engineRef={engineRef} onHud={onHud} />
+      <GameBoard key={tag} modeKey={mode} engine={gameEngine} level={level} attempt={attempt} tool={tool} showHint={hint} hintStep={hintView.step} hintOverview={hintView.overview} guides={progress.settings.guides} paused={sheet !== 'none'} playSound={playSound} engineRef={engineRef} onHud={onHud} />
     </View>
   );
 
@@ -317,7 +337,7 @@ export default function GameScreen() {
           onRetry={reset}
           onHint={() => {
             reset();
-            setHint(true);
+            dispatchHint({ type: 'show' });
           }}
           onLevels={() => setSheet('levels')}
         />
@@ -369,6 +389,11 @@ const styles = StyleSheet.create({
   moveText: { fontFamily: F.semi, fontSize: 11, color: P.inkSoft, paddingLeft: 7, borderLeftWidth: 2, borderLeftColor: P.inkSoft },
   caption: { backgroundColor: P.drop, borderRadius: R.btn, borderWidth: 3, borderColor: P.ink, paddingVertical: 6, paddingHorizontal: 12, marginTop: 10, justifyContent: 'center' },
   captionText: { fontFamily: F.semi, fontSize: 14, color: P.white, textAlign: 'center' },
+  hintHeading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginBottom: 4 },
+  hintTitle: { fontFamily: F.bold, fontSize: 15, color: P.marigold },
+  hintControls: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12, marginTop: 8, marginBottom: 3 },
+  hintOverview: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 10 },
+  hintOverviewText: { fontFamily: F.semi, fontSize: 14, color: P.white, textDecorationLine: 'underline' },
   toolbar: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', marginTop: 10, columnGap: 8, rowGap: 8 },
   toolGroup: { flexDirection: 'row', gap: 6, alignItems: 'center' },
   toolBtn: { alignItems: 'center', justifyContent: 'center', borderRadius: R.btn, backgroundColor: P.white, borderWidth: 3, borderColor: P.ink, ...lift },
