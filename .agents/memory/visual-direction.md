@@ -9,6 +9,12 @@ The user selected **Arcade Pop** for Slice & Bloom's UI refresh.
 
 **How to apply:** Keep future UI additions consistent with the bright, bold, playful arcade direction unless the user requests another style.
 
+The Void Protocol is the explicit exception: use a distinct dark neon red/purple theme with glowing hazard lines.
+
+**Why:** The user requested this palette to visually differentiate Void from standard levels.
+
+**How to apply:** Apply the dark theme throughout Void gameplay, controls and records without restyling the other modes. Keep lethal hazards visible even when shadow obstacles disappear.
+
 Do not frame the play area as a phone screen.
 
 **Why:** The user explicitly requested removing the phone-shaped play-area frame so gameplay uses more screen space.

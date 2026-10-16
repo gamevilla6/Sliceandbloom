@@ -1,12 +1,13 @@
 import React, { MutableRefObject, useEffect, useRef, useState } from 'react';
 import { AccessibilityInfo, LayoutChangeEvent, PanResponder, Platform, StyleSheet, View } from 'react-native';
 import Svg, { Circle, Defs, Ellipse, G, LinearGradient, Path, Polyline, Rect, Stop, Text as SvgText } from 'react-native-svg';
+import type Matter from 'matter-js';
 import { GardenEngine, DROP_R, Status } from '@/lib/engine';
 import { GROUND, H, Level, V, W } from '@/lib/levels';
 import { haptic } from '@/lib/haptics';
 import { useGameLoop } from '@/hooks/useGameLoop';
 import { Sfx } from '@/lib/audio';
-import { mix, P } from '@/constants/theme';
+import { mix, P, VD } from '@/constants/theme';
 import { AdvancedLayer } from '@/components/AdvancedLayer';
 import { HOT } from '@/components/HardcoreLayer';
 
@@ -80,6 +81,7 @@ export function GameBoard({ engine, level, attempt, modeKey = 'classic', tool, s
   const revealing = useRef(false);
   const reduceMotion = useRef(false);
   const hardcore = !!level.hardcore;
+  const isVoid = !!level.voidProtocol;
   useEffect(() => {
     AccessibilityInfo.isReduceMotionEnabled?.().then((v) => { reduceMotion.current = !!v; }).catch(() => {});
   }, []);
@@ -280,6 +282,8 @@ export function GameBoard({ engine, level, attempt, modeKey = 'classic', tool, s
     setSize({ w: e.nativeEvent.layout.width, h: e.nativeEvent.layout.height });
 
   const t = engine.time;
+  const vp = isVoid ? engine.voidProtocol : null;
+  const op = (b?: Matter.Body): number => (vp && b ? Math.max(0, Math.min(1, vp.opacity(b))) : 1);
   const f = level.flower;
   const bodies = engine.bodies;
   const woods = bodies.filter((b) => b.label === 'cut' && engine.isObstacleVisible(b));
@@ -318,15 +322,31 @@ export function GameBoard({ engine, level, attempt, modeKey = 'classic', tool, s
       <Svg width={size.w} height={size.h} pointerEvents="none">
         <Defs>
           <LinearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
-            <Stop offset="0" stopColor={P.skyTop} />
-            <Stop offset="1" stopColor={P.skyBottom} />
+            <Stop offset="0" stopColor={isVoid ? VD.bgDeep : P.skyTop} />
+            <Stop offset="1" stopColor={isVoid ? VD.skyBottom : P.skyBottom} />
           </LinearGradient>
         </Defs>
         <Rect x={0} y={0} width={size.w} height={size.h} fill="url(#sky)" />
         <G transform={`translate(${ox + shx} ${oy + shy}) scale(${scale})`}>
-          {[0, 1, 2, 3, 4, 5].map((i) => (
+          {isVoid && (
+            <G>
+              {[0, 1, 2, 3, 4, 5, 6, 7].map((i) => (
+                <Rect key={`vg${i}`} x={-300 + i * 100} y={0} width={1.5} height={GROUND} fill={VD.purple} opacity={0.12} />
+              ))}
+              {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((i) => (
+                <Rect key={`vh${i}`} x={sceneryLeft} y={i * 60} width={sceneryRight - sceneryLeft} height={1.5} fill={VD.purple} opacity={0.1} />
+              ))}
+              <Circle cx={300} cy={90} r={52} fill={VD.purpleDeep} opacity={0.35} />
+              <Circle cx={300} cy={90} r={34} fill={VD.red} opacity={0.5 + 0.1 * Math.sin(t * 2)} />
+              <Rect x={sceneryLeft} y={GROUND} width={sceneryRight - sceneryLeft} height={sceneryBottom - GROUND} fill={VD.bg} />
+              <Rect x={sceneryLeft} y={GROUND - 2} width={sceneryRight - sceneryLeft} height={10} fill={VD.red} opacity={0.25} />
+              <Rect x={sceneryLeft} y={GROUND} width={sceneryRight - sceneryLeft} height={3} fill={VD.red} />
+            </G>
+          )}
+          {!isVoid && [0, 1, 2, 3, 4, 5].map((i) => (
             <Rect key={`ray${i}`} x={-300 + i * 150} y={0} width={60} height={GROUND} fill={P.white} opacity={0.12} />
           ))}
+          {!isVoid && (<G>
           {[[40, 150], [250, 230], [90, 330], [330, 380]].map(([x, y], i) => (
             <Path key={`sp${i}`} d={`M${x} ${y - 8} L${x + 2.5} ${y - 2.5} L${x + 8} ${y} L${x + 2.5} ${y + 2.5} L${x} ${y + 8} L${x - 2.5} ${y + 2.5} L${x - 8} ${y} L${x - 2.5} ${y - 2.5} Z`} fill={P.white} opacity={0.5 + 0.4 * Math.sin(t * 2 + i)} />
           ))}
@@ -350,17 +370,24 @@ export function GameBoard({ engine, level, attempt, modeKey = 'classic', tool, s
             <Ellipse key={i} cx={x} cy={GROUND + 24 + (i % 2) * 14} rx={7} ry={3} fill={P.soilDeep} opacity={0.5} />
           ))}
 
+          </G>)}
           {level.thorns.map((th, i) => {
             const n = Math.max(1, Math.round(th.w / 16));
             const w = th.w / n;
             return (
               <G key={i}>
+                {isVoid && Array.from({ length: n }).map((_, j) => (
+                  <G key={`g${j}`}>
+                    <Path d={`M${th.x + j * w} ${th.y + 22} L${th.x + j * w + w / 2} ${th.y - 2} L${th.x + (j + 1) * w} ${th.y + 22} Z`} fill="none" stroke={VD.red} strokeWidth={11} opacity={0.18 + 0.08 * Math.sin(t * 4)} strokeLinejoin="round" />
+                    <Path d={`M${th.x + j * w} ${th.y + 22} L${th.x + j * w + w / 2} ${th.y - 2} L${th.x + (j + 1) * w} ${th.y + 22} Z`} fill="none" stroke={VD.red} strokeWidth={6} opacity={0.35} strokeLinejoin="round" />
+                  </G>
+                ))}
                 {Array.from({ length: n }).map((_, j) => (
                   <Path
                     key={j}
                     d={`M${th.x + j * w} ${th.y + 22} L${th.x + j * w + w / 2} ${th.y - 2} L${th.x + (j + 1) * w} ${th.y + 22} Z`}
                     fill={hardcore ? HOT : P.thorn}
-                    stroke={P.ink}
+                    stroke={isVoid ? '#FFC2D1' : P.ink}
                     strokeWidth={2.5}
                     strokeLinejoin="round"
                   />
@@ -374,17 +401,23 @@ export function GameBoard({ engine, level, attempt, modeKey = 'classic', tool, s
             if (sb && !engine.isObstacleVisible(sb)) return null;
             const px = sb ? sb.position.x : b.x, py = sb ? sb.position.y : b.y, pa = sb ? sb.angle : (b.angle ?? 0);
             return (
-            <G key={i} transform={`translate(${px} ${py}) rotate(${(pa * 180) / Math.PI})`}>
-              <Rect x={-b.w / 2} y={-b.h / 2} width={b.w} height={b.h} rx={7} fill={P.soil} stroke={P.ink} strokeWidth={3} />
-              <Rect x={-b.w / 2 + 1.5} y={-b.h / 2 + 1.5} width={b.w - 3} height={Math.min(8, b.h / 2)} rx={4} fill={P.leaf} />
+            isVoid && sb ? (
+              <G key={i} opacity={op(sb)}>
+                <Path d={polyPath(sb.vertices)} fill={VD.panelHi} stroke={VD.purple} strokeWidth={3} strokeLinejoin="round" />
+              </G>
+            ) : (
+            <G key={i} opacity={op(sb)} transform={`translate(${px} ${py}) rotate(${(pa * 180) / Math.PI})`}>
+              <Rect x={-b.w / 2} y={-b.h / 2} width={b.w} height={b.h} rx={7} fill={isVoid ? VD.panelHi : P.soil} stroke={isVoid ? VD.purple : P.ink} strokeWidth={3} />
+              <Rect x={-b.w / 2 + 1.5} y={-b.h / 2 + 1.5} width={b.w - 3} height={Math.min(8, b.h / 2)} rx={4} fill={isVoid ? VD.magenta : P.leaf} />
               <Rect x={-b.w / 2 + 8} y={b.h / 2 - 7} width={Math.max(8, b.w * 0.18)} height={3} rx={1.5} fill={P.soilDeep} opacity={0.6} />
             </G>
+            )
             );
           })}
 
           {woods.map((b) => (
-            <G key={b.id}>
-              <Path d={polyPath(b.vertices)} fill={P.wood} stroke={P.ink} strokeWidth={3} strokeLinejoin="round" />
+            <G key={b.id} opacity={op(b)}>
+              <Path d={polyPath(b.vertices)} fill={isVoid ? VD.purpleDeep : P.wood} stroke={isVoid ? VD.magenta : P.ink} strokeWidth={3} strokeLinejoin="round" />
               {guides && b.isStatic && (
                 <Path
                   d={polyPath(b.vertices)}
@@ -444,7 +477,19 @@ export function GameBoard({ engine, level, attempt, modeKey = 'classic', tool, s
               </G>
             );
           })}
-          {engine.strokes.map((s, i) => (
+          {engine.strokes.map((s, i) => isVoid ? (
+            <G key={i}>
+              {s.bodies.map((b) => {
+                const o = vp ? Math.max(0, Math.min(1, vp.strokeOpacity(b))) : 1;
+                if (o <= 0) return null;
+                return (
+                  <G key={b.id} opacity={o}>
+                    <Path d={polyPath(b.vertices)} fill={VD.ok} stroke={VD.purpleDeep} strokeWidth={3} strokeLinejoin="round" />
+                  </G>
+                );
+              })}
+            </G>
+          ) : (
             <G key={i}>
               <Polyline points={pts2(s.pts)} fill="none" stroke={P.ink} strokeWidth={9} strokeLinecap="round" strokeLinejoin="round" />
               <Polyline points={pts2(s.pts)} fill="none" stroke={P.mint} strokeWidth={3.5} strokeLinecap="round" strokeLinejoin="round" />
@@ -477,7 +522,7 @@ export function GameBoard({ engine, level, attempt, modeKey = 'classic', tool, s
           {bodies
             .filter((b) => b.label === 'stone' && engine.isObstacleVisible(b))
             .map((b) => (
-              <Circle key={b.id} cx={b.position.x} cy={b.position.y} r={b.circleRadius ?? 20} fill={P.stone} stroke={P.ink} strokeWidth={3} />
+              <Circle key={b.id} opacity={op(b)} cx={b.position.x} cy={b.position.y} r={b.circleRadius ?? 20} fill={isVoid ? VD.panelHi : P.stone} stroke={isVoid ? VD.purple : P.ink} strokeWidth={3} />
             ))}
 
           {showHint && [

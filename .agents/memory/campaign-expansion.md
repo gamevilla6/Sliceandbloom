@@ -26,3 +26,9 @@ Infinity Cascade extends the main Campaign with Levels 46–100; it is not anoth
 **Why:** The user explicitly requested Infinity Cascade as a campaign expansion covering Levels 46–100, alongside the separate Genesis Gauntlet.
 
 **How to apply:** Keep the opening 45 campaign levels and their saves intact. Campaign has 100 levels; Genesis and Hardcore each retain 45 independent stages. Category navigation must distinguish Campaign 1–45, Infinity 46–100 and Genesis Challenges 1–45.
+
+The Void Protocol is a fourth, dedicated 110-level mode, not a replacement for the existing Hardcore mode.
+
+**Why:** The user requested a separate 55-level Void mode with its own leaderboards, deaths and completion badges, then requested 55 more levels.
+
+**How to apply:** Append Void Levels 56–110 without changing the first 55 or their earned records. Preserve Campaign, Hardcore and Genesis saves. Keep Void records independent and identify its leaderboard as personal device records. Manual retries are not deaths; a lost attempt counts exactly once.

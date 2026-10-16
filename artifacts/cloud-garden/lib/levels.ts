@@ -3,6 +3,7 @@ import { ADVANCED_LEVELS } from './advancedLevels';
 import { EXPANSION_LEVELS } from './expansionLevels';
 import { INFINITY_LEVELS } from './infinityLevels';
 import type { MagneticZone } from './infinity';
+import type { VoidRules } from './void';
 import type { BlockSwitch, PortalPair, Slider, WindZone } from './mechanics';
 import type { CrushingWalls, GravityZone, HardcoreRules, Laser } from './hardcore';
 
@@ -67,6 +68,8 @@ export interface Level {
   thermalZone?: boolean;
   thermalZones?: Block[];
   rubeGoldbergChain?: boolean;
+  /** Isolated Void Protocol modifiers; absent in the three existing modes. */
+  voidProtocol?: VoidRules;
 }
 
 export const W = 360;

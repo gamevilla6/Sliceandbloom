@@ -4,6 +4,7 @@ import { createCloud, createPlant, createRope, createWood } from './objects';
 import { AdvancedMechanics } from './mechanics';
 import { HardcoreMechanics } from './hardcore';
 import { InfinityMechanics } from './infinity';
+import { VoidMechanics } from './void';
 
 const { Engine, Bodies, Body, Composite, Events, Query, Vertices } = Matter;
 
@@ -95,6 +96,7 @@ export class GardenEngine {
   advanced: AdvancedMechanics;
   hardcore: HardcoreMechanics;
   infinity: InfinityMechanics;
+  voidProtocol: VoidMechanics;
   ropes: Matter.Constraint[] = [];
   sliceTrails: { a: V; b: V; life: number }[] = [];
   private blades: Matter.Body[] = [];
@@ -152,6 +154,7 @@ export class GardenEngine {
     this.advanced = new AdvancedMechanics(world, level);
     this.hardcore = new HardcoreMechanics(this.engine, level);
     this.infinity = new InfinityMechanics(level);
+    this.voidProtocol = new VoidMechanics(this.engine, level, this.drop, this.soilBodies);
     for (const rope of level.ropes ?? []) {
       const a = rope.fromWeight ? this.advanced.weights[rope.from] : woods[rope.from];
       const b = rope.toWeight ? this.advanced.weights[rope.to] : woods[rope.to];
@@ -184,6 +187,7 @@ export class GardenEngine {
     for (const pair of e.pairs) {
       if (pair.bodyA === this.drop || pair.bodyB === this.drop) {
         const other = pair.bodyA === this.drop ? pair.bodyB : pair.bodyA;
+        this.voidProtocol.reveal(other);
         if (other === this.plant && this.status === 'running') {
           this.finish('won');
           continue;
@@ -219,6 +223,7 @@ export class GardenEngine {
     this.advanced.clear();
     this.hardcore.clear();
     this.infinity.clear();
+    this.voidProtocol.clear();
     this.ropes = [];
     this.blades = [];
     this.pushed.clear();
@@ -255,17 +260,19 @@ export class GardenEngine {
   get lasers() { return this.hardcore.lasers; }
 
   isObstacleVisible(body: Matter.Body) {
+    if (this.level.voidProtocol) return this.voidProtocol.opacity(body) > 0;
     return !this.level.invisibleObstacles || this.revealedBodies.has(body.id);
   }
 
   revealAt(point: V) {
-    if (!this.level.invisibleObstacles || !Number.isFinite(point.x) || !Number.isFinite(point.y)) return 0;
+    if ((!this.level.invisibleObstacles && !this.level.voidProtocol?.shadow) || !Number.isFinite(point.x) || !Number.isFinite(point.y)) return 0;
     const targets = this.bodies.filter(b =>
       ['soil', 'cut', 'stone', 'weight', 'gate', 'rotating-barrier', 'crusher'].includes(b.label));
     const touch = Bodies.circle(point.x, point.y, 14, { isSensor: true });
     let revealed = 0;
     for (const hit of Query.collides(touch, targets)) {
       const body = hit.bodyA === touch ? hit.bodyB : hit.bodyA;
+      this.voidProtocol.reveal(body);
       if (!this.revealedBodies.has(body.id)) { this.revealedBodies.add(body.id); revealed++; }
     }
     return revealed;
@@ -347,6 +354,7 @@ export class GardenEngine {
       );
     }
     Composite.add(this.engine.world, bodies);
+    this.voidProtocol.trackStroke(bodies);
     this.strokes.push({ pts: pts.map((p) => ({ ...p })), bodies, len });
     this.inkUsed += len;
     this.actions++;
@@ -359,6 +367,7 @@ export class GardenEngine {
     const s = this.strokes.pop();
     if (!s) return false;
     Composite.remove(this.engine.world, s.bodies);
+    this.voidProtocol.forget(s.bodies);
     if (!this.level.hardcore) {
       this.inkUsed = Math.max(0, this.inkUsed - s.len);
       this.actions = Math.max(0, this.actions - 1);
@@ -471,6 +480,7 @@ export class GardenEngine {
       });
       Body.setAngularVelocity(piece, sg * 0.03);
       created.push(piece);
+      this.voidProtocol.reveal(piece);
       // Slicing touches and reveals the fragments even if the parent was hidden.
       if (wasVisible || this.level.invisibleObstacles) this.revealedBodies.add(piece.id);
     }
@@ -527,6 +537,8 @@ export class GardenEngine {
         Body.setVelocity(this.drop, { x: this.drop.velocity.x * k, y: this.drop.velocity.y * k });
       }
       const intervalFlipped = this.hardcore.beforeStep(STEP / 1000, this.status === 'running');
+      this.voidProtocol.beforeStep(STEP / 1000, this.started, this.status === 'running');
+      if (this.level.voidProtocol) this.strokes = this.strokes.filter(s => s.bodies.some(b => !this.voidProtocol.isRemoved(b)));
       if (intervalFlipped) {
         this.burst(this.drop.position.x, this.drop.position.y, 12, ['#BD8CFF', '#FFFFFF'], 2);
         this.onEvent?.({ type: 'gravity' });
@@ -538,6 +550,7 @@ export class GardenEngine {
         this.onEvent?.({ type: effect.type });
       }
       const flipped = this.hardcore.afterStep(this.drop, this.status === 'running');
+      this.voidProtocol.clampVelocity();
       if (flipped) {
         this.burst(flipped.x, flipped.y, 12, ['#BD8CFF', '#FFFFFF'], 2);
         this.onEvent?.({ type: 'gravity' });

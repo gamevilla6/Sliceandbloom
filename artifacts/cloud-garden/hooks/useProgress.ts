@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { completeProgress, DEFAULT_PROGRESS, readProgress, type Completion, type Progress, type Settings } from '@/lib/progress';
+import { completeProgress, DEFAULT_PROGRESS, readProgress, recordDeath as addDeath, type Completion, type Progress, type Settings } from '@/lib/progress';
 export type { Progress, Settings } from '@/lib/progress';
 
 const KEY = 'cloud-garden:v1';
@@ -44,6 +44,7 @@ export function useProgress(total: number, key = KEY) {
     [update],
   );
   const resetAll = useCallback(() => update((p) => ({ ...DEFAULT, settings: p.settings })), [update]);
+  const recordDeath = useCallback((idx: number) => update(p => addDeath(p, total, idx)), [update, total]);
 
-  return { progress: state, ready, complete, setLast, setSetting, resetAll };
+  return { progress: state, ready, complete, setLast, setSetting, resetAll, recordDeath };
 }

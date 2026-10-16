@@ -1,3 +1,4 @@
 - [Physics release safety](physics-release.md) — create held droplets dynamically before freezing; check finite mass and hint solutions after physics changes.
-- [Visual direction](visual-direction.md) — the user chose Arcade Pop for Slice & Bloom.
-- [Campaign expansion](campaign-expansion.md) — Campaign has 100 beds (Infinity 46–100); Genesis and Hardcore each retain 45 separate stages and records.
+- [Visual direction](visual-direction.md) — Arcade Pop is the default; Void Protocol uses its own dark neon red/purple theme.
+- [Campaign expansion](campaign-expansion.md) — Campaign has 100 beds, Genesis and Hardcore have 45 each; Void Protocol is a separate 110-level mode.
+- [Browser verification](browser-verification.md) — seed progress once; batch short-countdown actions so test overhead does not create false deaths or lost saves.

@@ -45,3 +45,22 @@ export function mix(a: string, b: string, t: number) {
   const r = x.map((v, i) => Math.round(v + (y[i] - v) * k));
   return `rgb(${r[0]},${r[1]},${r[2]})`;
 }
+
+// The Void Protocol: dark neon red / purple. Used only when Void mode is selected.
+export const VD = {
+  bg: '#0B0614',
+  bgDeep: '#05030A',
+  skyBottom: '#2A0D3F',
+  panel: '#170C28',
+  panelHi: '#241042',
+  line: '#4B1F7A',
+  text: '#F3E8FF',
+  textSoft: '#B79AD9',
+  red: '#FF2457',
+  redDeep: '#B3123A',
+  purple: '#9B4DFF',
+  purpleDeep: '#5B21B6',
+  magenta: '#E040FB',
+  gold: '#FFC857',
+  ok: '#3DF5C0',
+};

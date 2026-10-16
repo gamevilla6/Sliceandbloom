@@ -3,7 +3,7 @@ import { Circle, G, Path, Polyline, Rect, Text as SvgText } from 'react-native-s
 import type { GardenEngine } from '@/lib/engine';
 import { W } from '@/lib/levels';
 import type { Level } from '@/lib/levels';
-import { F, P } from '@/constants/theme';
+import { F, P, VD } from '@/constants/theme';
 import { InfinityLayer } from '@/components/InfinityLayer';
 import { HOT } from '@/components/HardcoreLayer';
 
@@ -15,7 +15,7 @@ export function AdvancedLayer({ engine, level }: { engine: GardenEngine; level: 
   const t = engine.time;
   const adv = engine.advanced;
   const label = (x: number, y: number, s: string, c: string = P.ink) => (
-    <SvgText x={x} y={y} fontSize={10} fontFamily={F.semi} fill={c} textAnchor="middle">{s}</SvgText>
+    <SvgText x={x} y={y} fontSize={10} fontFamily={F.semi} fill={level.voidProtocol && c === P.ink ? VD.text : c} textAnchor="middle">{s}</SvgText>
   );
   return (
     <G>
@@ -172,7 +172,7 @@ export function AdvancedLayer({ engine, level }: { engine: GardenEngine; level: 
         );
       })}
 
-      {engine.hardcore.rotors.filter((r) => engine.isObstacleVisible(r.body)).map(({ spec, body }, i) => {
+      {engine.hardcore.rotors.filter((r) => !!level.voidProtocol || engine.isObstacleVisible(r.body)).map(({ spec, body }, i) => {
         const dir = (level.rotatingBarrierSpeed ?? 1) >= 0 ? 1 : -1;
         const { x, y } = body.position;
         return (
@@ -188,7 +188,7 @@ export function AdvancedLayer({ engine, level }: { engine: GardenEngine; level: 
         );
       })}
 
-      {engine.hardcore.crushers.filter((c) => engine.isObstacleVisible(c.left) || engine.isObstacleVisible(c.right)).map(({ spec, left, right }, i) => (
+      {engine.hardcore.crushers.filter((c) => !!level.voidProtocol || engine.isObstacleVisible(c.left) || engine.isObstacleVisible(c.right)).map(({ spec, left, right }, i) => (
         <G key={`c${i}`}>
           <Path d={`M0 ${spec.y} L${W} ${spec.y}`} stroke={P.ink} strokeWidth={6} opacity={0.18} />
           <Path d={`M0 ${spec.y} L${W} ${spec.y}`} stroke={HOT} strokeWidth={2} strokeDasharray="5 7" strokeDashoffset={-t * 18} opacity={0.7} />
@@ -202,10 +202,11 @@ export function AdvancedLayer({ engine, level }: { engine: GardenEngine; level: 
       <InfinityLayer engine={engine} level={level} />
 
       {adv.weights.filter((b) => engine.isObstacleVisible(b)).map((b) => {
+        const wo = level.voidProtocol ? engine.voidProtocol.opacity(b) : 1;
         const bw = b.bounds.max.x - b.bounds.min.x;
         const cx = b.position.x, cy = b.position.y;
         return (
-          <G key={b.id}>
+          <G key={b.id} opacity={wo}>
             <Path d={poly(b.vertices)} fill={P.inkSoft} stroke={P.ink} strokeWidth={3.5} strokeLinejoin="round" />
             <G transform={`translate(${cx} ${cy}) rotate(${(b.angle * 180) / Math.PI})`}>
               <Rect x={-bw / 4} y={-bw / 4} width={bw / 2} height={bw / 2} rx={3} fill="none" stroke={P.marigold} strokeWidth={2.5} />

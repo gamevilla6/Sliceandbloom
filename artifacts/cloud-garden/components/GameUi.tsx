@@ -1,7 +1,7 @@
 import React, { ReactNode, useEffect, useRef, useState } from 'react';
 import { Animated, Pressable, ScrollView, ScrollViewProps, StyleProp, StyleSheet, Text, View, ViewStyle, useWindowDimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { F, P, R } from '@/constants/theme';
+import { F, P, R, VD } from '@/constants/theme';
 import { useSafeInsets } from '@/components/layout';
 import { Level } from '@/lib/levels';
 import { haptic } from '@/lib/haptics';
@@ -70,7 +70,8 @@ export function Stars({ count, size = 30, pop = false }: { count: number; size?:
   );
 }
 
-function Card({ children, onClose, title, scrollID, expanded = false, scrollRef, onScrollLayout, onContentSizeChange, footer }: {
+function Card({ children, onClose, title, scrollID, expanded = false, scrollRef, onScrollLayout, onContentSizeChange, footer, dark }: {
+  dark?: boolean;
   children: ReactNode;
   onClose?: () => void;
   title?: string;
@@ -91,11 +92,11 @@ function Card({ children, onClose, title, scrollID, expanded = false, scrollRef,
   const availableHeight = Math.max(0, height - ins.top - ins.bottom - pad * 2);
   const short = expanded && availableHeight < 400;
   return (
-    <Animated.View style={[styles.scrim, { opacity: a, paddingTop: ins.top + pad, paddingBottom: ins.bottom + pad, paddingLeft: ins.left + pad, paddingRight: ins.right + pad }]}>
-      <Animated.View style={[styles.card, expanded && { maxWidth: 840, height: availableHeight }, short && { padding: 12 }, { maxHeight: availableHeight, transform: [{ scale: a.interpolate({ inputRange: [0, 1], outputRange: [0.85, 1] }) }] }]} accessibilityViewIsModal>
+    <Animated.View style={[styles.scrim, dark && { backgroundColor: 'rgba(5,3,10,0.82)' }, { opacity: a, paddingTop: ins.top + pad, paddingBottom: ins.bottom + pad, paddingLeft: ins.left + pad, paddingRight: ins.right + pad }]}>
+      <Animated.View style={[styles.card, dark && styles.cardDark, expanded && { maxWidth: 840, height: availableHeight }, short && { padding: 12 }, { maxHeight: availableHeight, transform: [{ scale: a.interpolate({ inputRange: [0, 1], outputRange: [0.85, 1] }) }] }]} accessibilityViewIsModal>
         {title !== undefined && (
           <View style={[styles.cardHead, short && { marginBottom: 8 }]}>
-            <Text style={[styles.cardTitle, short && { fontSize: 22 }]} numberOfLines={1}>{title}</Text>
+            <Text style={[styles.cardTitle, dark && { color: VD.text }, short && { fontSize: 22 }]} numberOfLines={1}>{title}</Text>
             {onClose && (
               <PressScale onPress={onClose} testID="close-sheet" label="Close" style={styles.closeBtn}>
                 <Ionicons name="close" size={22} color={P.white} />
@@ -112,20 +113,20 @@ function Card({ children, onClose, title, scrollID, expanded = false, scrollRef,
   );
 }
 
-function Btn({ label, icon, onPress, kind = 'primary', testID }: { label: string; icon: keyof typeof Ionicons.glyphMap; onPress: () => void; kind?: 'primary' | 'ghost'; testID?: string }) {
+function Btn({ dark, label, icon, onPress, kind = 'primary', testID }: { dark?: boolean; label: string; icon: keyof typeof Ionicons.glyphMap; onPress: () => void; kind?: 'primary' | 'ghost'; testID?: string }) {
   return (
-    <PressScale onPress={onPress} testID={testID} label={label} containerStyle={styles.btnSlot} style={[styles.btn, kind === 'primary' ? styles.btnPrimary : styles.btnGhost]}>
-      <Ionicons name={icon} size={20} color={kind === 'primary' ? P.white : P.ink} />
-      <Text numberOfLines={1} style={[styles.btnText, { color: kind === 'primary' ? P.white : P.ink }]}>{label}</Text>
+    <PressScale onPress={onPress} testID={testID} label={label} containerStyle={styles.btnSlot} style={[styles.btn, kind === 'primary' ? styles.btnPrimary : styles.btnGhost, dark && (kind === 'primary' ? styles.btnVoid : styles.btnVoidGhost)]}>
+      <Ionicons name={icon} size={20} color={dark ? VD.text : kind === 'primary' ? P.white : P.ink} />
+      <Text numberOfLines={1} style={[styles.btnText, { color: dark ? VD.text : kind === 'primary' ? P.white : P.ink }]}>{label}</Text>
     </PressScale>
   );
 }
 
-export function WinCard({ masterclass, score, highScore, bestTime, level, stars, elapsed, hasNext, onNext, onReplay, onLevels }: { masterclass?: boolean; score?: number; highScore?: number; bestTime?: number; level: Level; stars: number; elapsed?: number; hasNext: boolean; onNext: () => void; onReplay: () => void; onLevels: () => void }) {
+export function WinCard({ dark, badge, deaths, masterclass, score, highScore, bestTime, level, stars, elapsed, hasNext, onNext, onReplay, onLevels }: { dark?: boolean; badge?: string; deaths?: number; masterclass?: boolean; score?: number; highScore?: number; bestTime?: number; level: Level; stars: number; elapsed?: number; hasNext: boolean; onNext: () => void; onReplay: () => void; onLevels: () => void }) {
   return (
-    <Card>
-      <Text style={styles.kicker}>{level.name}</Text>
-      <Text style={styles.big}>{masterclass ? 'Masterclass complete' : 'It bloomed!'}</Text>
+    <Card dark={dark}>
+      <Text style={[styles.kicker, dark && { color: VD.red }]}>{level.name}</Text>
+      <Text style={[styles.big, dark && { color: VD.purple, textShadowColor: VD.red }]}>{dark ? 'Protocol cleared' : masterclass ? 'Masterclass complete' : 'It bloomed!'}</Text>
       <Text style={styles.brand}>Slice & Bloom</Text>
       <View style={{ marginVertical: 14 }}>
         <Stars count={stars} size={44} pop />
@@ -133,17 +134,22 @@ export function WinCard({ masterclass, score, highScore, bestTime, level, stars,
       <Text style={styles.sub}>{level.hardcore
         ? `${(elapsed ?? 0).toFixed(1)}s · ${stars === 3 ? 'Gold earned!' : `Gold needs ${level.hardcore.goldTime}s or less and at most ${level.par} ${level.par === 1 ? 'move' : 'moves'}.`}`
         : stars === 3 ? 'Perfect watering.' : stars === 2 ? 'Nicely done. Fewer moves earn a third star.' : 'Bloomed. Try fewer moves for more stars.'}</Text>
+      {dark && (
+        <Text style={[styles.sub, { marginTop: 6, fontFamily: F.bold, color: badge === 'Gold' ? VD.gold : VD.text }]} testID="win-badge">
+          Badge: {badge ?? 'Cleared'}{deaths !== undefined ? ` · ${deaths} ${deaths === 1 ? 'death' : 'deaths'} on this level` : ''}
+        </Text>
+      )}
       {level.hardcore && score !== undefined && (
-        <Text style={[styles.sub, { marginTop: 6, fontFamily: F.bold, color: P.ink }]} testID="win-score">
+        <Text style={[styles.sub, { marginTop: 6, fontFamily: F.bold, color: dark ? VD.text : P.ink }]} testID="win-score">
           Score {score}{highScore !== undefined ? ` · Best ${highScore}` : ''}{bestTime !== undefined ? ` · Best time ${bestTime.toFixed(1)}s` : ''}
         </Text>
       )}
       <View style={styles.row}>
-        {hasNext ? <Btn label="Next" icon="arrow-forward" onPress={onNext} testID="next-level" /> : <Btn label="All grown" icon="grid" onPress={onLevels} testID="all-levels" />}
+        {hasNext ? <Btn dark={dark} label="Next" icon="arrow-forward" onPress={onNext} testID="next-level" /> : <Btn dark={dark} label="All grown" icon="grid" onPress={onLevels} testID="all-levels" />}
       </View>
       <View style={styles.row}>
-        <Btn label="Replay" icon="refresh" kind="ghost" onPress={onReplay} testID="replay" />
-        <Btn label="Levels" icon="grid" kind="ghost" onPress={onLevels} testID="win-levels" />
+        <Btn dark={dark} label="Replay" icon="refresh" kind="ghost" onPress={onReplay} testID="replay" />
+        <Btn dark={dark} label="Levels" icon="grid" kind="ghost" onPress={onLevels} testID="win-levels" />
       </View>
     </Card>
   );
@@ -166,7 +172,7 @@ export function LoseCard({ reason, onRetry, onHint, onLevels }: { reason: string
   );
 }
 
-export function LevelPicker({ scores, bestTimes, levels, unlocked, stars, current, onPick, onClose, title = 'Garden beds', noun = 'Bed' }: { scores?: Record<string, number>; bestTimes?: Record<string, number>; levels: Level[]; unlocked: number; stars: Record<string, number>; current: number; onPick: (i: number) => void; onClose: () => void; title?: string; noun?: string }) {
+export function LevelPicker({ deaths, badges, scores, bestTimes, levels, unlocked, stars, current, onPick, onClose, title = 'Garden beds', noun = 'Bed' }: { deaths?: Record<string, number>; badges?: Record<string, string>; scores?: Record<string, number>; bestTimes?: Record<string, number>; levels: Level[]; unlocked: number; stars: Record<string, number>; current: number; onPick: (i: number) => void; onClose: () => void; title?: string; noun?: string }) {
   const { width, height, fontScale } = useWindowDimensions();
   const ins = useSafeInsets();
   const [measuredWidth, setMeasuredWidth] = useState(0);
@@ -174,14 +180,24 @@ export function LevelPicker({ scores, bestTimes, levels, unlocked, stars, curren
   const estimatedWidth = Math.min(840, width - ins.left - ins.right - 16) - (short ? 32 : 44);
   const { gap, columns, tileWidth } = levelGrid(measuredWidth || Math.max(0, estimatedWidth), fontScale);
   const hc = !!levels[0]?.hardcore;
+  const vd = !!levels[0]?.voidProtocol;
   const [records, setRecords] = useState(false);
-  const pages: { n: string; a: number; b: number }[] | null = hc
+  const pages: { n: string; a: number; b: number }[] | null = vd
+    ? [
+      { n: 'Shadow', a: 0, b: 13 }, { n: 'Decay', a: 14, b: 27 },
+      { n: 'Gravity', a: 28, b: 41 }, { n: 'Protocol', a: 42, b: Math.min(54, levels.length - 1) },
+      ...Array.from({ length: Math.ceil(Math.max(0, levels.length - 55) / 14) }, (_, i) => ({
+        n: ['Aftermath', 'Abyss', 'Collapse', 'Event Horizon'][i] ?? 'Beyond',
+        a: 55 + i * 14, b: Math.min(levels.length - 1, 68 + i * 14),
+      })),
+    ]
+    : hc
     ? [{ n: 'Precision', a: 0, b: 14 }, { n: 'Pressure', a: 15, b: 29 }, { n: 'Gauntlet', a: 30, b: 44 }]
     : levels.length > 45
       ? [{ n: 'Campaign', a: 0, b: 44 }, { n: 'Infinity Cascade', a: 45, b: 59 }, { n: 'Infinity Cascade', a: 60, b: 74 }, { n: 'Infinity Cascade', a: 75, b: 89 }, { n: 'Infinity Cascade', a: 90, b: levels.length - 1 }]
       : null;
   const [chap, setChap] = useState(Math.max(0, pages ? pages.findIndex((p) => current >= p.a && current <= p.b) : 0));
-  const tileHeight = Math.max(short ? 112 : 124, Math.ceil(84 * fontScale + 30)) + (hc ? 20 : 0);
+  const tileHeight = Math.max(short ? 112 : 124, Math.ceil(84 * fontScale + 30)) + (hc ? 20 : 0) + (vd ? 18 : 0);
   const pg = pages ? pages[chap] ?? pages[0] : null;
   const range = pg ? levels.map((_, i) => i).filter((i) => i >= pg.a && i <= pg.b) : levels.map((_, i) => i);
   const scrollRef = useRef<ScrollView>(null);
@@ -211,28 +227,28 @@ export function LevelPicker({ scores, bestTimes, levels, unlocked, stars, curren
     setJump((n) => n + 1);
   };
   return (
-    <Card title={title} onClose={onClose} scrollID="level-list" expanded
+    <Card dark={vd} title={title} onClose={onClose} scrollID="level-list" expanded
       scrollRef={scrollRef}
       onScrollLayout={(e) => setViewportHeight(e.nativeEvent.layout.height)}
       onContentSizeChange={(_, h) => setContentHeight(h)}
       footer={
-        <PressScale testID="current-level" label={`Return to current ${noun.toLowerCase()} ${levels[current]?.id ?? current + 1}`} onPress={returnToCurrent} containerStyle={styles.currentSlot} style={styles.currentBtn}>
-          <Ionicons name="locate" size={20} color={P.ink} />
-          <Text style={styles.currentText}>Current {noun.toLowerCase()} · {levels[current]?.id ?? current + 1}</Text>
+        <PressScale testID="current-level" label={`Return to current ${noun.toLowerCase()} ${levels[current]?.id ?? current + 1}`} onPress={returnToCurrent} containerStyle={styles.currentSlot} style={[styles.currentBtn, vd && { backgroundColor: VD.purpleDeep, borderColor: VD.purple }]}>
+          <Ionicons name="locate" size={20} color={vd ? VD.text : P.ink} />
+          <Text style={[styles.currentText, vd && { color: VD.text }]}>Current {noun.toLowerCase()} · {levels[current]?.id ?? current + 1}</Text>
         </PressScale>
       }>
       {hc && (
-        <PressScale testID="records-toggle" selected={records} label={records ? 'Show level grid' : 'Show personal records, ranked by best score'} onPress={() => setRecords((r) => !r)} containerStyle={{ marginBottom: 10 }} style={[styles.chap, { flexDirection: 'row', gap: 6 }, records && { backgroundColor: P.marigold }]}>
-          <Ionicons name="trophy" size={18} color={P.ink} />
-          <Text style={styles.chapT}>{records ? 'Back to levels' : 'Personal records'}</Text>
+        <PressScale testID="records-toggle" selected={records} label={records ? 'Show level grid' : 'Show personal records, ranked by best score'} onPress={() => setRecords((r) => !r)} containerStyle={{ marginBottom: 10 }} style={[styles.chap, { flexDirection: 'row', gap: 6 }, vd && styles.vTile, records && { backgroundColor: vd ? VD.purpleDeep : P.marigold }]}>
+          <Ionicons name="trophy" size={18} color={vd ? VD.text : P.ink} />
+          <Text style={[styles.chapT, vd && { color: VD.text }]}>{records ? 'Back to levels' : 'Personal records'}</Text>
         </PressScale>
       )}
       {hc && records && (
         <View testID="records-list" accessibilityLabel="Personal records on this device">
-          <Text style={styles.chapT}>Personal records (this device)</Text>
+          <Text style={[styles.chapT, vd && { color: VD.text }]}>Personal records (this device)</Text>
           {levels.map((l, i) => ({ l, i, s: scores?.[String(i)] })).sort((a, b) => (b.s ?? -1) - (a.s ?? -1) || a.i - b.i).map(({ l, i, s }, r) => (
-            <Text key={l.id} style={styles.tileRec} accessibilityLabel={`${noun} ${l.id}, ${l.name}, best score ${s ?? 'none'}`}>
-              {s !== undefined ? `#${r + 1}` : '–'}  {noun} {l.id} {l.name}: {s ?? '—'} · {bestTimes?.[String(i)] !== undefined ? `${bestTimes[String(i)].toFixed(1)}s` : '—'} · {stars[i] ?? 0}/3 stars
+            <Text key={l.id} style={[styles.tileRec, vd && { color: VD.textSoft, paddingVertical: 3 }]} accessibilityLabel={`${noun} ${l.id}, ${l.name}, best score ${s ?? 'none'}${vd ? `, ${deaths?.[String(i)] ?? 0} deaths, badge ${badges?.[String(i)] ?? 'none'}` : ''}`}>
+              {s !== undefined ? `#${r + 1}` : '–'}  {noun} {l.id} {l.name}: {s ?? '—'} · {bestTimes?.[String(i)] !== undefined ? `${bestTimes[String(i)].toFixed(1)}s` : '—'} · {stars[i] ?? 0}/3 stars{vd ? ` · ${deaths?.[String(i)] ?? 0} deaths · ${badges?.[String(i)] ?? '—'}` : ''}
             </Text>
           ))}
         </View>
@@ -240,9 +256,9 @@ export function LevelPicker({ scores, bestTimes, levels, unlocked, stars, curren
       {pages && !records && (
         <View style={styles.chapRow}>
           {pages.map(({ n, a, b }, c) => (
-            <PressScale key={c} testID={`chapter-${c}`} selected={chap === c} label={`${n}, levels ${a + 1} to ${b + 1}`} onPress={() => setChap(c)} containerStyle={{ flexGrow: 1, flexBasis: pages.length > 3 ? 84 : 100 }} style={[styles.chap, chap === c && { backgroundColor: P.coralDeep }]}>
-              <Text style={[styles.chapT, chap === c && { color: P.white }]} numberOfLines={1}>{n}</Text>
-              <Text style={[styles.chapS, chap === c && { color: P.white }]}>{a + 1}–{b + 1}</Text>
+            <PressScale key={c} testID={`chapter-${c}`} selected={chap === c} label={`${n}, levels ${a + 1} to ${b + 1}`} onPress={() => setChap(c)} containerStyle={{ flexGrow: 1, flexBasis: pages.length > 3 ? 84 : 100 }} style={[styles.chap, vd && styles.vTile, chap === c && { backgroundColor: vd ? VD.redDeep : P.coralDeep }]}>
+              <Text style={[styles.chapT, vd && { color: VD.text }, chap === c && { color: P.white }]} numberOfLines={1}>{n}</Text>
+              <Text style={[styles.chapS, vd && { color: VD.textSoft }, chap === c && { color: P.white }]}>{a + 1}–{b + 1}</Text>
             </PressScale>
           ))}
         </View>
@@ -255,11 +271,12 @@ export function LevelPicker({ scores, bestTimes, levels, unlocked, stars, curren
           const l = levels[i];
           const locked = i > unlocked;
           return (
-            <PressScale key={l.id} containerStyle={{ width: tileWidth }} disabled={locked} label={locked ? `${noun} ${l.id}, ${l.name}, locked` : `${noun} ${l.id}, ${l.name}`} selected={i === current} onPress={() => onPick(i)} testID={`level-${l.id}`} style={[styles.tile, { height: tileHeight }, i === current && styles.tileCur, locked && { backgroundColor: P.paperDeep }]}>
-              {locked ? <Ionicons name="lock-closed" size={22} color={P.inkSoft} /> : <Text style={styles.tileNum}>{l.id}</Text>}
-              <Text style={[styles.tileName, { minHeight: 30 * Math.max(1, fontScale) }]} numberOfLines={2}>{l.name}</Text>
+            <PressScale key={l.id} containerStyle={{ width: tileWidth }} disabled={locked} label={locked ? `${noun} ${l.id}, ${l.name}, locked` : `${noun} ${l.id}, ${l.name}`} selected={i === current} onPress={() => onPick(i)} testID={`level-${l.id}`} style={[styles.tile, { height: tileHeight }, vd && styles.vTile, i === current && (vd ? styles.vTileCur : styles.tileCur), locked && { backgroundColor: vd ? VD.bgDeep : P.paperDeep }]}>
+              {locked ? <Ionicons name="lock-closed" size={22} color={vd ? VD.textSoft : P.inkSoft} /> : <Text style={[styles.tileNum, vd && { color: VD.text }]}>{l.id}</Text>}
+              <Text style={[styles.tileName, vd && { color: VD.textSoft }, { minHeight: 30 * Math.max(1, fontScale) }]} numberOfLines={2}>{l.name}</Text>
               <Stars count={stars[i] ?? 0} size={14} />
-              {hc && <Text style={styles.tileRec}>{scores?.[String(i)] !== undefined ? scores[String(i)] : '—'} · {bestTimes?.[String(i)] !== undefined ? `${bestTimes[String(i)].toFixed(1)}s` : '—'}</Text>}
+              {vd && <Text style={[styles.tileRec, { color: badges?.[String(i)] === 'Gold' ? VD.gold : VD.textSoft }]}>{deaths?.[String(i)] ?? 0} deaths · {badges?.[String(i)] ?? 'No badge'}</Text>}
+              {hc && <Text style={[styles.tileRec, vd && { color: VD.textSoft }]}>{scores?.[String(i)] !== undefined ? scores[String(i)] : '—'} · {bestTimes?.[String(i)] !== undefined ? `${bestTimes[String(i)].toFixed(1)}s` : '—'}</Text>}
             </PressScale>
           );
         })}
@@ -282,16 +299,17 @@ function Toggle({ on, onChange, label, sub, testID }: { on: boolean; onChange: (
   );
 }
 
-export function SettingsSheet({ haptics, guides, sound, onHaptics, onGuides, onSound, onReset, onClose, resetLabel = 'Reset progress' }: { resetLabel?: string; haptics: boolean; guides: boolean; sound: boolean; onHaptics: (v: boolean) => void; onSound: (v: boolean) => void; onGuides: (v: boolean) => void; onReset: () => void; onClose: () => void }) {
+export function SettingsSheet({ dark, haptics, guides, sound, onHaptics, onGuides, onSound, onReset, onClose, resetLabel = 'Reset progress' }: { dark?: boolean; resetLabel?: string; haptics: boolean; guides: boolean; sound: boolean; onHaptics: (v: boolean) => void; onSound: (v: boolean) => void; onGuides: (v: boolean) => void; onReset: () => void; onClose: () => void }) {
   const [armed, setArmed] = React.useState(false);
   return (
-    <Card title="Settings" onClose={onClose}>
+    <Card title="Settings" onClose={onClose} dark={dark}>
       <Text style={styles.brand}>Slice & Bloom</Text>
       <Toggle on={sound} onChange={onSound} label="Sound" sub="Snips, rope twangs and splashes" testID="toggle-sound" />
       <Toggle on={haptics} onChange={onHaptics} label="Haptics" sub="Taps, cuts and splashes" testID="toggle-haptics" />
       <Toggle on={guides} onChange={onGuides} label="Cut guides" sub="Dashed outline on timber you can slice" testID="toggle-guides" />
       <View style={{ height: 8 }} />
       <Btn
+        dark={dark}
         label={armed ? 'Tap again to erase' : resetLabel}
         icon="trash"
         kind="ghost"
@@ -328,6 +346,11 @@ const styles = StyleSheet.create({
   btnGhost: { backgroundColor: P.marigold },
   btnText: { fontFamily: F.bold, fontSize: 17 },
   starShadow: { textShadowColor: P.ink, textShadowRadius: 0, textShadowOffset: { width: 0, height: 2 } },
+  cardDark: { backgroundColor: VD.bg, borderColor: VD.purple, shadowColor: VD.red, shadowOpacity: 0.6, shadowRadius: 0 },
+  btnVoid: { backgroundColor: VD.redDeep, borderColor: VD.red, shadowColor: VD.red },
+  btnVoidGhost: { backgroundColor: VD.panelHi, borderColor: VD.purple, shadowColor: VD.purple },
+  vTile: { backgroundColor: VD.panel, borderColor: VD.line, shadowColor: VD.purple },
+  vTileCur: { backgroundColor: VD.purpleDeep, borderColor: VD.red },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   tile: { width: '100%', backgroundColor: P.white, borderRadius: R.btn, borderWidth: 3, borderColor: P.ink, shadowColor: P.ink, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 1, shadowRadius: 0, alignItems: 'center', justifyContent: 'center', gap: 4, padding: 8 },
   chapRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 },

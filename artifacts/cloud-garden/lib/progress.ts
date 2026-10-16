@@ -4,11 +4,13 @@ export interface Progress {
   stars: Record<string, number>;
   scores: Record<string, number>;
   bestTimes: Record<string, number>;
+  deaths: Record<string, number>;
+  badges: Record<string, string>;
   settings: Settings;
 }
 export interface Completion { score: number; time: number }
 export const DEFAULT_PROGRESS: Progress = {
-  unlocked: 0, last: 0, stars: {}, scores: {}, bestTimes: {},
+  unlocked: 0, last: 0, stars: {}, scores: {}, bestTimes: {}, deaths: {}, badges: {},
   settings: { haptics: true, guides: true, sound: true },
 };
 
@@ -34,6 +36,10 @@ export function readProgress(raw: unknown, total: number): Progress {
   return {
     unlocked, last: Math.min(unlocked, clamp(p.last)), stars, settings,
     scores: record(p.scores, total), bestTimes: record(p.bestTimes, total),
+    deaths: Object.fromEntries(Object.entries(record(p.deaths, total, Number.MAX_SAFE_INTEGER))
+      .filter(([, n]) => Number.isInteger(n))),
+    // Badges are derived from earned stars, never trusted independently.
+    badges: Object.fromEntries(Object.entries(stars).map(([idx, n]) => [idx, n === 3 ? 'Gold' : 'Cleared'])),
   };
 }
 
@@ -46,5 +52,11 @@ export function completeProgress(p: Progress, total: number, idx: number, stars:
     stars: { ...p.stars, [idx]: Math.max(p.stars[idx] ?? 0, Math.min(3, Math.max(1, Math.floor(stars)))) },
     scores: valid ? { ...p.scores, [idx]: Math.max(p.scores[idx] ?? 0, result.score) } : p.scores,
     bestTimes: valid ? { ...p.bestTimes, [idx]: Math.min(p.bestTimes[idx] ?? Infinity, result.time) } : p.bestTimes,
+    badges: { ...p.badges, [idx]: Math.max(p.stars[idx] ?? 0, stars) >= 3 ? 'Gold' : 'Cleared' },
   };
+}
+
+export function recordDeath(p: Progress, total: number, idx: number): Progress {
+  if (!Number.isInteger(idx) || idx < 0 || idx >= total) return p;
+  return { ...p, deaths: { ...p.deaths, [idx]: Math.min(Number.MAX_SAFE_INTEGER, (p.deaths[idx] ?? 0) + 1) } };
 }
