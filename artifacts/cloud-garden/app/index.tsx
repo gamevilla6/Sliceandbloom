@@ -1,12 +1,15 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { GameBoard, Hud, Tool } from '@/components/GameBoard';
 import { LevelPicker, LoseCard, PressScale, SettingsSheet, Stars, WinCard } from '@/components/GameUi';
 import { useLayoutMode } from '@/components/layout';
+import { HardcoreFail, HardcoreHud, Mode, ModeSwitch } from '@/components/HardcoreLayer';
 import { useProgress } from '@/hooks/useProgress';
 import { GardenEngine } from '@/lib/engine';
 import { LEVELS } from '@/lib/levels';
+import { HARDCORE_LEVELS } from '@/lib/hardcoreLevels';
+import { GENESIS_LEVELS } from '@/lib/genesisLevels';
 import { useSound } from '@/lib/audio';
 import { setHapticsEnabled } from '@/lib/haptics';
 import { F, P, R } from '@/constants/theme';
@@ -16,7 +19,22 @@ type Sheet = 'none' | 'levels' | 'settings';
 export default function GameScreen() {
   'use no memo';
   // Retry is an explicit useMemo dependency even though its factory only reads level.
-  const { progress, ready, complete, setLast, setSetting, resetAll } = useProgress(LEVELS.length);
+  const classic = useProgress(LEVELS.length);
+  const hard = useProgress(HARDCORE_LEVELS.length, 'cloud-garden:hardcore:v1');
+  const gen = useProgress(GENESIS_LEVELS.length, 'cloud-garden:genesis:v1');
+  const [mode, setMode] = useState<Mode>('classic');
+  const hardcore = mode !== 'classic';
+  const isGenesis = mode === 'genesis';
+  const arcade = isGenesis ? gen : hard;
+  const active = hardcore ? arcade : classic;
+  const ready = classic.ready && hard.ready && gen.ready;
+  const { setLast } = active;
+  const hardComplete = arcade.complete;
+  const classicComplete = classic.complete;
+  const { setSetting } = classic;
+  // Settings are shared and always live on the classic record.
+  const progress = { ...active.progress, settings: classic.progress.settings };
+  const levels = isGenesis ? GENESIS_LEVELS : hardcore ? HARDCORE_LEVELS : LEVELS;
 
   const [idx, setIdx] = useState(0);
   const [attempt, setAttempt] = useState(0);
@@ -30,14 +48,16 @@ export default function GameScreen() {
   const savedKey = useRef('');
 
   const playSound = useSound(progress.settings.sound);
-  const level = LEVELS[idx];
+  const level = levels[idx];
+  const hc = level.hardcore;
   // The world belongs to the screen, not the responsive board's mount point.
   const gameEngine = useMemo(() => new GardenEngine(level), [level, attempt]);
   useEffect(() => () => gameEngine.dispose(), [gameEngine]);
-  const tag = `${level.id}:${attempt}`;
+  const tag = `${mode}:${level.id}:${attempt}`;
   const live = hud && hud.tag === tag ? hud : null;
   const status = live?.status ?? 'ready';
-  const inkMax = level.ink;
+  const thermalFailure = !!level.thermalZone && status === 'lost' && !!live?.fail.startsWith('Thermal');
+  const inkMax = gameEngine.inkMax;
   const inkLeft = live ? live.inkLeft : inkMax;
   const canDraw = inkMax > 0;
   const canSlice = level.wood.length > 0 || !!level.ropes?.length || level.stones.length > 0 || !!level.weights?.length;
@@ -45,7 +65,7 @@ export default function GameScreen() {
   useEffect(() => {
     if (ready && !loaded.current) {
       loaded.current = true;
-      setIdx(Math.min(progress.last, progress.unlocked, LEVELS.length - 1));
+      setIdx(Math.min(progress.last, progress.unlocked, levels.length - 1));
       setAttempt((a) => a + 1);
     }
   }, [ready, progress.last, progress.unlocked]);
@@ -59,18 +79,46 @@ export default function GameScreen() {
   useEffect(() => {
     if (status === 'won' && live && savedKey.current !== tag) {
       savedKey.current = tag;
-      complete(idx, live.stars);
+      if (hardcore) hardComplete(idx, live.stars, { score: live.score, time: live.elapsed });
+      else classicComplete(idx, live.stars);
     }
-  }, [status, live, tag, idx, complete]);
+  }, [status, live, tag, idx, hardcore, hardComplete, classicComplete]);
 
   useEffect(() => {
     if (status !== 'won' && status !== 'lost') {
       setOverlay(false);
       return;
     }
-    const t = setTimeout(() => setOverlay(true), status === 'won' ? 1100 : 650);
+    const t = setTimeout(() => setOverlay(true), status === 'won' ? 1100 : (hardcore || thermalFailure) ? 0 : 650);
     return () => clearTimeout(t);
-  }, [status, tag]);
+  }, [status, tag, hardcore, thermalFailure]);
+
+  const resetRef = useRef<() => void>(() => {});
+  // Hardcore failures retry themselves; an open sheet suspends that.
+  useEffect(() => {
+    const thermal = !!level.thermalZone && !!live?.fail.includes('Thermal');
+    if (!(hardcore || thermal) || status !== 'lost' || sheet !== 'none') return;
+    const t = setTimeout(() => resetRef.current(), 450);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hardcore, status, sheet, tag, level, live?.fail]);
+
+  const sheetRef = useRef(sheet);
+  sheetRef.current = sheet;
+  useEffect(() => {
+    if (Platform.OS !== 'web' || typeof document === 'undefined') return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.repeat || e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
+      if (e.key !== 'r' && e.key !== 'R') return;
+      if (sheetRef.current !== 'none') return;
+      const t = e.target as HTMLElement | null;
+      if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
+      e.preventDefault();
+      resetRef.current();
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, []);
 
   const onHud = useCallback((h: Hud) => setHud(h), []);
 
@@ -87,11 +135,28 @@ export default function GameScreen() {
     setHint(false);
     setOverlay(false);
   };
+  resetRef.current = reset;
+  const switchMode = (m: Mode) => {
+    if (m === mode) return;
+    const p = m === 'genesis' ? gen.progress : m === 'hardcore' ? hard.progress : classic.progress;
+    const n = m === 'genesis' ? GENESIS_LEVELS.length : m === 'hardcore' ? HARDCORE_LEVELS.length : LEVELS.length;
+    setMode(m);
+    setIdx(Math.min(p.last, p.unlocked, n - 1));
+    setAttempt((a) => a + 1);
+    setHint(false);
+    setSheet('none');
+    setOverlay(false);
+    setHud(null);
+  };
   const release = () => engineRef.current?.release();
   const undo = () => engineRef.current?.undo();
 
   const inkPct = inkMax > 0 ? inkLeft / inkMax : 0;
-  const caption = hint ? level.hintText : status === 'ready' ? level.lesson : '';
+  const rules = 'First touch starts the timer. Undo: no refunds.';
+  const caption = hint ? level.hintText : status === 'ready' ? (hc ? `${level.lesson.replace(/^HARDCORE · /, '')} ${rules}` : level.lesson) : '';
+  const noun = isGenesis ? 'Challenge' : hardcore ? 'Hardcore' : 'Bed';
+  const modeName = isGenesis ? 'The Genesis Gauntlet' : hardcore ? 'Hardcore levels' : 'Garden beds';
+  const maxMoves = hc?.maxStrokes ?? 0;
   const { landscape, compact, panelW, availW, insets } = useLayoutMode();
   const tightTools = !landscape && availW < 380;
   const unit = compact ? 48 : 56;
@@ -101,10 +166,10 @@ export default function GameScreen() {
 
   const header = (
     <View style={styles.topBar} testID="region-header">
-      <PressScale onPress={() => setSheet('levels')} testID="open-levels" label={`Garden beds. Bed ${level.id} of ${LEVELS.length}, ${level.name}`} containerStyle={styles.pillSlot} style={styles.levelPill}>
+      <PressScale onPress={() => setSheet('levels')} testID="open-levels" label={`${modeName}. ${noun} ${level.id} of ${levels.length}, ${level.name}`} containerStyle={styles.pillSlot} style={styles.levelPill}>
         <Ionicons name="grid" size={18} color={P.ink} />
         <View style={{ flexShrink: 1, minWidth: 0 }}>
-          <Text style={styles.pillSmall} numberOfLines={1}>Bed {level.id} of {LEVELS.length}</Text>
+          <Text style={styles.pillSmall} numberOfLines={1}>{noun} {level.id} of {levels.length}</Text>
           <Text style={styles.pillName} numberOfLines={1}>{level.name}</Text>
         </View>
       </PressScale>
@@ -119,6 +184,31 @@ export default function GameScreen() {
       </PressScale>
     </View>
   );
+  const modeBar = <ModeSwitch mode={mode} onChange={switchMode} tight={availW < 380} />;
+  const mods: string[] = [];
+  if (isGenesis) {
+    if (level.countdownTimer) mods.push(`${level.countdownTimer}s countdown`);
+    if (level.invisibleObstacles) mods.push('Hidden: touch to reveal');
+    if (level.hyperSensitiveScale) mods.push(`Drop ${Math.round(level.hyperSensitiveScale * 100)}% size`);
+    const cap = level.strictInkLength ?? level.inkLimitPercent;
+    if (cap) mods.push(`Ink ${Math.round(cap <= 1 ? cap * 100 : cap)}%`);
+  }
+  if (!hardcore) {
+    if (level.magneticField || level.magneticZones?.length) mods.push('Magnet field');
+    if (level.thermalZone) mods.push('Heat 2s limit');
+    if (level.rubeGoldbergChain) mods.push('Linked chain');
+  }
+  const modBadges = mods.length > 0 ? (
+    <View style={styles.modRow} testID={isGenesis ? 'genesis-modifiers' : 'level-modifiers'} accessibilityLabel={`Challenge modifiers: ${mods.join(', ')}`}>
+      {mods.map((m) => <Text key={m} style={styles.modChip}>{m}</Text>)}
+    </View>
+  ) : null;
+  const hudBar = hc ? (
+    <View>
+    <HardcoreHud started={live?.started ?? false} timeLeft={live?.timeLeft ?? hc.timeLimit} limit={hc.timeLimit} elapsed={live?.elapsed ?? 0} gold={hc.goldTime} par={level.par} moves={live?.actions ?? 0} maxMoves={maxMoves} gravity={live?.gravityRemaining ?? 0} nextFlip={level.gravityFlipInterval ? level.gravityFlipInterval - ((live?.cycleTime ?? 0) % level.gravityFlipInterval) : undefined} />
+      {modBadges}
+    </View>
+  ) : null;
   const ink = (
     <View style={styles.inkRow} testID="region-ink">
       <Ionicons name="water" size={16} color={P.ink} />
@@ -126,14 +216,19 @@ export default function GameScreen() {
         <View style={[styles.inkFill, { width: `${Math.max(0, Math.min(1, inkPct)) * 100}%`, backgroundColor: inkPct < 0.2 ? P.coral : P.mint }]} />
       </View>
       <Text style={styles.inkText}>{inkMax > 0 ? `${Math.round(inkLeft)} ink` : 'no ink'}</Text>
-      <Text style={styles.moveText} testID="move-count" accessibilityLabel={`${live?.actions ?? 0} moves used`}>
-        {live?.actions ?? 0} moves
-      </Text>
+      {!!level.inkLimitPercent && (
+        <Text style={styles.capText} testID="ink-cap" accessibilityLabel={`Ink capped at ${level.inkLimitPercent} percent`}>CAP {level.inkLimitPercent}%</Text>
+      )}
+      {!hc && (
+        <Text style={styles.moveText} testID="move-count" accessibilityLabel={`${live?.actions ?? 0} moves used`}>
+          {live?.actions ?? 0} moves
+        </Text>
+      )}
     </View>
   );
   const captionEl = (!!caption || !landscape) && (
     <View style={[styles.caption, !caption && { opacity: 0 }, !landscape && { minHeight: compact ? 44 : 52 }]} testID="region-caption" accessibilityLiveRegion="polite">
-      <Text style={[styles.captionText, compact && { fontSize: 12.5 }]}>{caption || ' '}</Text>
+      <Text style={[styles.captionText, compact && { fontSize: 12.5 }]} numberOfLines={landscape ? undefined : 3}>{caption || ' '}</Text>
     </View>
   );
   const tools = (
@@ -144,7 +239,7 @@ export default function GameScreen() {
       </View>
       <View style={[styles.toolGroup, tightTools && { gap: 4 }]}>
         <MiniBtn name="Undo" icon="arrow-undo" disabled={!live || live.strokes === 0 || (status !== 'ready' && status !== 'running')} onPress={undo} id="undo" />
-        <MiniBtn name="Reset level" icon="refresh" onPress={reset} id="reset" />
+        <MiniBtn name={Platform.OS === 'web' ? 'Retry level (R)' : 'Retry level'} icon="refresh" onPress={reset} id="reset" />
         <MiniBtn name={hint ? 'Hide hint' : 'Show hint'} icon="bulb" active={hint} onPress={() => setHint((h) => !h)} id="hint" />
       </View>
       <PressScale onPress={release} disabled={status !== 'ready'} testID="release" label="Drop water" containerStyle={[styles.releaseSlot, tightTools && { flexGrow: 0, flexBasis: 44, minWidth: 44 }]} style={[styles.release, { height: tightTools ? 44 : unit }, tightTools && { paddingHorizontal: 0 }]}>
@@ -155,7 +250,7 @@ export default function GameScreen() {
   );
   const frame = (
     <View style={styles.stageArea} testID="region-stage">
-      <GameBoard key={tag} engine={gameEngine} level={level} attempt={attempt} tool={tool} showHint={hint} guides={progress.settings.guides} paused={sheet !== 'none'} playSound={playSound} engineRef={engineRef} onHud={onHud} />
+      <GameBoard key={tag} modeKey={mode} engine={gameEngine} level={level} attempt={attempt} tool={tool} showHint={hint} guides={progress.settings.guides} paused={sheet !== 'none'} playSound={playSound} engineRef={engineRef} onHud={onHud} />
     </View>
   );
 
@@ -164,15 +259,18 @@ export default function GameScreen() {
       {landscape ? (
         <View style={[styles.root, styles.rootRow, { paddingTop: insets.top + 6, paddingBottom: insets.bottom + 6, paddingLeft: insets.left + 12, paddingRight: insets.right + 12 }]} testID="layout-landscape">
           <View style={styles.landGroup}>
-            <View style={{ width: panelW }} testID="region-panel">
-              <ScrollView contentContainerStyle={[styles.panelContent, compact && { gap: 4, paddingVertical: 0 }]} showsVerticalScrollIndicator={false}>
+             <View style={{ width: panelW, minHeight: 0, flexShrink: 0 }} testID="region-panel">
+              <ScrollView style={{ flex: 1, minHeight: 0 }} contentContainerStyle={[styles.panelContent, compact && { gap: 4, paddingVertical: 0 }]} showsVerticalScrollIndicator testID="panel-scroll">
                 {!compact && <Text style={styles.brandText} numberOfLines={1}>Slice & Bloom</Text>}
                 {header}
+                {modeBar}
+                {!hc && modBadges}
                 {!compact && <Stars count={progress.stars[idx] ?? 0} size={16} />}
+                {hudBar}
                 {ink}
                 {captionEl}
-                {tools}
               </ScrollView>
+              {tools}
             </View>
             {frame}
           </View>
@@ -181,7 +279,10 @@ export default function GameScreen() {
         <View style={[styles.root, { paddingTop: insets.top + 6, paddingBottom: insets.bottom + 8, paddingLeft: insets.left + 12, paddingRight: insets.right + 12 }]} testID="layout-portrait">
           <View style={styles.column}>
             {header}
+            {modeBar}
+            {!hc && modBadges}
             {ink}
+            {hudBar}
             {frame}
             {captionEl}
             {tools}
@@ -189,7 +290,7 @@ export default function GameScreen() {
         </View>
       )}
 
-      {sheet === 'levels' && <LevelPicker levels={LEVELS} unlocked={progress.unlocked} stars={progress.stars} current={idx} onPick={load} onClose={() => setSheet('none')} />}
+      {sheet === 'levels' && <LevelPicker title={isGenesis ? 'The Genesis Gauntlet' : hardcore ? 'Hardcore' : 'Garden beds'} noun={noun} levels={levels} unlocked={progress.unlocked} stars={progress.stars} scores={hardcore ? arcade.progress.scores : undefined} bestTimes={hardcore ? arcade.progress.bestTimes : undefined} current={idx} onPick={load} onClose={() => setSheet('none')} />}
       {sheet === 'settings' && (
         <SettingsSheet
           haptics={progress.settings.haptics}
@@ -198,17 +299,19 @@ export default function GameScreen() {
           onSound={(v) => setSetting('sound', v)}
           onHaptics={(v) => setSetting('haptics', v)}
           onGuides={(v) => setSetting('guides', v)}
+          resetLabel={isGenesis ? 'Reset Genesis progress' : hardcore ? 'Reset Hardcore progress' : 'Reset progress'}
           onReset={() => {
-            resetAll();
+            active.resetAll();
             load(0);
           }}
           onClose={() => setSheet('none')}
         />
       )}
       {overlay && sheet === 'none' && status === 'won' && (
-        <WinCard level={level} stars={live?.stars ?? 1} hasNext={idx + 1 < LEVELS.length} onNext={() => load(idx + 1)} onReplay={reset} onLevels={() => setSheet('levels')} />
+        <WinCard level={level} stars={live?.stars ?? 1} score={hardcore ? live?.score : undefined} highScore={hardcore ? arcade.progress.scores[String(idx)] : undefined} bestTime={hardcore ? arcade.progress.bestTimes[String(idx)] : undefined} masterclass={isGenesis} elapsed={live?.elapsed} hasNext={idx + 1 < levels.length} onNext={() => load(idx + 1)} onReplay={reset} onLevels={() => setSheet('levels')} />
       )}
-      {overlay && sheet === 'none' && status === 'lost' && (
+      {overlay && sheet === 'none' && status === 'lost' && (hardcore || thermalFailure) && <HardcoreFail title={hardcore ? 'Wilted' : 'Overheated'} reason={live?.fail ?? ''} onRetry={reset} />}
+      {overlay && sheet === 'none' && status === 'lost' && !hardcore && !(level.thermalZone && live?.fail.includes('Thermal')) && (
         <LoseCard
           reason={live?.fail ?? ''}
           onRetry={reset}
@@ -245,7 +348,7 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: P.paper },
   rootRow: { alignItems: 'stretch', justifyContent: 'center' },
   column: { flex: 1, width: '100%', alignSelf: 'center', minHeight: 0 },
-  landGroup: { flex: 1, flexDirection: 'row', alignSelf: 'center', width: '100%', gap: 14, minHeight: 0 },
+  landGroup: { flex: 1, flexDirection: 'row', alignSelf: 'stretch', width: '100%', gap: 14, minHeight: 0 },
   panelContent: { flexGrow: 1, justifyContent: 'center', gap: 10, paddingVertical: 6 },
   stageArea: { flex: 1, minHeight: 0, minWidth: 0, overflow: 'hidden', backgroundColor: P.skyTop },
   topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
@@ -260,6 +363,9 @@ const styles = StyleSheet.create({
   inkTrack: { flex: 1, height: 16, borderRadius: 8, backgroundColor: P.paperDeep, borderWidth: 2.5, borderColor: P.ink, overflow: 'hidden' },
   inkFill: { height: '100%', borderRadius: 5 },
   inkText: { fontFamily: F.bold, fontSize: 13, color: P.ink, minWidth: 58, textAlign: 'right' },
+  modRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 4 },
+  modChip: { fontFamily: F.bold, fontSize: 11, color: P.white, backgroundColor: P.dropDeep, borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2, overflow: 'hidden' },
+  capText: { fontFamily: F.bold, fontSize: 11, color: P.white, backgroundColor: P.coralDeep, borderRadius: 6, paddingHorizontal: 5, paddingVertical: 1, overflow: 'hidden' },
   moveText: { fontFamily: F.semi, fontSize: 11, color: P.inkSoft, paddingLeft: 7, borderLeftWidth: 2, borderLeftColor: P.inkSoft },
   caption: { backgroundColor: P.drop, borderRadius: R.btn, borderWidth: 3, borderColor: P.ink, paddingVertical: 6, paddingHorizontal: 12, marginTop: 10, justifyContent: 'center' },
   captionText: { fontFamily: F.semi, fontSize: 14, color: P.white, textAlign: 'center' },

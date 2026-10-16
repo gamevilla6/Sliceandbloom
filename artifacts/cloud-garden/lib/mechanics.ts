@@ -17,6 +17,8 @@ export interface PortalPair {
   entry: V;
   exit: V;
   r: number;
+  /** Radians of velocity rotation A → B; B → A applies the inverse. */
+  rotation?: number;
 }
 export interface BlockSwitch {
   button: Block;
@@ -105,17 +107,24 @@ export class AdvancedMechanics {
     }
     if (!running) return effects;
     const touches = this.portals.flatMap(({ spec, a, b }) => {
-      const found: { destination: V; r: number }[] = [];
-      if (Query.collides(cloud, [a]).length) found.push({ destination: spec.exit, r: spec.r });
-      if (Query.collides(cloud, [b]).length) found.push({ destination: spec.entry, r: spec.r });
+      const found: { destination: V; r: number; rotation?: number }[] = [];
+      if (Query.collides(cloud, [a]).length) found.push({ destination: spec.exit, r: spec.r, rotation: spec.rotation });
+      if (Query.collides(cloud, [b]).length) found.push({ destination: spec.entry, r: spec.r, rotation: spec.rotation === undefined ? undefined : -spec.rotation });
       return found;
     });
     if (!touches.length) this.portalLocked = false;
     if (this.portalCooldown > 0 || this.portalLocked || !touches.length) return effects;
-    const { destination, r } = touches[0];
-    const velocity = { x: cloud.velocity.x, y: Math.max(2, cloud.velocity.y) };
+    const { destination, r, rotation } = touches[0];
+    const rotated = rotation !== undefined;
+    const c = Math.cos(rotation ?? 0), s = Math.sin(rotation ?? 0);
+    const velocity = rotated
+      ? { x: cloud.velocity.x * c - cloud.velocity.y * s, y: cloud.velocity.x * s + cloud.velocity.y * c }
+      : { x: cloud.velocity.x, y: Math.max(2, cloud.velocity.y) };
     // Emerge just below the destination sensor, not inside it (no ping-pong).
-    Body.setPosition(cloud, { x: destination.x, y: destination.y + r + (cloud.circleRadius ?? 11) + 3 });
+    const speed = Math.hypot(velocity.x, velocity.y);
+    const offset = r + (cloud.circleRadius ?? 11) + 3;
+    const direction = rotated && speed > 0.001 ? { x: velocity.x / speed, y: velocity.y / speed } : { x: 0, y: 1 };
+    Body.setPosition(cloud, { x: destination.x + direction.x * offset, y: destination.y + direction.y * offset });
     Body.setVelocity(cloud, velocity);
     this.portalCooldown = 0.55;
     this.portalLocked = true;

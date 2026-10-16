@@ -1,5 +1,5 @@
 import React, { MutableRefObject, useEffect, useRef, useState } from 'react';
-import { LayoutChangeEvent, PanResponder, Platform, StyleSheet, View } from 'react-native';
+import { AccessibilityInfo, LayoutChangeEvent, PanResponder, Platform, StyleSheet, View } from 'react-native';
 import Svg, { Circle, Defs, Ellipse, G, LinearGradient, Path, Polyline, Rect, Stop } from 'react-native-svg';
 import { GardenEngine, DROP_R, Status } from '@/lib/engine';
 import { GROUND, H, Level, V, W } from '@/lib/levels';
@@ -8,6 +8,7 @@ import { useGameLoop } from '@/hooks/useGameLoop';
 import { Sfx } from '@/lib/audio';
 import { mix, P } from '@/constants/theme';
 import { AdvancedLayer } from '@/components/AdvancedLayer';
+import { HOT } from '@/components/HardcoreLayer';
 
 export type Tool = 'draw' | 'slice';
 export interface Hud {
@@ -19,6 +20,12 @@ export interface Hud {
   actions: number;
   fail: string;
   stars: number;
+  elapsed: number;
+  timeLeft: number;
+  gravityRemaining: number;
+  started: boolean;
+  score: number;
+  cycleTime: number;
 }
 
 interface Props {
@@ -28,6 +35,7 @@ interface Props {
   tool: Tool;
   showHint: boolean;
   guides: boolean;
+  modeKey?: string;
   paused?: boolean;
   playSound?: (k: Sfx) => void;
   engineRef: MutableRefObject<GardenEngine | null>;
@@ -39,7 +47,7 @@ const dist = (a: V, b: V) => Math.hypot(a.x - b.x, a.y - b.y);
 const pts2 = (p: V[]) => p.map((q) => `${q.x.toFixed(1)},${q.y.toFixed(1)}`).join(' ');
 const DROP_PATH = 'M0 -17 C5 -9 11 -3 11 3 A11 11 0 0 1 -11 3 C-11 -3 -5 -9 0 -17 Z';
 
-export function GameBoard({ engine, level, attempt, tool, showHint, guides, paused, playSound, engineRef, onHud }: Props) {
+export function GameBoard({ engine, level, attempt, modeKey = 'classic', tool, showHint, guides, paused, playSound, engineRef, onHud }: Props) {
   'use no memo';
   // Matter mutates bodies in place; every frame must read current world state.
   const [size, setSize] = useState({ w: 0, h: 0 });
@@ -49,7 +57,7 @@ export function GameBoard({ engine, level, attempt, tool, showHint, guides, paus
   toolRef.current = tool;
   const onHudRef = useRef(onHud);
   onHudRef.current = onHud;
-  const tag = `${level.id}:${attempt}`;
+  const tag = `${modeKey}:${level.id}:${attempt}`;
   const tagRef = useRef(tag);
   tagRef.current = tag;
   const xf = useRef({ s: 1, ox: 0, oy: 0 });
@@ -64,6 +72,15 @@ export function GameBoard({ engine, level, attempt, tool, showHint, guides, paus
   const frameN = useRef(0);
   const engRef = useRef(engine);
   engRef.current = engine;
+  const pausedRef = useRef(!!paused);
+  pausedRef.current = !!paused;
+  const active = useRef(false);
+  const revealing = useRef(false);
+  const reduceMotion = useRef(false);
+  const hardcore = !!level.hardcore;
+  useEffect(() => {
+    AccessibilityInfo.isReduceMotionEnabled?.().then((v) => { reduceMotion.current = !!v; }).catch(() => {});
+  }, []);
 
   const scale = size.w && size.h ? Math.min(size.w / W, size.h / H) : 1;
   const ox = (size.w - W * scale) / 2;
@@ -71,7 +88,11 @@ export function GameBoard({ engine, level, attempt, tool, showHint, guides, paus
   const sceneryLeft = -ox / scale;
   const sceneryRight = (size.w - ox) / scale;
   const sceneryBottom = Math.max(H, (size.h - oy) / scale);
-  xf.current = { s: scale, ox, oy };
+  // Small clamped screen shake; the touch transform includes it so input stays aligned.
+  const shakeAmp = reduceMotion.current ? 0 : Math.min(4, (engine.shakeIntensity ?? 0) * 0.5);
+  const shx = shakeAmp ? Math.sin(frameN.current * 2.9) * shakeAmp : 0;
+  const shy = shakeAmp ? Math.cos(frameN.current * 3.7) * shakeAmp : 0;
+  xf.current = { s: scale, ox: ox + shx, oy: oy + shy };
 
   const toLogical = (px: number, py: number): V => ({
     x: Math.max(0, Math.min(W, (px - xf.current.ox) / xf.current.s)),
@@ -86,10 +107,14 @@ export function GameBoard({ engine, level, attempt, tool, showHint, guides, paus
       onPanResponderGrant: (e) => {
         const p = toLogical(e.nativeEvent.locationX, e.nativeEvent.locationY);
         const eng = engRef.current;
-        if (eng.status === 'won' || eng.status === 'lost') return;
+        if (pausedRef.current || eng.status === 'won' || eng.status === 'lost') return;
+        revealing.current = true;
+        eng.revealAt(p);
+        if (eng.level.hardcore && !eng.beginInput()) return;
+        active.current = true;
         if (toolRef.current === 'draw') {
           drawing.current = [p];
-          exhausted.current = eng.level.ink <= 0;
+          exhausted.current = eng.inkMax <= 0;
         } else {
           trail.current = [p];
           swipeTrail.current = [p];
@@ -100,7 +125,8 @@ export function GameBoard({ engine, level, attempt, tool, showHint, guides, paus
       onPanResponderMove: (e) => {
         const p = toLogical(e.nativeEvent.locationX, e.nativeEvent.locationY);
         const eng = engRef.current;
-        if (eng.status === 'won' || eng.status === 'lost') return;
+        if (revealing.current && !pausedRef.current && eng.status !== 'won' && eng.status !== 'lost') eng.revealAt(p);
+        if (!active.current || pausedRef.current || eng.status === 'won' || eng.status === 'lost') return;
         if (toolRef.current === 'draw') {
           const pts = drawing.current;
           if (!pts.length || exhausted.current) return;
@@ -137,12 +163,15 @@ export function GameBoard({ engine, level, attempt, tool, showHint, guides, paus
 
   function end() {
     const eng = engRef.current;
+    revealing.current = false;
+    if (!active.current) return;
+    active.current = false;
     if (toolRef.current === 'draw') {
       const pts = drawing.current;
       drawing.current = [];
       if (pts.length > 1 && eng.addStroke(pts)) haptic.light();
     } else {
-      if (swipeCuts.current > 0) eng.actions++;
+      if (swipeCuts.current > 0 && !eng.level.hardcore) eng.actions++;
       eng.endSlice();
       swipeTrail.current = [];
       trail.current = [];
@@ -154,6 +183,7 @@ export function GameBoard({ engine, level, attempt, tool, showHint, guides, paus
   useEffect(() => {
     engine.attach();
     let lastImpact = 0;
+    let lastImpactSfx = 0;
     keyRef.current = '';
     engine.onEvent = (ev) => {
       const e = ev;
@@ -162,6 +192,10 @@ export function GameBoard({ engine, level, attempt, tool, showHint, guides, paus
         if (now - lastImpact > 140 && e.power > 6) {
           lastImpact = now;
           haptic.light();
+        }
+        if (now - lastImpactSfx > 160 && e.power > 9) {
+          lastImpactSfx = now;
+          soundRef.current?.('impact');
         }
       } else if (e.type === 'cut') {
         haptic.medium();
@@ -179,14 +213,20 @@ export function GameBoard({ engine, level, attempt, tool, showHint, guides, paus
       } else if (e.type === 'win') {
         haptic.success();
         soundRef.current?.('win');
-      } else if (e.type === 'lose') haptic.error();
+      } else if (e.type === 'gravity') {
+        haptic.medium();
+        soundRef.current?.('gravity');
+      } else if (e.type === 'lose') {
+        haptic.error();
+        soundRef.current?.('lose');
+      }
     };
     emit();
     return () => {
       engine.onEvent = undefined;
       // Rotation can move the board to another layout branch. Keep its world,
       // but finish accounting for any slice interrupted by that remount.
-      if (swipeCuts.current > 0) engine.actions++;
+      if (swipeCuts.current > 0 && !engine.level.hardcore) engine.actions++;
       swipeCuts.current = 0;
       engine.endSlice();
     };
@@ -195,18 +235,27 @@ export function GameBoard({ engine, level, attempt, tool, showHint, guides, paus
 
   function emit() {
     const engine = engRef.current;
-    const k = `${engine.status}|${Math.round(engine.inkLeft)}|${engine.strokes.length}|${engine.actions}`;
+    const hc = engine.level.hardcore;
+    const pendingInk = drawing.current.slice(1).reduce((sum, p, i) => sum + dist(drawing.current[i], p), 0);
+    const inkLeft = Math.max(0, engine.inkLeft - pendingInk);
+    const k = `${engine.status}|${Math.round(inkLeft)}|${engine.strokes.length}|${engine.actions}|${engine.started ? 1 : 0}${hc ? `|${Math.ceil(engine.timeLeft * 10)}|${Math.ceil(engine.gravityRemaining * 10)}|${Math.floor(engine.hardcore.cycleTime * 10)}|${Math.round(engine.elapsed * 10)}` : ''}`;
     if (k === keyRef.current) return;
     keyRef.current = k;
     onHudRef.current({
       tag: tagRef.current,
       status: engine.status,
-      inkLeft: engine.inkLeft,
-      inkMax: engine.level.ink,
+      inkLeft,
+      inkMax: engine.inkMax,
       strokes: engine.strokes.length,
       actions: engine.actions,
       fail: engine.failReason,
       stars: engine.stars,
+      elapsed: engine.elapsed,
+      timeLeft: engine.timeLeft,
+      gravityRemaining: engine.gravityRemaining,
+      started: engine.started,
+      score: engine.score,
+      cycleTime: engine.hardcore.cycleTime,
     });
   }
 
@@ -231,7 +280,7 @@ export function GameBoard({ engine, level, attempt, tool, showHint, guides, paus
   const t = engine.time;
   const f = level.flower;
   const bodies = engine.bodies;
-  const woods = bodies.filter((b) => b.label === 'cut');
+  const woods = bodies.filter((b) => b.label === 'cut' && engine.isObstacleVisible(b));
   const bloom = engine.bloom;
   const drop = engine.drop;
   const speed = drop.speed;
@@ -245,6 +294,7 @@ export function GameBoard({ engine, level, attempt, tool, showHint, guides, paus
     dy = engine.winFrom.y + (f.y - engine.winFrom.y) * e;
     dScale = 1 - 0.85 * e;
   }
+  dScale *= (drop.circleRadius ?? DROP_R) / DROP_R;
   const stretch = engine.status === 'running' ? 1 + Math.min(speed * 0.022, 0.38) : 1 + Math.sin(t * 3) * 0.04;
   const blink = Math.sin(t * 1.3) > 0.97;
   const worried = engine.status === 'running' && speed > 5;
@@ -271,7 +321,7 @@ export function GameBoard({ engine, level, attempt, tool, showHint, guides, paus
           </LinearGradient>
         </Defs>
         <Rect x={0} y={0} width={size.w} height={size.h} fill="url(#sky)" />
-        <G transform={`translate(${ox} ${oy}) scale(${scale})`}>
+        <G transform={`translate(${ox + shx} ${oy + shy}) scale(${scale})`}>
           {[0, 1, 2, 3, 4, 5].map((i) => (
             <Rect key={`ray${i}`} x={-300 + i * 150} y={0} width={60} height={GROUND} fill={P.white} opacity={0.12} />
           ))}
@@ -307,7 +357,7 @@ export function GameBoard({ engine, level, attempt, tool, showHint, guides, paus
                   <Path
                     key={j}
                     d={`M${th.x + j * w} ${th.y + 22} L${th.x + j * w + w / 2} ${th.y - 2} L${th.x + (j + 1) * w} ${th.y + 22} Z`}
-                    fill={P.thorn}
+                    fill={hardcore ? HOT : P.thorn}
                     stroke={P.ink}
                     strokeWidth={2.5}
                     strokeLinejoin="round"
@@ -317,13 +367,18 @@ export function GameBoard({ engine, level, attempt, tool, showHint, guides, paus
             );
           })}
 
-          {level.soil.map((b, i) => (
-            <G key={i} transform={`translate(${b.x} ${b.y}) rotate(${((b.angle ?? 0) * 180) / Math.PI})`}>
+          {level.soil.map((b, i) => {
+            const sb = engine.soilBodies[i];
+            if (sb && !engine.isObstacleVisible(sb)) return null;
+            const px = sb ? sb.position.x : b.x, py = sb ? sb.position.y : b.y, pa = sb ? sb.angle : (b.angle ?? 0);
+            return (
+            <G key={i} transform={`translate(${px} ${py}) rotate(${(pa * 180) / Math.PI})`}>
               <Rect x={-b.w / 2} y={-b.h / 2} width={b.w} height={b.h} rx={7} fill={P.soil} stroke={P.ink} strokeWidth={3} />
               <Rect x={-b.w / 2 + 1.5} y={-b.h / 2 + 1.5} width={b.w - 3} height={Math.min(8, b.h / 2)} rx={4} fill={P.leaf} />
               <Rect x={-b.w / 2 + 8} y={b.h / 2 - 7} width={Math.max(8, b.w * 0.18)} height={3} rx={1.5} fill={P.soilDeep} opacity={0.6} />
             </G>
-          ))}
+            );
+          })}
 
           {woods.map((b) => (
             <G key={b.id}>
@@ -434,7 +489,7 @@ export function GameBoard({ engine, level, attempt, tool, showHint, guides, paus
             ))}
 
           {bodies
-            .filter((b) => b.label === 'stone')
+            .filter((b) => b.label === 'stone' && engine.isObstacleVisible(b))
             .map((b) => (
               <Circle key={b.id} cx={b.position.x} cy={b.position.y} r={b.circleRadius ?? 20} fill={P.stone} stroke={P.ink} strokeWidth={3} />
             ))}
@@ -464,7 +519,9 @@ export function GameBoard({ engine, level, attempt, tool, showHint, guides, paus
             </G>
           </G>
 
-          {engine.particles.map((q, i) => (
+          {engine.particles.map((q, i) => q.shard ? (
+            <Path key={i} d={`M0 ${-q.r * 1.6} L${q.r * 1.1} ${q.r} L${-q.r * 1.2} ${q.r * 0.6} Z`} fill={q.color} opacity={1 - q.life / q.max} transform={`translate(${q.x} ${q.y}) rotate(${(i * 67 + q.life * 40) % 360})`} />
+          ) : (
             <Circle key={i} cx={q.x} cy={q.y} r={q.r * (1 - q.life / q.max * 0.5)} fill={q.color} opacity={1 - q.life / q.max} />
           ))}
           <Circle cx={-100} cy={-100} r={DROP_R} fill="none" />

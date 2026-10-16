@@ -110,16 +110,23 @@ function Btn({ label, icon, onPress, kind = 'primary', testID }: { label: string
   );
 }
 
-export function WinCard({ level, stars, hasNext, onNext, onReplay, onLevels }: { level: Level; stars: number; hasNext: boolean; onNext: () => void; onReplay: () => void; onLevels: () => void }) {
+export function WinCard({ masterclass, score, highScore, bestTime, level, stars, elapsed, hasNext, onNext, onReplay, onLevels }: { masterclass?: boolean; score?: number; highScore?: number; bestTime?: number; level: Level; stars: number; elapsed?: number; hasNext: boolean; onNext: () => void; onReplay: () => void; onLevels: () => void }) {
   return (
     <Card>
       <Text style={styles.kicker}>{level.name}</Text>
-      <Text style={styles.big}>It bloomed!</Text>
+      <Text style={styles.big}>{masterclass ? 'Masterclass complete' : 'It bloomed!'}</Text>
       <Text style={styles.brand}>Slice & Bloom</Text>
       <View style={{ marginVertical: 14 }}>
         <Stars count={stars} size={44} pop />
       </View>
-      <Text style={styles.sub}>{stars === 3 ? 'Perfect watering.' : stars === 2 ? 'Nicely done. Fewer moves earn a third star.' : 'Bloomed. Try fewer moves for more stars.'}</Text>
+      <Text style={styles.sub}>{level.hardcore
+        ? `${(elapsed ?? 0).toFixed(1)}s · ${stars === 3 ? 'Gold earned!' : `Gold needs ${level.hardcore.goldTime}s or less and at most ${level.par} ${level.par === 1 ? 'move' : 'moves'}.`}`
+        : stars === 3 ? 'Perfect watering.' : stars === 2 ? 'Nicely done. Fewer moves earn a third star.' : 'Bloomed. Try fewer moves for more stars.'}</Text>
+      {level.hardcore && score !== undefined && (
+        <Text style={[styles.sub, { marginTop: 6, fontFamily: F.bold, color: P.ink }]} testID="win-score">
+          Score {score}{highScore !== undefined ? ` · Best ${highScore}` : ''}{bestTime !== undefined ? ` · Best time ${bestTime.toFixed(1)}s` : ''}
+        </Text>
+      )}
       <View style={styles.row}>
         {hasNext ? <Btn label="Next" icon="arrow-forward" onPress={onNext} testID="next-level" /> : <Btn label="All grown" icon="grid" onPress={onLevels} testID="all-levels" />}
       </View>
@@ -148,28 +155,66 @@ export function LoseCard({ reason, onRetry, onHint, onLevels }: { reason: string
   );
 }
 
-export function LevelPicker({ levels, unlocked, stars, current, onPick, onClose }: { levels: Level[]; unlocked: number; stars: Record<string, number>; current: number; onPick: (i: number) => void; onClose: () => void }) {
+export function LevelPicker({ scores, bestTimes, levels, unlocked, stars, current, onPick, onClose, title = 'Garden beds', noun = 'Bed' }: { scores?: Record<string, number>; bestTimes?: Record<string, number>; levels: Level[]; unlocked: number; stars: Record<string, number>; current: number; onPick: (i: number) => void; onClose: () => void; title?: string; noun?: string }) {
   const { width, height, fontScale } = useWindowDimensions();
   const ins = useSafeInsets();
   const [measuredWidth, setMeasuredWidth] = useState(0);
   const short = height - ins.top - ins.bottom - 16 < 400;
   const estimatedWidth = Math.min(840, width - ins.left - ins.right - 16) - (short ? 32 : 44);
   const { gap, tileWidth } = levelGrid(measuredWidth || Math.max(0, estimatedWidth), fontScale);
-  const tileHeight = Math.max(short ? 112 : 124, Math.ceil(84 * fontScale + 30));
+  const hc = !!levels[0]?.hardcore;
+  const [records, setRecords] = useState(false);
+  const pages: { n: string; a: number; b: number }[] | null = hc
+    ? [{ n: 'Precision', a: 0, b: 14 }, { n: 'Pressure', a: 15, b: 29 }, { n: 'Gauntlet', a: 30, b: 44 }]
+    : levels.length > 45
+      ? [{ n: 'Campaign', a: 0, b: 44 }, { n: 'Infinity Cascade', a: 45, b: 59 }, { n: 'Infinity Cascade', a: 60, b: 74 }, { n: 'Infinity Cascade', a: 75, b: 89 }, { n: 'Infinity Cascade', a: 90, b: levels.length - 1 }]
+      : null;
+  const [chap, setChap] = useState(Math.max(0, pages ? pages.findIndex((p) => current >= p.a && current <= p.b) : 0));
+  const tileHeight = Math.max(short ? 112 : 124, Math.ceil(84 * fontScale + 30)) + (hc ? 20 : 0);
+  const pg = pages ? pages[chap] ?? pages[0] : null;
+  const range = pg ? levels.map((_, i) => i).filter((i) => i >= pg.a && i <= pg.b) : levels.map((_, i) => i);
   return (
-    <Card title="Garden beds" onClose={onClose} scrollID="level-list" expanded>
-      <View style={[styles.grid, { gap }]} onLayout={(e) => setMeasuredWidth(e.nativeEvent.layout.width)}>
-        {levels.map((l, i) => {
+    <Card title={title} onClose={onClose} scrollID="level-list" expanded>
+      {hc && (
+        <PressScale testID="records-toggle" selected={records} label={records ? 'Show level grid' : 'Show personal records, ranked by best score'} onPress={() => setRecords((r) => !r)} containerStyle={{ marginBottom: 10 }} style={[styles.chap, { flexDirection: 'row', gap: 6 }, records && { backgroundColor: P.marigold }]}>
+          <Ionicons name="trophy" size={18} color={P.ink} />
+          <Text style={styles.chapT}>{records ? 'Back to levels' : 'Personal records'}</Text>
+        </PressScale>
+      )}
+      {hc && records && (
+        <View testID="records-list" accessibilityLabel="Personal records on this device">
+          <Text style={styles.chapT}>Personal records (this device)</Text>
+          {levels.map((l, i) => ({ l, i, s: scores?.[String(i)] })).sort((a, b) => (b.s ?? -1) - (a.s ?? -1) || a.i - b.i).map(({ l, i, s }, r) => (
+            <Text key={l.id} style={styles.tileRec} accessibilityLabel={`${noun} ${l.id}, ${l.name}, best score ${s ?? 'none'}`}>
+              {s !== undefined ? `#${r + 1}` : '–'}  {noun} {l.id} {l.name}: {s ?? '—'} · {bestTimes?.[String(i)] !== undefined ? `${bestTimes[String(i)].toFixed(1)}s` : '—'} · {stars[i] ?? 0}/3 stars
+            </Text>
+          ))}
+        </View>
+      )}
+      {pages && !records && (
+        <View style={styles.chapRow}>
+          {pages.map(({ n, a, b }, c) => (
+            <PressScale key={c} testID={`chapter-${c}`} selected={chap === c} label={`${n}, levels ${a + 1} to ${b + 1}`} onPress={() => setChap(c)} containerStyle={{ flexGrow: 1, flexBasis: pages.length > 3 ? 84 : 100 }} style={[styles.chap, chap === c && { backgroundColor: P.coralDeep }]}>
+              <Text style={[styles.chapT, chap === c && { color: P.white }]} numberOfLines={1}>{n}</Text>
+              <Text style={[styles.chapS, chap === c && { color: P.white }]}>{a + 1}–{b + 1}</Text>
+            </PressScale>
+          ))}
+        </View>
+      )}
+      {!(hc && records) && <View style={[styles.grid, { gap }]} onLayout={(e) => setMeasuredWidth(e.nativeEvent.layout.width)}>
+        {range.map((i) => {
+          const l = levels[i];
           const locked = i > unlocked;
           return (
-            <PressScale key={l.id} containerStyle={{ width: tileWidth }} disabled={locked} label={locked ? `Bed ${l.id}, ${l.name}, locked` : `Bed ${l.id}, ${l.name}`} selected={i === current} onPress={() => onPick(i)} testID={`level-${l.id}`} style={[styles.tile, { height: tileHeight }, i === current && styles.tileCur, locked && { backgroundColor: P.paperDeep }]}>
+            <PressScale key={l.id} containerStyle={{ width: tileWidth }} disabled={locked} label={locked ? `${noun} ${l.id}, ${l.name}, locked` : `${noun} ${l.id}, ${l.name}`} selected={i === current} onPress={() => onPick(i)} testID={`level-${l.id}`} style={[styles.tile, { height: tileHeight }, i === current && styles.tileCur, locked && { backgroundColor: P.paperDeep }]}>
               {locked ? <Ionicons name="lock-closed" size={22} color={P.inkSoft} /> : <Text style={styles.tileNum}>{l.id}</Text>}
               <Text style={[styles.tileName, { minHeight: 30 * Math.max(1, fontScale) }]} numberOfLines={2}>{l.name}</Text>
               <Stars count={stars[i] ?? 0} size={14} />
+              {hc && <Text style={styles.tileRec}>{scores?.[String(i)] !== undefined ? scores[String(i)] : '—'} · {bestTimes?.[String(i)] !== undefined ? `${bestTimes[String(i)].toFixed(1)}s` : '—'}</Text>}
             </PressScale>
           );
         })}
-      </View>
+      </View>}
     </Card>
   );
 }
@@ -188,7 +233,7 @@ function Toggle({ on, onChange, label, sub, testID }: { on: boolean; onChange: (
   );
 }
 
-export function SettingsSheet({ haptics, guides, sound, onHaptics, onGuides, onSound, onReset, onClose }: { haptics: boolean; guides: boolean; sound: boolean; onHaptics: (v: boolean) => void; onSound: (v: boolean) => void; onGuides: (v: boolean) => void; onReset: () => void; onClose: () => void }) {
+export function SettingsSheet({ haptics, guides, sound, onHaptics, onGuides, onSound, onReset, onClose, resetLabel = 'Reset progress' }: { resetLabel?: string; haptics: boolean; guides: boolean; sound: boolean; onHaptics: (v: boolean) => void; onSound: (v: boolean) => void; onGuides: (v: boolean) => void; onReset: () => void; onClose: () => void }) {
   const [armed, setArmed] = React.useState(false);
   return (
     <Card title="Settings" onClose={onClose}>
@@ -198,7 +243,7 @@ export function SettingsSheet({ haptics, guides, sound, onHaptics, onGuides, onS
       <Toggle on={guides} onChange={onGuides} label="Cut guides" sub="Dashed outline on timber you can slice" testID="toggle-guides" />
       <View style={{ height: 8 }} />
       <Btn
-        label={armed ? 'Tap again to erase' : 'Reset progress'}
+        label={armed ? 'Tap again to erase' : resetLabel}
         icon="trash"
         kind="ghost"
         testID="reset-progress"
@@ -233,6 +278,11 @@ const styles = StyleSheet.create({
   starShadow: { textShadowColor: P.ink, textShadowRadius: 0, textShadowOffset: { width: 0, height: 2 } },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   tile: { width: '100%', backgroundColor: P.white, borderRadius: R.btn, borderWidth: 3, borderColor: P.ink, shadowColor: P.ink, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 1, shadowRadius: 0, alignItems: 'center', justifyContent: 'center', gap: 4, padding: 8 },
+  chapRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 },
+  chap: { minHeight: 48, alignItems: 'center', justifyContent: 'center', backgroundColor: P.white, borderWidth: 3, borderColor: P.ink, borderRadius: R.btn, paddingHorizontal: 8 },
+  chapT: { fontFamily: F.bold, fontSize: 14, color: P.ink },
+  chapS: { fontFamily: F.semi, fontSize: 11, color: P.inkSoft },
+  tileRec: { fontFamily: F.semi, fontSize: 11, color: P.inkSoft },
   tileCur: { backgroundColor: P.marigold },
   tileNum: { fontFamily: F.bold, fontSize: 30, color: P.ink },
   tileName: { width: '100%', fontFamily: F.semi, fontSize: 12, lineHeight: 15, color: P.ink, textAlign: 'center' },

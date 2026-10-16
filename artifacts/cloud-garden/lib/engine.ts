@@ -2,6 +2,8 @@ import Matter from 'matter-js';
 import { GROUND, H, Level, V } from './levels';
 import { createCloud, createPlant, createRope, createWood } from './objects';
 import { AdvancedMechanics } from './mechanics';
+import { HardcoreMechanics } from './hardcore';
+import { InfinityMechanics } from './infinity';
 
 const { Engine, Bodies, Body, Composite, Events, Query, Vertices } = Matter;
 
@@ -15,6 +17,7 @@ export type GameEvent =
   | { type: 'release' }
   | { type: 'portal' }
   | { type: 'switch' }
+  | { type: 'gravity' }
   | { type: 'win' }
   | { type: 'lose' };
 
@@ -27,6 +30,7 @@ export interface Particle {
   max: number;
   r: number;
   color: string;
+  shard?: boolean;
 }
 export interface Stroke {
   pts: V[];
@@ -89,6 +93,8 @@ export class GardenEngine {
   drop: Matter.Body;
   plant: Matter.Body;
   advanced: AdvancedMechanics;
+  hardcore: HardcoreMechanics;
+  infinity: InfinityMechanics;
   ropes: Matter.Constraint[] = [];
   sliceTrails: { a: V; b: V; life: number }[] = [];
   private blades: Matter.Body[] = [];
@@ -109,6 +115,13 @@ export class GardenEngine {
   stillTime = 0;
   onEvent?: (e: GameEvent) => void;
   private attached = false;
+  started = false;
+  elapsed = 0;
+  shakeIntensity = 0;
+  private slicePending = false;
+  private lastImpactTime = -1;
+  soilBodies: Matter.Body[] = [];
+  revealedBodies = new Set<number>();
 
   constructor(level: Level) {
     this.level = level;
@@ -120,19 +133,11 @@ export class GardenEngine {
       Bodies.rectangle(-20, 300, 40, 2400, { ...stat, label: 'wall' }),
       Bodies.rectangle(380, 300, 40, 2400, { ...stat, label: 'wall' }),
     ]);
-    level.soil.forEach((b) =>
-      Composite.add(world, Bodies.rectangle(b.x, b.y, b.w, b.h, { ...stat, angle: b.angle ?? 0, label: 'soil' })),
-    );
+    this.soilBodies = level.soil.map(b =>
+      Bodies.rectangle(b.x, b.y, b.w, b.h, { ...stat, angle: b.angle ?? 0, label: 'soil' }));
+    Composite.add(world, this.soilBodies);
     const woods = level.wood.map(createWood);
     Composite.add(world, woods);
-    for (const rope of level.ropes ?? []) {
-      const a = woods[rope.from];
-      const b = woods[rope.to];
-      if (!a || !b) throw new Error(`Invalid rope endpoints in level ${level.id}`);
-      const constraint = createRope(a, b, rope.pointA, rope.pointB);
-      this.ropes.push(constraint);
-      Composite.add(world, constraint);
-    }
     level.stones.forEach((s) =>
       Composite.add(world, Bodies.circle(s.x, s.y, s.r, { density: 0.004, friction: 0.3, label: 'stone' })),
     );
@@ -141,14 +146,41 @@ export class GardenEngine {
       this.thorns.push(body);
       Composite.add(world, body);
     });
-    this.drop = createCloud(level.drop, DROP_R);
+    this.drop = createCloud(level.drop, DROP_R * (level.hyperSensitiveScale ?? 1));
     this.plant = createPlant(level.flower);
     Composite.add(world, [this.drop, this.plant]);
     this.advanced = new AdvancedMechanics(world, level);
+    this.hardcore = new HardcoreMechanics(this.engine, level);
+    this.infinity = new InfinityMechanics(level);
+    for (const rope of level.ropes ?? []) {
+      const a = rope.fromWeight ? this.advanced.weights[rope.from] : woods[rope.from];
+      const b = rope.toWeight ? this.advanced.weights[rope.to] : woods[rope.to];
+      if (!a || !b) throw new Error(`Invalid rope endpoints in level ${level.id}`);
+      const constraint = createRope(a, b, rope.pointA, rope.pointB);
+      this.ropes.push(constraint);
+      Composite.add(world, constraint);
+    }
     this.thorns.push(...this.advanced.movers.map(({ body }) => body));
+    this.thorns.push(...this.hardcore.lasers);
   }
 
   private onCollide = (e: Matter.IEventCollision<Matter.Engine>) => {
+    if (this.level.invisibleObstacles) {
+      for (const { bodyA, bodyB } of e.pairs) {
+        if (bodyA === this.drop) this.revealedBodies.add(bodyB.id);
+        if (bodyB === this.drop) this.revealedBodies.add(bodyA.id);
+      }
+    }
+    // Lethal contacts take precedence over a simultaneous target contact.
+    if (this.level.hardcore && this.status === 'running') {
+      const fatal = e.pairs.find(p => (p.bodyA === this.drop && this.isHazard(p.bodyB))
+        || (p.bodyB === this.drop && this.isHazard(p.bodyA)));
+      if (fatal) {
+        const other = fatal.bodyA === this.drop ? fatal.bodyB : fatal.bodyA;
+        this.finish('lost', this.hazardReason(other));
+        return;
+      }
+    }
     for (const pair of e.pairs) {
       if (pair.bodyA === this.drop || pair.bodyB === this.drop) {
         const other = pair.bodyA === this.drop ? pair.bodyB : pair.bodyA;
@@ -156,12 +188,19 @@ export class GardenEngine {
           this.finish('won');
           continue;
         }
-        if ((other.label === 'thorn' || other.label === 'moving-hazard') && this.status === 'running') {
-          this.finish('lost', other.label === 'moving-hazard' ? 'The moving blade popped Cloud.' : 'Thorns popped Cloud.');
+        if (this.isHazard(other) && this.status === 'running') {
+          this.finish('lost', this.hazardReason(other));
           continue;
         }
         const power = this.drop.speed;
-        if (power > 4) this.onEvent?.({ type: 'impact', power });
+        if (power > 4 && this.time - this.lastImpactTime > 0.14) {
+          this.lastImpactTime = this.time;
+          if (this.level.hardcore && !other.isSensor) {
+            this.shakeIntensity = Math.min(7, power * 0.45);
+            this.shatter(this.drop.position, 7);
+          }
+          this.onEvent?.({ type: 'impact', power });
+        }
       }
     }
   };
@@ -178,17 +217,81 @@ export class GardenEngine {
     Composite.clear(this.engine.world, false);
     Engine.clear(this.engine);
     this.advanced.clear();
+    this.hardcore.clear();
+    this.infinity.clear();
     this.ropes = [];
     this.blades = [];
     this.pushed.clear();
     this.onEvent = undefined;
+    this.slicePending = false;
+    this.soilBodies = [];
+    this.revealedBodies.clear();
   }
 
   get inkLeft() {
-    return Math.max(0, this.level.ink - this.inkUsed);
+    return Math.max(0, this.inkMax - this.inkUsed);
+  }
+  get inkMax() {
+    return Math.min(this.level.ink, this.level.maxInkLength ?? Infinity,
+      this.level.strictInkLength === undefined ? Infinity : 400 * this.level.strictInkLength);
+  }
+  get score() {
+    if (!this.level.hardcore || this.status !== 'won') return 0;
+    return Math.max(100, Math.round(this.stars * 1000 + this.timeLeft * 100 + this.inkLeft * 3 - this.actions * 50));
   }
   get stars() {
-    return this.actions <= this.level.par ? 3 : this.actions <= this.level.par + 1 ? 2 : 1;
+    const moves = this.actions <= this.level.par ? 3 : this.actions <= this.level.par + 1 ? 2 : 1;
+    if (!this.level.hardcore) return moves;
+    const speed = this.elapsed <= this.level.hardcore.goldTime ? 3
+      : this.elapsed <= this.level.hardcore.timeLimit * 0.85 ? 2 : 1;
+    return Math.min(moves, speed);
+  }
+  get timeLeft() {
+    const limit = this.level.countdownTimer ?? this.level.hardcore?.timeLimit;
+    return limit === undefined ? Infinity : Math.max(0, limit - this.elapsed);
+  }
+  get gravityRemaining() { return this.hardcore.gravityRemaining; }
+  get gravityActivations() { return this.hardcore.gravityActivations; }
+  get lasers() { return this.hardcore.lasers; }
+
+  isObstacleVisible(body: Matter.Body) {
+    return !this.level.invisibleObstacles || this.revealedBodies.has(body.id);
+  }
+
+  revealAt(point: V) {
+    if (!this.level.invisibleObstacles || !Number.isFinite(point.x) || !Number.isFinite(point.y)) return 0;
+    const targets = this.bodies.filter(b =>
+      ['soil', 'cut', 'stone', 'weight', 'gate', 'rotating-barrier', 'crusher'].includes(b.label));
+    const touch = Bodies.circle(point.x, point.y, 14, { isSensor: true });
+    let revealed = 0;
+    for (const hit of Query.collides(touch, targets)) {
+      const body = hit.bodyA === touch ? hit.bodyB : hit.bodyA;
+      if (!this.revealedBodies.has(body.id)) { this.revealedBodies.add(body.id); revealed++; }
+    }
+    return revealed;
+  }
+
+  beginInput() {
+    if (this.status !== 'ready' && this.status !== 'running') return false;
+    if (this.level.hardcore && this.actions >= this.level.hardcore.maxStrokes) return false;
+    this.started = true;
+    return true;
+  }
+
+  private isHazard(body: Matter.Body) {
+    return ['thorn', 'moving-hazard', 'crusher'].includes(body.label)
+      || (body.label === 'laser' && body.collisionFilter.mask !== 0);
+  }
+  private hazardReason(body: Matter.Body) {
+    return body.label === 'laser' ? 'Laser hit. Try a cleaner route.'
+      : body.label === 'crusher' ? 'Crushed. Reach the center sooner.'
+      : body.label === 'moving-hazard' ? 'The moving blade popped Cloud.' : 'Thorns popped Cloud.';
+  }
+
+  private shatter(at: V, count: number) {
+    const start = this.particles.length;
+    this.burst(at.x, at.y, count, ['#FFFFFF', '#83DFFF', '#59DDB8'], 3.8);
+    for (let i = start; i < this.particles.length; i++) this.particles[i].shard = true;
   }
   get bodies() {
     return Composite.allBodies(this.engine.world);
@@ -213,6 +316,7 @@ export class GardenEngine {
 
   release() {
     if (this.status !== 'ready') return false;
+    this.started = true;
     Body.setStatic(this.drop, false);
     this.status = 'running';
     this.onEvent?.({ type: 'release' });
@@ -221,10 +325,12 @@ export class GardenEngine {
 
   addStroke(pts: V[]) {
     if (this.status !== 'ready' && this.status !== 'running') return false;
+    if (this.level.hardcore && this.actions >= this.level.hardcore.maxStrokes) return false;
     if (pts.length < 2) return false;
     let len = 0;
     for (let i = 1; i < pts.length; i++) len += dist(pts[i - 1], pts[i]);
-    if (len < 16 || this.inkUsed + len > this.level.ink + 0.5) return false;
+    if (!Number.isFinite(len) || len < 16 || this.inkUsed + len > this.inkMax + (this.level.hardcore ? 0 : 0.5)) return false;
+    this.started = true;
     const bodies: Matter.Body[] = [];
     for (let i = 1; i < pts.length; i++) {
       const a = pts[i - 1];
@@ -253,14 +359,20 @@ export class GardenEngine {
     const s = this.strokes.pop();
     if (!s) return false;
     Composite.remove(this.engine.world, s.bodies);
-    this.inkUsed = Math.max(0, this.inkUsed - s.len);
-    this.actions = Math.max(0, this.actions - 1);
+    if (!this.level.hardcore) {
+      this.inkUsed = Math.max(0, this.inkUsed - s.len);
+      this.actions = Math.max(0, this.actions - 1);
+    }
     return true;
   }
 
   slice(a: V, b: V) {
     if (this.status === 'won' || this.status === 'lost' || dist(a, b) < 6) return 0;
+    if (![a.x, a.y, b.x, b.y].every(Number.isFinite)) return 0;
+    if (this.level.hardcore && !this.slicePending && !this.beginInput()) return 0;
+    this.slicePending = true;
     let cuts = 0;
+    this.started = true;
     this.sliceTrails.push({ a: { ...a }, b: { ...b }, life: 0 });
     if (this.sliceTrails.length > 24) this.sliceTrails.shift();
     const length = dist(a, b);
@@ -278,6 +390,7 @@ export class GardenEngine {
         this.removeRope(rope);
         this.burst((ends.a.x + ends.b.x) / 2, (ends.a.y + ends.b.y) / 2, 12, ['#EBAE50', '#A8691F'], 2.5);
         this.onEvent?.({ type: 'rope' });
+        if (this.level.hardcore) this.shatter({ x: (ends.a.x + ends.b.x) / 2, y: (ends.a.y + ends.b.y) / 2 }, 14);
         cuts++;
       }
     }
@@ -326,6 +439,8 @@ export class GardenEngine {
   }
 
   endSlice() {
+    if (this.level.hardcore && this.slicePending) this.actions++;
+    this.slicePending = false;
     this.pushed.clear();
   }
 
@@ -338,6 +453,7 @@ export class GardenEngine {
     const nl = Math.hypot(nx, ny) || 1;
     const side = (p: V) => (b.x - a.x) * (p.y - a.y) - (b.y - a.y) * (p.x - a.x);
     const created: Matter.Body[] = [];
+    const wasVisible = this.isObstacleVisible(body);
     for (const verts of parts) {
       const c = Vertices.centre(verts);
       const piece = Bodies.fromVertices(c.x, c.y, [verts], {
@@ -355,6 +471,8 @@ export class GardenEngine {
       });
       Body.setAngularVelocity(piece, sg * 0.03);
       created.push(piece);
+      // Slicing touches and reveals the fragments even if the parent was hidden.
+      if (wasVisible || this.level.invisibleObstacles) this.revealedBodies.add(piece.id);
     }
     // A removed polygon must not leave invisible constraints attached to it.
     for (const rope of [...this.ropes]) {
@@ -367,7 +485,11 @@ export class GardenEngine {
 
   private finish(status: 'won' | 'lost', reason = '') {
     if (this.status === 'won' || this.status === 'lost') return;
+    // Score the in-flight gesture before UI saves a win; releasing the finger
+    // later must not change an already-earned rating.
+    if (this.level.hardcore && this.slicePending) this.endSlice();
     this.status = status;
+    this.hardcore.resetGravity();
     this.failReason = reason;
     if (status === 'won') {
       this.winFrom = { x: this.drop.position.x, y: this.drop.position.y };
@@ -376,22 +498,49 @@ export class GardenEngine {
       this.burst(f.x, f.y, 26, ['#FF7BA5', '#FFC233', '#3EA6FF', '#7FD9C4'], 4.5);
       this.onEvent?.({ type: 'win' });
     } else {
+      if (this.level.hardcore || reason.startsWith('Thermal')) {
+        this.shakeIntensity = 10;
+        this.shatter(this.drop.position, 30);
+        Body.setStatic(this.drop, true);
+      }
       this.onEvent?.({ type: 'lose' });
     }
   }
 
   step() {
     this.time += STEP / 1000;
+    this.shakeIntensity *= 0.84;
+    if (this.shakeIntensity < 0.05) this.shakeIntensity = 0;
+    if (this.level.hardcore && this.started && (this.status === 'ready' || this.status === 'running')) {
+      this.elapsed += STEP / 1000;
+      if (this.timeLeft <= 0) this.finish('lost', 'Time up. Retry and commit faster.');
+    }
     if (this.status === 'ready' || this.status === 'running') {
+      const melted = this.infinity.beforeStep(STEP / 1000, this.drop, this.bodies, this.started);
+      if (melted) {
+        this.finish('lost', `Thermal overload: ${melted === this.drop ? 'Cloud melted' : 'a dynamic block shattered'} after 2 seconds.`);
+        this.shatter(melted.position, 24);
+        return;
+      }
       if (this.status === 'running' && this.drop.speed > MAX_SPEED) {
         const k = MAX_SPEED / this.drop.speed;
         Body.setVelocity(this.drop, { x: this.drop.velocity.x * k, y: this.drop.velocity.y * k });
+      }
+      const intervalFlipped = this.hardcore.beforeStep(STEP / 1000, this.status === 'running');
+      if (intervalFlipped) {
+        this.burst(this.drop.position.x, this.drop.position.y, 12, ['#BD8CFF', '#FFFFFF'], 2);
+        this.onEvent?.({ type: 'gravity' });
       }
       this.advanced.beforeStep(this.time, STEP / 1000, this.drop, this.status === 'running');
       Engine.update(this.engine, STEP);
       for (const effect of this.advanced.afterStep(this.drop, this.status === 'running')) {
         this.burst(effect.at.x, effect.at.y, 14, effect.type === 'portal' ? ['#247BEB', '#5FE0C0'] : ['#FFD348', '#4FB36B'], 2.5);
         this.onEvent?.({ type: effect.type });
+      }
+      const flipped = this.hardcore.afterStep(this.drop, this.status === 'running');
+      if (flipped) {
+        this.burst(flipped.x, flipped.y, 12, ['#BD8CFF', '#FFFFFF'], 2);
+        this.onEvent?.({ type: 'gravity' });
       }
       if (this.blades.length) {
         Composite.remove(this.engine.world, this.blades);
@@ -405,9 +554,15 @@ export class GardenEngine {
       this.runTime += STEP / 1000;
       const p = this.drop.position;
       if (p.y > H + 80 || p.x < -40 || p.x > 400) this.finish('lost', 'Cloud slipped off the garden.');
-      else if (Query.collides(this.drop, this.thorns).length > 0) {
-        const hitBlade = Query.collides(this.drop, this.advanced.movers.map(({ body }) => body)).length > 0;
-        this.finish('lost', hitBlade ? 'The moving blade popped Cloud.' : 'Thorns popped Cloud.');
+      else if (Query.collides(this.drop, [
+        ...this.thorns.filter(b => this.isHazard(b)),
+        ...this.hardcore.crushers.flatMap(c => [c.left, c.right]),
+      ]).length > 0) {
+        const hit = Query.collides(this.drop, [
+          ...this.thorns.filter(b => this.isHazard(b)),
+          ...this.hardcore.crushers.flatMap(c => [c.left, c.right]),
+        ])[0];
+        this.finish('lost', this.hazardReason(hit.bodyA === this.drop ? hit.bodyB : hit.bodyA));
       }
       else {
         this.stillTime = this.drop.speed < 0.12 ? this.stillTime + STEP / 1000 : 0;

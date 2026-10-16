@@ -1,7 +1,7 @@
 kind = "mobile"
 previewPath = "/"
 title = "Slice & Bloom"
-description = "A one-touch physics drawing puzzle: draw ramps, slice wood and ropes, and guide Cloud to a thirsty flower. Includes forty-five levels with wind zones, moving hazards, paired portals, heavy-block switches, hints, bloom particles, sound effects and saved progress."
+description = "A one-touch Matter.js physics puzzle with 190 stages: a 100-level Campaign including Infinity Cascade 46–100, a separate 45-level Hardcore mode, and 45 Genesis Gauntlet Masterclass challenges. Infinity adds bounded directional magnetic fields, two-second thermal hazards for water and dynamic blocks, and sequential linked counterweight puzzles. Genesis adds countdowns, touch-revealed obstacles, tiny-drop physics and 5%/10% ink caps. Category pages, personal records, independent saved progress and instant retry keep all modes accessible."
 version = "1.0.0"
 id = "artifacts/cloud-garden"
 router = "expo-domain"

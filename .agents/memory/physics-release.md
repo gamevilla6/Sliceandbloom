@@ -26,3 +26,9 @@ Do not automatically memoize renderers that read the mutable Matter world.
 **Why:** Expo's React Compiler cached SVG output from stable body arrays even as their contents changed. The simulation won correctly while a heavy block remained drawn at its starting position; Replay also displayed the previous attempt's open gate and bloomed flower.
 
 **How to apply:** Keep imperative physics views out of automatic memoization, refresh them on simulation frames, and recreate attempt-specific presentation on retry. A passing headless physics test does not verify that the rendered body positions or replay state update.
+
+Thermal level design must account for every dynamic block, not only the droplet's intended route.
+
+**Why:** Mandatory cut timber could settle on a rotating arm inside a furnace and reset an otherwise solved route after two seconds. Different preparation delays exposed failures that a direct droplet-path check missed.
+
+**How to apply:** Keep unavoidable resting positions out of hot zones. Validate the whole scene with different waits before release and between actions; do not suppress block heating to make a level pass.

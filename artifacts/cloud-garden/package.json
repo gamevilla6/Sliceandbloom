@@ -9,7 +9,7 @@
     "serve": "node server/serve.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "pnpm run test:physics",
-    "test:physics": "tsc -p tests/tsconfig.json && node --test tests/physics.test.cjs",
+    "test:physics": "tsc -p tests/tsconfig.json && node --test tests/*.test.cjs",
     "validate": "pnpm run typecheck && pnpm test"
   },
   "devDependencies": {

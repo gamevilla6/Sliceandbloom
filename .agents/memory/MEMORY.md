@@ -1,3 +1,3 @@
 - [Physics release safety](physics-release.md) — create held droplets dynamically before freezing; check finite mass and hint solutions after physics changes.
 - [Visual direction](visual-direction.md) — the user chose Arcade Pop for Slice & Bloom.
-- [Campaign expansion](campaign-expansion.md) — append the advanced-mechanics brief to the existing campaign; preserve Arcade Pop and earned progress.
+- [Campaign expansion](campaign-expansion.md) — Campaign has 100 beds (Infinity 46–100); Genesis and Hardcore each retain 45 separate stages and records.

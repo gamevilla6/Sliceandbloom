@@ -1,7 +1,10 @@
 import { BONUS_LEVELS } from './bonusLevels';
 import { ADVANCED_LEVELS } from './advancedLevels';
 import { EXPANSION_LEVELS } from './expansionLevels';
+import { INFINITY_LEVELS } from './infinityLevels';
+import type { MagneticZone } from './infinity';
 import type { BlockSwitch, PortalPair, Slider, WindZone } from './mechanics';
+import type { CrushingWalls, GravityZone, HardcoreRules, Laser } from './hardcore';
 
 export interface V {
   x: number;
@@ -33,12 +36,37 @@ export interface Level {
   thorns: { x: number; y: number; w: number }[];
   stones: { x: number; y: number; r: number }[];
   hint: HintStep[];
-  ropes?: { from: number; to: number; pointA?: V; pointB?: V }[];
+  ropes?: { from: number; to: number; pointA?: V; pointB?: V; fromWeight?: boolean; toWeight?: boolean }[];
   winds?: WindZone[];
   movers?: Slider[];
   portals?: PortalPair[];
   switches?: BlockSwitch[];
   weights?: Block[];
+  hardcore?: HardcoreRules;
+  lasers?: Laser[];
+  gravityZones?: GravityZone[];
+  laserGrid?: boolean;
+  /** Seconds between temporary, global gravity reversals after release. */
+  gravityFlipInterval?: number;
+  /** Radians per second; individual barriers can override the default. */
+  rotatingBarrierSpeed?: number;
+  rotatingBarriers?: (Block & { speed?: number })[];
+  crushingWalls?: CrushingWalls[];
+  /** Absolute, lifetime drawing budget in world units. */
+  maxInkLength?: number;
+  /** Display percentage of the 400-unit full ink budget. */
+  inkLimitPercent?: number;
+  /** Genesis modifiers. The countdown includes preparation after the first touch. */
+  countdownTimer?: number;
+  invisibleObstacles?: boolean;
+  hyperSensitiveScale?: number;
+  /** Fraction of the 400-unit full drawing budget: .05 or .10. */
+  strictInkLength?: number;
+  magneticField?: V;
+  magneticZones?: MagneticZone[];
+  thermalZone?: boolean;
+  thermalZones?: Block[];
+  rubeGoldbergChain?: boolean;
 }
 
 export const W = 360;
@@ -363,4 +391,8 @@ export const LEVELS: Level[] = [
   ...BONUS_LEVELS,
   ...ADVANCED_LEVELS,
   ...EXPANSION_LEVELS,
+  ...INFINITY_LEVELS,
 ];
+
+/** Public configuration alias for tools consuming the expanded campaign. */
+export const levelsData = LEVELS;

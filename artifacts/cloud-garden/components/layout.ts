@@ -6,7 +6,10 @@ export const ASPECT = W / H;
 
 export function useSafeInsets() {
   const i = useSafeAreaInsets();
-  if (Platform.OS === 'web') return { top: 67, bottom: 34, left: i.left, right: i.right };
+  const { width, height } = useWindowDimensions();
+  // Portrait preview keeps its breathing room; landscape must not reserve
+  // fictitious portrait status/home bars and lose a third of its usable height.
+  if (Platform.OS === 'web' && width <= height) return { top: 67, bottom: 34, left: i.left, right: i.right };
   return { top: i.top, bottom: i.bottom, left: i.left, right: i.right };
 }
 
