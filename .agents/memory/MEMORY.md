@@ -1,1 +1,2 @@
 - [Physics release safety](physics-release.md) — create held droplets dynamically before freezing; check finite mass and hint solutions after physics changes.
+- [Visual direction](visual-direction.md) — the user chose Arcade Pop for Slice & Bloom.

@@ -264,6 +264,12 @@ export function GameBoard({ engine, level, attempt, tool, showHint, guides, paus
         </Defs>
         <Rect x={0} y={0} width={size.w} height={size.h} fill="url(#sky)" />
         <G transform={`translate(${ox} ${oy}) scale(${scale})`}>
+          {[0, 1, 2, 3, 4, 5].map((i) => (
+            <Rect key={`ray${i}`} x={-300 + i * 150} y={0} width={60} height={GROUND} fill={P.white} opacity={0.12} />
+          ))}
+          {[[40, 150], [250, 230], [90, 330], [330, 380]].map(([x, y], i) => (
+            <Path key={`sp${i}`} d={`M${x} ${y - 8} L${x + 2.5} ${y - 2.5} L${x + 8} ${y} L${x + 2.5} ${y + 2.5} L${x} ${y + 8} L${x - 2.5} ${y + 2.5} L${x - 8} ${y} L${x - 2.5} ${y - 2.5} Z`} fill={P.white} opacity={0.5 + 0.4 * Math.sin(t * 2 + i)} />
+          ))}
           <Circle cx={300} cy={80} r={34} fill={P.marigold} opacity={0.9} />
           <Circle cx={300} cy={80} r={46} fill={P.marigold} opacity={0.25} />
           {clouds.map((c, i) => (
@@ -276,6 +282,9 @@ export function GameBoard({ engine, level, attempt, tool, showHint, guides, paus
           <Path d={`M-300 ${GROUND} Q-60 480 120 540 T 420 520 T 700 ${GROUND} L700 900 L-300 900 Z`} fill={mix(P.leaf, P.skyBottom, 0.35)} />
           <Rect x={-300} y={GROUND} width={1000} height={400} fill={P.soil} />
           <Rect x={-300} y={GROUND} width={1000} height={9} fill={P.leaf} />
+          {Array.from({ length: 14 }).map((_, i) => (
+            <Rect key={`chk${i}`} x={-300 + i * 80} y={GROUND + 12} width={40} height={14} fill={P.soilDeep} opacity={0.25} />
+          ))}
           <Rect x={-300} y={GROUND + 9} width={1000} height={3} fill={P.ink} opacity={0.35} />
           {[20, 90, 170, 240, 320].map((x, i) => (
             <Ellipse key={i} cx={x} cy={GROUND + 24 + (i % 2) * 14} rx={7} ry={3} fill={P.soilDeep} opacity={0.5} />

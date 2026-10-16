@@ -9,7 +9,7 @@ import { GardenEngine } from '@/lib/engine';
 import { LEVELS } from '@/lib/levels';
 import { useSound } from '@/lib/audio';
 import { setHapticsEnabled } from '@/lib/haptics';
-import { F, P } from '@/constants/theme';
+import { F, P, R } from '@/constants/theme';
 
 type Sheet = 'none' | 'levels' | 'settings';
 
@@ -110,7 +110,7 @@ export default function GameScreen() {
       </PressScale>
       {!landscape && (
         <View style={styles.brandBox}>
-          {showBrand && <Text style={styles.brandText} numberOfLines={1}>Slice & Bloom</Text>}
+          {showBrand && <Text style={[styles.brandText, { color: P.white }]} numberOfLines={1}>Slice & Bloom</Text>}
           <Stars count={progress.stars[idx] ?? 0} size={14} />
         </View>
       )}
@@ -166,10 +166,10 @@ export default function GameScreen() {
         <View style={[styles.root, styles.rootRow, { paddingTop: insets.top + 6, paddingBottom: insets.bottom + 6, paddingLeft: insets.left + 12, paddingRight: insets.right + 12 }]} testID="layout-landscape">
           <View style={styles.landGroup}>
             <View style={{ width: panelW }} testID="region-panel">
-              <ScrollView contentContainerStyle={styles.panelContent} showsVerticalScrollIndicator={false}>
-                <Text style={styles.brandText} numberOfLines={1}>Slice & Bloom</Text>
+              <ScrollView contentContainerStyle={[styles.panelContent, compact && { gap: 4, paddingVertical: 0 }]} showsVerticalScrollIndicator={false}>
+                {!compact && <Text style={styles.brandText} numberOfLines={1}>Slice & Bloom</Text>}
                 {header}
-                <Stars count={progress.stars[idx] ?? 0} size={16} />
+                {!compact && <Stars count={progress.stars[idx] ?? 0} size={16} />}
                 {ink}
                 {captionEl}
                 {tools}
@@ -240,35 +240,36 @@ function MiniBtn({ icon, onPress, disabled, active, id, name }: { icon: keyof ty
   );
 }
 
+const lift = { shadowColor: P.ink, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 1, shadowRadius: 0, elevation: 3 } as const;
 const styles = StyleSheet.create({
   outer: { flex: 1, backgroundColor: P.paper },
   root: { flex: 1, backgroundColor: P.paper },
   rootRow: { alignItems: 'stretch', justifyContent: 'center' },
   column: { flex: 1, width: '100%', maxWidth: 560, alignSelf: 'center', minHeight: 0 },
   landGroup: { flex: 1, flexDirection: 'row', maxWidth: 1000, alignSelf: 'center', width: '100%', gap: 14, minHeight: 0 },
-  panelContent: { flexGrow: 1, justifyContent: 'center', gap: 10, paddingVertical: 4 },
+  panelContent: { flexGrow: 1, justifyContent: 'center', gap: 10, paddingVertical: 6 },
   stageArea: { flex: 1, minHeight: 0, minWidth: 0, alignItems: 'center', justifyContent: 'center' },
   topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
   pillSlot: { flexShrink: 1, flexGrow: 1, minWidth: 0 },
-  levelPill: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: P.white, borderWidth: 3, borderColor: P.ink, borderRadius: 22, minHeight: 48, paddingVertical: 4, paddingHorizontal: 10 },
-  brandBox: { alignItems: 'center', gap: 2, flexShrink: 0 },
-  brandText: { fontFamily: F.bold, fontSize: 15, color: P.ink },
-  pillSmall: { fontFamily: F.medium, fontSize: 11, color: P.inkSoft, textTransform: 'uppercase', letterSpacing: 1 },
+  levelPill: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: P.marigold, borderWidth: 3, borderColor: P.ink, borderRadius: R.btn, minHeight: 48, paddingVertical: 4, paddingHorizontal: 10, ...lift },
+  brandBox: { alignItems: 'center', gap: 2, flexShrink: 0, backgroundColor: P.drop, borderWidth: 3, borderColor: P.ink, borderRadius: R.btn, paddingHorizontal: 10, paddingVertical: 3, ...lift },
+  brandText: { fontFamily: F.bold, fontSize: 15, color: P.ink, letterSpacing: 0.3 },
+  pillSmall: { fontFamily: F.semi, fontSize: 10.5, color: P.ink, textTransform: 'uppercase', letterSpacing: 1 },
   pillName: { fontFamily: F.bold, fontSize: 17, color: P.ink },
-  roundBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: P.white, borderWidth: 3, borderColor: P.ink, alignItems: 'center', justifyContent: 'center' },
-  inkRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8, marginBottom: 8, paddingHorizontal: 4 },
-  inkTrack: { flex: 1, height: 14, borderRadius: 7, backgroundColor: P.white, borderWidth: 2.5, borderColor: P.ink, overflow: 'hidden' },
+  roundBtn: { width: 44, height: 44, borderRadius: R.btn, backgroundColor: P.white, borderWidth: 3, borderColor: P.ink, alignItems: 'center', justifyContent: 'center', ...lift },
+  inkRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 10, marginBottom: 8, paddingHorizontal: 8, paddingVertical: 4, backgroundColor: P.white, borderRadius: R.btn, borderWidth: 3, borderColor: P.ink },
+  inkTrack: { flex: 1, height: 16, borderRadius: 8, backgroundColor: P.paperDeep, borderWidth: 2.5, borderColor: P.ink, overflow: 'hidden' },
   inkFill: { height: '100%', borderRadius: 5 },
-  inkText: { fontFamily: F.semi, fontSize: 13, color: P.ink, minWidth: 58, textAlign: 'right' },
-  boardFrame: { borderRadius: 28, borderWidth: 4, borderColor: P.ink, overflow: 'hidden', backgroundColor: P.skyTop },
-  caption: { backgroundColor: P.white, borderRadius: 18, borderWidth: 2.5, borderColor: P.ink, paddingVertical: 6, paddingHorizontal: 12, marginTop: 8, justifyContent: 'center' },
-  captionText: { fontFamily: F.medium, fontSize: 14, color: P.ink, textAlign: 'center' },
+  inkText: { fontFamily: F.bold, fontSize: 13, color: P.ink, minWidth: 58, textAlign: 'right' },
+  boardFrame: { borderRadius: R.frame, borderWidth: 4, borderColor: P.ink, overflow: 'hidden', backgroundColor: P.skyTop, ...lift, shadowOffset: { width: 0, height: 5 } },
+  caption: { backgroundColor: P.drop, borderRadius: R.btn, borderWidth: 3, borderColor: P.ink, paddingVertical: 6, paddingHorizontal: 12, marginTop: 10, justifyContent: 'center' },
+  captionText: { fontFamily: F.semi, fontSize: 14, color: P.white, textAlign: 'center' },
   toolbar: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', marginTop: 10, columnGap: 8, rowGap: 8 },
   toolGroup: { flexDirection: 'row', gap: 6, alignItems: 'center' },
-  toolBtn: { alignItems: 'center', justifyContent: 'center', borderRadius: 18, backgroundColor: P.white, borderWidth: 3, borderColor: P.ink },
-  toolBtnOn: { backgroundColor: P.dropDeep },
-  toolLabel: { fontFamily: F.semi, fontSize: 10, color: P.ink },
+  toolBtn: { alignItems: 'center', justifyContent: 'center', borderRadius: R.btn, backgroundColor: P.white, borderWidth: 3, borderColor: P.ink, ...lift },
+  toolBtnOn: { backgroundColor: P.drop },
+  toolLabel: { fontFamily: F.bold, fontSize: 10, color: P.ink },
   releaseSlot: { flexGrow: 1, flexBasis: 96, minWidth: 96 },
-  release: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: P.coral, borderWidth: 3, borderColor: P.ink, borderRadius: 28, paddingHorizontal: 14 },
-  releaseText: { fontFamily: F.bold, fontSize: 18, color: P.white },
+  release: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: P.coral, borderWidth: 3, borderColor: P.ink, borderRadius: R.btn, paddingHorizontal: 14, ...lift, shadowOffset: { width: 0, height: 5 } },
+  releaseText: { fontFamily: F.bold, fontSize: 19, color: P.white, textTransform: 'uppercase', letterSpacing: 1 },
 });

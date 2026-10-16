@@ -1,15 +1,15 @@
 export const P = {
-  paper: '#FFF3DC',
-  paperDeep: '#FBE0B0',
-  ink: '#17343B',
-  inkSoft: '#4C6A70',
-  coral: '#FF5D4D',
-  coralDeep: '#C9362A',
-  marigold: '#FFC233',
-  skyTop: '#9ED8F0',
-  skyBottom: '#FFF3DC',
-  drop: '#3EA6FF',
-  dropDeep: '#1F6FD1',
+  paper: '#FFF5D6',
+  paperDeep: '#FFE79A',
+  ink: '#14275C',
+  inkSoft: '#4A5A8C',
+  coral: '#FF665A',
+  coralDeep: '#D63E33',
+  marigold: '#FFD348',
+  skyTop: '#7CC4FF',
+  skyBottom: '#FFF5D6',
+  drop: '#247BEB',
+  dropDeep: '#1558B8',
   leaf: '#4FB36B',
   leafDeep: '#2E8049',
   soil: '#C8754A',
@@ -19,11 +19,13 @@ export const P = {
   stone: '#7F90A3',
   stoneDeep: '#4D5C6D',
   thorn: '#D6384A',
-  mint: '#7FD9C4',
+  mint: '#5FE0C0',
   petal: '#FF7BA5',
   wilt: '#A39274',
-  white: '#FFFBF2',
+  white: '#FFFDF5',
 };
+
+export const R = { btn: 14, card: 22, frame: 20 };
 
 export const F = {
   regular: 'Fredoka_400Regular',

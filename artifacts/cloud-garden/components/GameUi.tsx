@@ -1,7 +1,7 @@
 import React, { ReactNode, useEffect, useRef } from 'react';
 import { Animated, Pressable, ScrollView, StyleProp, StyleSheet, Text, View, ViewStyle, useWindowDimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { F, P } from '@/constants/theme';
+import { F, P, R } from '@/constants/theme';
 import { useSafeInsets } from '@/components/layout';
 import { Level } from '@/lib/levels';
 import { haptic } from '@/lib/haptics';
@@ -44,7 +44,7 @@ export function PressScale({
         onPress();
       }}
     >
-      <Animated.View style={[style, { transform: [{ scale: s }], opacity: disabled ? 0.35 : 1 }]}>{children}</Animated.View>
+      <Animated.View style={[style, { transform: [{ scale: s }], opacity: disabled ? 0.55 : 1 }]}>{children}</Animated.View>
     </Pressable>
   );
 }
@@ -62,7 +62,7 @@ export function Stars({ count, size = 30, pop = false }: { count: number; size?:
     <View style={{ flexDirection: 'row', gap: 4 }}>
       {vals.map((v, i) => (
         <Animated.View key={i} style={{ transform: [{ scale: v }, { rotate: i === 1 ? '0deg' : i === 0 ? '-10deg' : '10deg' }] }}>
-          <Ionicons name="star" size={size} color={i < count ? P.marigold : P.paperDeep} style={styles.starShadow} />
+          <Ionicons name={i < count ? 'star' : 'star-outline'} size={size} color={i < count ? P.marigold : P.inkSoft} style={styles.starShadow} />
         </Animated.View>
       ))}
     </View>
@@ -85,7 +85,7 @@ function Card({ children, onClose, title, scrollID }: { children: ReactNode; onC
             <Text style={styles.cardTitle} numberOfLines={1}>{title}</Text>
             {onClose && (
               <PressScale onPress={onClose} testID="close-sheet" label="Close" style={styles.closeBtn}>
-                <Ionicons name="close" size={22} color={P.ink} />
+                <Ionicons name="close" size={22} color={P.white} />
               </PressScale>
             )}
           </View>
@@ -178,7 +178,7 @@ function Toggle({ on, onChange, label, sub, testID }: { on: boolean; onChange: (
         <Text style={styles.toggleLabel}>{label}</Text>
         <Text style={styles.toggleSub}>{sub}</Text>
       </View>
-      <View style={[styles.track, on && { backgroundColor: P.leaf }]}>
+      <View style={[styles.track, on && { backgroundColor: P.drop }]}>
         <View style={[styles.knob, on && { transform: [{ translateX: 20 }] }]} />
       </View>
     </PressScale>
@@ -211,28 +211,28 @@ export function SettingsSheet({ haptics, guides, sound, onHaptics, onGuides, onS
 }
 
 const styles = StyleSheet.create({
-  scrim: { ...StyleSheet.absoluteFill, backgroundColor: 'rgba(23,52,59,0.55)', alignItems: 'center', justifyContent: 'center', zIndex: 50 },
-  card: { width: '100%', maxWidth: 420, backgroundColor: P.paper, borderRadius: 30, borderWidth: 3, borderColor: P.ink, padding: 18, alignItems: 'stretch', flexShrink: 1, shadowColor: P.ink, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.35, shadowRadius: 0 },
+  scrim: { ...StyleSheet.absoluteFill, backgroundColor: 'rgba(20,39,92,0.6)', alignItems: 'center', justifyContent: 'center', zIndex: 50 },
+  card: { width: '100%', maxWidth: 420, backgroundColor: P.paper, borderRadius: R.card, borderWidth: 4, borderColor: P.ink, borderTopColor: P.ink, padding: 18, alignItems: 'stretch', flexShrink: 1, shadowColor: P.ink, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 1, shadowRadius: 0 },
   cardHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 },
-  cardTitle: { flex: 1, fontFamily: F.bold, fontSize: 26, color: P.ink },
+  cardTitle: { flex: 1, fontFamily: F.bold, fontSize: 28, textTransform: 'uppercase', color: P.ink },
   body: { flexGrow: 0, flexShrink: 1 },
-  closeBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: P.paperDeep, borderWidth: 2, borderColor: P.ink, alignItems: 'center', justifyContent: 'center' },
+  closeBtn: { width: 44, height: 44, borderRadius: R.btn, backgroundColor: P.coral, borderWidth: 3, borderColor: P.ink, alignItems: 'center', justifyContent: 'center' },
   brand: { fontFamily: F.semi, fontSize: 12, color: P.inkSoft, textAlign: 'center', textTransform: 'uppercase', letterSpacing: 2, marginBottom: 4 },
-  kicker: { fontFamily: F.semi, fontSize: 14, color: P.coral, textAlign: 'center', textTransform: 'uppercase', letterSpacing: 1.5 },
-  big: { fontFamily: F.bold, fontSize: 34, color: P.ink, textAlign: 'center' },
+  kicker: { fontFamily: F.bold, fontSize: 14, color: P.coralDeep, textAlign: 'center', textTransform: 'uppercase', letterSpacing: 1.5 },
+  big: { fontFamily: F.bold, fontSize: 38, color: P.drop, textShadowColor: P.marigold, textShadowOffset: { width: 0, height: 3 }, textShadowRadius: 0, textAlign: 'center' },
   sub: { fontFamily: F.medium, fontSize: 15, color: P.inkSoft, textAlign: 'center' },
   row: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 12 },
   btnSlot: { flexGrow: 1, flexBasis: 120, minWidth: 0 },
-  btn: { minHeight: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 14, paddingHorizontal: 16, borderRadius: 22, borderWidth: 3, borderColor: P.ink, },
-  btnPrimary: { backgroundColor: P.coral },
-  btnGhost: { backgroundColor: P.white },
+  btn: { minHeight: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 14, paddingHorizontal: 16, borderRadius: R.btn, borderWidth: 3, borderColor: P.ink, shadowColor: P.ink, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 1, shadowRadius: 0 },
+  btnPrimary: { backgroundColor: P.drop },
+  btnGhost: { backgroundColor: P.marigold },
   btnText: { fontFamily: F.bold, fontSize: 17 },
   starShadow: { textShadowColor: P.ink, textShadowRadius: 0, textShadowOffset: { width: 0, height: 2 } },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  tile: { width: '100%', aspectRatio: 0.9, backgroundColor: P.white, borderRadius: 20, borderWidth: 3, borderColor: P.ink, alignItems: 'center', justifyContent: 'center', gap: 4, padding: 6 },
-  tileCur: { backgroundColor: P.mint },
+  tile: { width: '100%', aspectRatio: 0.9, backgroundColor: P.white, borderRadius: R.btn, borderWidth: 3, borderColor: P.ink, shadowColor: P.ink, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 1, shadowRadius: 0, alignItems: 'center', justifyContent: 'center', gap: 4, padding: 6 },
+  tileCur: { backgroundColor: P.marigold },
   tileNum: { fontFamily: F.bold, fontSize: 30, color: P.ink },
-  tileName: { fontFamily: F.medium, fontSize: 12, color: P.inkSoft, textAlign: 'center' },
+  tileName: { fontFamily: F.semi, fontSize: 12, color: P.ink, textAlign: 'center' },
   toggleRow: { flexDirection: 'row', alignItems: 'center', minHeight: 48, paddingVertical: 10, gap: 12 },
   toggleLabel: { fontFamily: F.semi, fontSize: 18, color: P.ink },
   toggleSub: { fontFamily: F.regular, fontSize: 13, color: P.inkSoft },
