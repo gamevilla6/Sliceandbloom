@@ -1,5 +1,5 @@
-import React, { MutableRefObject, useEffect, useMemo, useRef, useState } from 'react';
-import { LayoutChangeEvent, PanResponder, StyleSheet, View } from 'react-native';
+import React, { MutableRefObject, useEffect, useRef, useState } from 'react';
+import { LayoutChangeEvent, PanResponder, Platform, StyleSheet, View } from 'react-native';
 import Svg, { Circle, Defs, Ellipse, G, LinearGradient, Path, Polyline, Rect, Stop } from 'react-native-svg';
 import { GardenEngine, DROP_R, Status } from '@/lib/engine';
 import { GROUND, H, Level, V, W } from '@/lib/levels';
@@ -21,6 +21,7 @@ export interface Hud {
 }
 
 interface Props {
+  engine: GardenEngine;
   level: Level;
   attempt: number;
   tool: Tool;
@@ -37,10 +38,9 @@ const dist = (a: V, b: V) => Math.hypot(a.x - b.x, a.y - b.y);
 const pts2 = (p: V[]) => p.map((q) => `${q.x.toFixed(1)},${q.y.toFixed(1)}`).join(' ');
 const DROP_PATH = 'M0 -17 C5 -9 11 -3 11 3 A11 11 0 0 1 -11 3 C-11 -3 -5 -9 0 -17 Z';
 
-export function GameBoard({ level, attempt, tool, showHint, guides, paused, playSound, engineRef, onHud }: Props) {
+export function GameBoard({ engine, level, attempt, tool, showHint, guides, paused, playSound, engineRef, onHud }: Props) {
   const [size, setSize] = useState({ w: 0, h: 0 });
   const [, setTick] = useState(0);
-  const engine = useMemo(() => new GardenEngine(level), [level, attempt]);
   engineRef.current = engine;
   const toolRef = useRef(tool);
   toolRef.current = tool;
@@ -176,7 +176,11 @@ export function GameBoard({ level, attempt, tool, showHint, guides, paused, play
     emit();
     return () => {
       engine.onEvent = undefined;
-      engine.dispose();
+      // Rotation can move the board to another layout branch. Keep its world,
+      // but finish accounting for any slice interrupted by that remount.
+      if (swipeCuts.current > 0) engine.actions++;
+      swipeCuts.current = 0;
+      engine.endSlice();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [engine]);
@@ -452,5 +456,9 @@ export function GameBoard({ level, attempt, tool, showHint, guides, paused, play
 }
 
 const styles = StyleSheet.create({
-  wrap: { flex: 1, overflow: 'hidden' },
+  wrap: {
+    flex: 1,
+    overflow: 'hidden',
+    ...(Platform.OS === 'web' ? ({ touchAction: 'none', userSelect: 'none', cursor: 'crosshair' } as object) : {}),
+  },
 });

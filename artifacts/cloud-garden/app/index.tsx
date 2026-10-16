@@ -1,9 +1,9 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Platform, StyleSheet, Text, View } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { GameBoard, Hud, Tool } from '@/components/GameBoard';
 import { LevelPicker, LoseCard, PressScale, SettingsSheet, Stars, WinCard } from '@/components/GameUi';
+import { fitStage, useLayoutMode } from '@/components/layout';
 import { useProgress } from '@/hooks/useProgress';
 import { GardenEngine } from '@/lib/engine';
 import { LEVELS } from '@/lib/levels';
@@ -14,9 +14,6 @@ import { F, P } from '@/constants/theme';
 type Sheet = 'none' | 'levels' | 'settings';
 
 export default function GameScreen() {
-  const insets = useSafeAreaInsets();
-  const top = Platform.OS === 'web' ? 67 : insets.top;
-  const bottom = Platform.OS === 'web' ? 34 : insets.bottom;
   const { progress, ready, complete, setLast, setSetting, resetAll } = useProgress(LEVELS.length);
 
   const [idx, setIdx] = useState(0);
@@ -32,6 +29,9 @@ export default function GameScreen() {
 
   const playSound = useSound(progress.settings.sound);
   const level = LEVELS[idx];
+  // The world belongs to the screen, not the responsive board's mount point.
+  const gameEngine = useMemo(() => new GardenEngine(level), [level, attempt]);
+  useEffect(() => () => gameEngine.dispose(), [gameEngine]);
   const tag = `${level.id}:${attempt}`;
   const live = hud && hud.tag === tag ? hud : null;
   const status = live?.status ?? 'ready';
@@ -90,60 +90,105 @@ export default function GameScreen() {
 
   const inkPct = inkMax > 0 ? inkLeft / inkMax : 0;
   const caption = hint ? level.hintText : status === 'ready' ? level.lesson : '';
+  const { landscape, compact, panelW, availW, insets } = useLayoutMode();
+  const tightTools = !landscape && availW < 380;
+  const [area, setArea] = useState({ w: 0, h: 0 });
+  const stage = fitStage(area.w, area.h);
+  const unit = compact ? 48 : 56;
+  const showBrand = !landscape && availW >= 360;
 
   if (!ready) return <View style={[styles.root, { backgroundColor: P.skyTop }]} />;
 
-  return (
-    <View style={[styles.root, { paddingTop: top + 6, paddingBottom: bottom + 8 }]}>
-      <View style={styles.topBar}>
-        <PressScale onPress={() => setSheet('levels')} testID="open-levels" style={styles.levelPill}>
-          <Ionicons name="grid" size={18} color={P.ink} />
-          <View style={{ flexShrink: 1 }}>
-            <Text style={styles.pillSmall}>Bed {level.id} of {LEVELS.length}</Text>
-            <Text style={styles.pillName} numberOfLines={1}>{level.name}</Text>
-          </View>
-        </PressScale>
+  const header = (
+    <View style={styles.topBar} testID="region-header">
+      <PressScale onPress={() => setSheet('levels')} testID="open-levels" label={`Garden beds. Bed ${level.id} of ${LEVELS.length}, ${level.name}`} containerStyle={styles.pillSlot} style={styles.levelPill}>
+        <Ionicons name="grid" size={18} color={P.ink} />
+        <View style={{ flexShrink: 1, minWidth: 0 }}>
+          <Text style={styles.pillSmall} numberOfLines={1}>Bed {level.id} of {LEVELS.length}</Text>
+          <Text style={styles.pillName} numberOfLines={1}>{level.name}</Text>
+        </View>
+      </PressScale>
+      {!landscape && (
         <View style={styles.brandBox}>
-          <Text style={styles.brandText} numberOfLines={1}>Slice & Bloom</Text>
+          {showBrand && <Text style={styles.brandText} numberOfLines={1}>Slice & Bloom</Text>}
           <Stars count={progress.stars[idx] ?? 0} size={14} />
         </View>
-        <PressScale onPress={() => setSheet('settings')} testID="open-settings" style={styles.roundBtn}>
-          <Ionicons name="settings-sharp" size={20} color={P.ink} />
-        </PressScale>
+      )}
+      <PressScale onPress={() => setSheet('settings')} testID="open-settings" label="Settings" style={styles.roundBtn}>
+        <Ionicons name="settings-sharp" size={20} color={P.ink} />
+      </PressScale>
+    </View>
+  );
+  const ink = (
+    <View style={styles.inkRow} testID="region-ink">
+      <Ionicons name="water" size={16} color={P.ink} />
+      <View style={styles.inkTrack}>
+        <View style={[styles.inkFill, { width: `${Math.max(0, Math.min(1, inkPct)) * 100}%`, backgroundColor: inkPct < 0.2 ? P.coral : P.mint }]} />
       </View>
-
-      <View style={styles.inkRow}>
-        <Ionicons name="water" size={16} color={P.ink} />
-        <View style={styles.inkTrack}>
-          <View style={[styles.inkFill, { width: `${Math.max(0, Math.min(1, inkPct)) * 100}%`, backgroundColor: inkPct < 0.2 ? P.coral : P.mint }]} />
+      <Text style={styles.inkText}>{inkMax > 0 ? `${Math.round(inkLeft)} ink` : 'no ink'}</Text>
+    </View>
+  );
+  const captionEl = (!!caption || !landscape) && (
+    <View style={[styles.caption, !caption && { opacity: 0 }, !landscape && { minHeight: compact ? 44 : 52 }]} testID="region-caption" accessibilityLiveRegion="polite">
+      <Text style={[styles.captionText, compact && { fontSize: 12.5 }]}>{caption || ' '}</Text>
+    </View>
+  );
+  const tools = (
+    <View style={[styles.toolbar, landscape && { justifyContent: 'center' }]} testID="region-tools">
+      <View style={[styles.toolGroup, tightTools && { gap: 4 }]}>
+        <ToolBtn size={tightTools ? 44 : unit} icon="brush" label="Draw" active={tool === 'draw'} disabled={!canDraw} onPress={() => setTool('draw')} id="tool-draw" />
+        <ToolBtn size={tightTools ? 44 : unit} icon="cut" label="Slice" active={tool === 'slice'} disabled={!canSlice} onPress={() => setTool('slice')} id="tool-slice" />
+      </View>
+      <View style={[styles.toolGroup, tightTools && { gap: 4 }]}>
+        <MiniBtn name="Undo" icon="arrow-undo" disabled={!live || live.strokes === 0 || (status !== 'ready' && status !== 'running')} onPress={undo} id="undo" />
+        <MiniBtn name="Reset level" icon="refresh" onPress={reset} id="reset" />
+        <MiniBtn name={hint ? 'Hide hint' : 'Show hint'} icon="bulb" active={hint} onPress={() => setHint((h) => !h)} id="hint" />
+      </View>
+      <PressScale onPress={release} disabled={status !== 'ready'} testID="release" label="Drop water" containerStyle={[styles.releaseSlot, tightTools && { flexGrow: 0, flexBasis: 44, minWidth: 44 }]} style={[styles.release, { height: tightTools ? 44 : unit }, tightTools && { paddingHorizontal: 0 }]}>
+        <Ionicons name="water" size={24} color={P.white} />
+        {!tightTools && <Text style={styles.releaseText}>Drop</Text>}
+      </PressScale>
+    </View>
+  );
+  const frame = (
+    <View style={styles.stageArea} onLayout={(e) => setArea({ w: e.nativeEvent.layout.width, h: e.nativeEvent.layout.height })} testID="region-stage">
+      {stage.w > 20 && stage.h > 20 && (
+        <View style={[styles.boardFrame, { width: stage.w, height: stage.h }]}>
+          <GameBoard engine={gameEngine} level={level} attempt={attempt} tool={tool} showHint={hint} guides={progress.settings.guides} paused={sheet !== 'none'} playSound={playSound} engineRef={engineRef} onHud={onHud} />
         </View>
-        <Text style={styles.inkText}>{inkMax > 0 ? `${Math.round(inkLeft)} ink` : 'no ink'}</Text>
-      </View>
+      )}
+    </View>
+  );
 
-      <View style={styles.boardFrame}>
-        <GameBoard level={level} attempt={attempt} tool={tool} showHint={hint} guides={progress.settings.guides} paused={sheet !== 'none'} playSound={playSound} engineRef={engineRef} onHud={onHud} />
-        {!!caption && (
-          <View style={styles.caption} pointerEvents="none">
-            <Text style={styles.captionText}>{caption}</Text>
+  return (
+    <View style={styles.outer}>
+      {landscape ? (
+        <View style={[styles.root, styles.rootRow, { paddingTop: insets.top + 6, paddingBottom: insets.bottom + 6, paddingLeft: insets.left + 12, paddingRight: insets.right + 12 }]} testID="layout-landscape">
+          <View style={styles.landGroup}>
+            <View style={{ width: panelW }} testID="region-panel">
+              <ScrollView contentContainerStyle={styles.panelContent} showsVerticalScrollIndicator={false}>
+                <Text style={styles.brandText} numberOfLines={1}>Slice & Bloom</Text>
+                {header}
+                <Stars count={progress.stars[idx] ?? 0} size={16} />
+                {ink}
+                {captionEl}
+                {tools}
+              </ScrollView>
+            </View>
+            {frame}
           </View>
-        )}
-      </View>
-
-      <View style={styles.toolbar}>
-        <View style={styles.toolGroup}>
-          <ToolBtn icon="brush" label="Draw" active={tool === 'draw'} disabled={!canDraw} onPress={() => setTool('draw')} id="tool-draw" />
-          <ToolBtn icon="cut" label="Slice" active={tool === 'slice'} disabled={!canSlice} onPress={() => setTool('slice')} id="tool-slice" />
         </View>
-        <View style={styles.toolGroup}>
-          <MiniBtn icon="arrow-undo" disabled={!live || live.strokes === 0 || status !== 'ready' && status !== 'running'} onPress={undo} id="undo" />
-          <MiniBtn icon="refresh" onPress={reset} id="reset" />
-          <MiniBtn icon="bulb" active={hint} onPress={() => setHint((h) => !h)} id="hint" />
+      ) : (
+        <View style={[styles.root, { paddingTop: insets.top + 6, paddingBottom: insets.bottom + 8, paddingLeft: insets.left + 12, paddingRight: insets.right + 12 }]} testID="layout-portrait">
+          <View style={styles.column}>
+            {header}
+            {ink}
+            {frame}
+            {captionEl}
+            {tools}
+          </View>
         </View>
-        <PressScale onPress={release} disabled={status !== 'ready'} testID="release" style={styles.release}>
-          <Ionicons name="water" size={26} color={P.white} />
-          <Text style={styles.releaseText}>Drop</Text>
-        </PressScale>
-      </View>
+      )}
 
       {sheet === 'levels' && <LevelPicker levels={LEVELS} unlocked={progress.unlocked} stars={progress.stars} current={idx} onPick={load} onClose={() => setSheet('none')} />}
       {sheet === 'settings' && (
@@ -179,43 +224,51 @@ export default function GameScreen() {
   );
 }
 
-function ToolBtn({ icon, label, active, disabled, onPress, id }: { icon: keyof typeof Ionicons.glyphMap; label: string; active: boolean; disabled?: boolean; onPress: () => void; id: string }) {
+function ToolBtn({ icon, label, active, disabled, onPress, id, size }: { icon: keyof typeof Ionicons.glyphMap; label: string; active: boolean; disabled?: boolean; onPress: () => void; id: string; size: number }) {
   return (
-    <PressScale onPress={onPress} disabled={disabled} testID={id} style={[styles.toolBtn, active && styles.toolBtnOn]}>
+    <PressScale onPress={onPress} disabled={disabled} testID={id} label={`${label} tool`} selected={active} style={[styles.toolBtn, { width: size, height: size }, active && styles.toolBtnOn]}>
       <Ionicons name={icon} size={22} color={active ? P.white : P.ink} />
       <Text style={[styles.toolLabel, active && { color: P.white }]}>{label}</Text>
     </PressScale>
   );
 }
-function MiniBtn({ icon, onPress, disabled, active, id }: { icon: keyof typeof Ionicons.glyphMap; onPress: () => void; disabled?: boolean; active?: boolean; id: string }) {
+function MiniBtn({ icon, onPress, disabled, active, id, name }: { icon: keyof typeof Ionicons.glyphMap; onPress: () => void; disabled?: boolean; active?: boolean; id: string; name: string }) {
   return (
-    <PressScale onPress={onPress} disabled={disabled} testID={id} style={[styles.roundBtn, active && { backgroundColor: P.marigold }]}>
+    <PressScale onPress={onPress} disabled={disabled} testID={id} label={name} selected={active} style={[styles.roundBtn, active && { backgroundColor: P.marigold }]}>
       <Ionicons name={icon} size={20} color={P.ink} />
     </PressScale>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: P.paper, paddingHorizontal: 12 },
+  outer: { flex: 1, backgroundColor: P.paper },
+  root: { flex: 1, backgroundColor: P.paper },
+  rootRow: { alignItems: 'stretch', justifyContent: 'center' },
+  column: { flex: 1, width: '100%', maxWidth: 560, alignSelf: 'center', minHeight: 0 },
+  landGroup: { flex: 1, flexDirection: 'row', maxWidth: 1000, alignSelf: 'center', width: '100%', gap: 14, minHeight: 0 },
+  panelContent: { flexGrow: 1, justifyContent: 'center', gap: 10, paddingVertical: 4 },
+  stageArea: { flex: 1, minHeight: 0, minWidth: 0, alignItems: 'center', justifyContent: 'center' },
   topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
-  levelPill: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: P.white, borderWidth: 3, borderColor: P.ink, borderRadius: 22, paddingVertical: 6, paddingHorizontal: 10, flexShrink: 1, maxWidth: 150 },
-  brandBox: { alignItems: 'center', gap: 2 },
+  pillSlot: { flexShrink: 1, flexGrow: 1, minWidth: 0 },
+  levelPill: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: P.white, borderWidth: 3, borderColor: P.ink, borderRadius: 22, minHeight: 48, paddingVertical: 4, paddingHorizontal: 10 },
+  brandBox: { alignItems: 'center', gap: 2, flexShrink: 0 },
   brandText: { fontFamily: F.bold, fontSize: 15, color: P.ink },
   pillSmall: { fontFamily: F.medium, fontSize: 11, color: P.inkSoft, textTransform: 'uppercase', letterSpacing: 1 },
   pillName: { fontFamily: F.bold, fontSize: 17, color: P.ink },
   roundBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: P.white, borderWidth: 3, borderColor: P.ink, alignItems: 'center', justifyContent: 'center' },
-  inkRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 10, marginBottom: 8, paddingHorizontal: 4 },
+  inkRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8, marginBottom: 8, paddingHorizontal: 4 },
   inkTrack: { flex: 1, height: 14, borderRadius: 7, backgroundColor: P.white, borderWidth: 2.5, borderColor: P.ink, overflow: 'hidden' },
   inkFill: { height: '100%', borderRadius: 5 },
   inkText: { fontFamily: F.semi, fontSize: 13, color: P.ink, minWidth: 58, textAlign: 'right' },
-  boardFrame: { flex: 1, borderRadius: 28, borderWidth: 4, borderColor: P.ink, overflow: 'hidden', backgroundColor: P.skyTop },
-  caption: { position: 'absolute', left: 12, right: 12, top: 12, backgroundColor: P.white, borderRadius: 18, borderWidth: 2.5, borderColor: P.ink, paddingVertical: 8, paddingHorizontal: 14 },
+  boardFrame: { borderRadius: 28, borderWidth: 4, borderColor: P.ink, overflow: 'hidden', backgroundColor: P.skyTop },
+  caption: { backgroundColor: P.white, borderRadius: 18, borderWidth: 2.5, borderColor: P.ink, paddingVertical: 6, paddingHorizontal: 12, marginTop: 8, justifyContent: 'center' },
   captionText: { fontFamily: F.medium, fontSize: 14, color: P.ink, textAlign: 'center' },
-  toolbar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 12, gap: 6 },
+  toolbar: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', marginTop: 10, columnGap: 8, rowGap: 8 },
   toolGroup: { flexDirection: 'row', gap: 6, alignItems: 'center' },
-  toolBtn: { alignItems: 'center', justifyContent: 'center', width: 56, height: 56, borderRadius: 18, backgroundColor: P.white, borderWidth: 3, borderColor: P.ink },
+  toolBtn: { alignItems: 'center', justifyContent: 'center', borderRadius: 18, backgroundColor: P.white, borderWidth: 3, borderColor: P.ink },
   toolBtnOn: { backgroundColor: P.dropDeep },
   toolLabel: { fontFamily: F.semi, fontSize: 10, color: P.ink },
-  release: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: P.coral, borderWidth: 3, borderColor: P.ink, borderRadius: 28, paddingHorizontal: 16, height: 56 },
+  releaseSlot: { flexGrow: 1, flexBasis: 96, minWidth: 96 },
+  release: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: P.coral, borderWidth: 3, borderColor: P.ink, borderRadius: 28, paddingHorizontal: 14 },
   releaseText: { fontFamily: F.bold, fontSize: 18, color: P.white },
 });

@@ -2,6 +2,7 @@ import React, { ReactNode, useEffect, useRef } from 'react';
 import { Animated, Pressable, ScrollView, StyleProp, StyleSheet, Text, View, ViewStyle, useWindowDimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { F, P } from '@/constants/theme';
+import { useSafeInsets } from '@/components/layout';
 import { Level } from '@/lib/levels';
 import { haptic } from '@/lib/haptics';
 
@@ -12,6 +13,9 @@ export function PressScale({
   containerStyle,
   disabled,
   testID,
+  label,
+  role = 'button',
+  selected,
 }: {
   children: ReactNode;
   onPress: () => void;
@@ -19,6 +23,9 @@ export function PressScale({
   containerStyle?: StyleProp<ViewStyle>;
   disabled?: boolean;
   testID?: string;
+  label?: string;
+  role?: 'button' | 'switch';
+  selected?: boolean;
 }) {
   const s = useRef(new Animated.Value(1)).current;
   const to = (v: number) => Animated.spring(s, { toValue: v, useNativeDriver: true, speed: 40, bounciness: 8 }).start();
@@ -26,6 +33,9 @@ export function PressScale({
     <Pressable
       style={containerStyle}
       testID={testID}
+      accessibilityRole={role}
+      accessibilityLabel={label}
+      accessibilityState={{ disabled: !!disabled, selected, checked: role === 'switch' ? selected : undefined }}
       disabled={disabled}
       onPressIn={() => to(0.9)}
       onPressOut={() => to(1)}
@@ -59,25 +69,30 @@ export function Stars({ count, size = 30, pop = false }: { count: number; size?:
   );
 }
 
-function Card({ children, onClose, title }: { children: ReactNode; onClose?: () => void; title?: string }) {
+function Card({ children, onClose, title, scrollID }: { children: ReactNode; onClose?: () => void; title?: string; scrollID?: string }) {
   const a = useRef(new Animated.Value(0)).current;
+  const { height } = useWindowDimensions();
+  const ins = useSafeInsets();
   useEffect(() => {
     Animated.spring(a, { toValue: 1, useNativeDriver: true, bounciness: 10, speed: 12 }).start();
   }, [a]);
+  const pad = 14;
   return (
-    <Animated.View style={[styles.scrim, { opacity: a }]}>
-      <Animated.View style={[styles.card, { transform: [{ scale: a.interpolate({ inputRange: [0, 1], outputRange: [0.85, 1] }) }] }]}>
+    <Animated.View style={[styles.scrim, { opacity: a, paddingTop: ins.top + pad, paddingBottom: ins.bottom + pad, paddingLeft: ins.left + pad, paddingRight: ins.right + pad }]}>
+      <Animated.View style={[styles.card, { maxHeight: height - ins.top - ins.bottom - pad * 2, transform: [{ scale: a.interpolate({ inputRange: [0, 1], outputRange: [0.85, 1] }) }] }]}>
         {title !== undefined && (
           <View style={styles.cardHead}>
-            <Text style={styles.cardTitle}>{title}</Text>
+            <Text style={styles.cardTitle} numberOfLines={1}>{title}</Text>
             {onClose && (
-              <PressScale onPress={onClose} testID="close-sheet" style={styles.closeBtn}>
+              <PressScale onPress={onClose} testID="close-sheet" label="Close" style={styles.closeBtn}>
                 <Ionicons name="close" size={22} color={P.ink} />
               </PressScale>
             )}
           </View>
         )}
-        {children}
+        <ScrollView style={styles.body} testID={scrollID} showsVerticalScrollIndicator contentContainerStyle={{ paddingBottom: 4 }}>
+          {children}
+        </ScrollView>
       </Animated.View>
     </Animated.View>
   );
@@ -85,9 +100,9 @@ function Card({ children, onClose, title }: { children: ReactNode; onClose?: () 
 
 function Btn({ label, icon, onPress, kind = 'primary', testID }: { label: string; icon: keyof typeof Ionicons.glyphMap; onPress: () => void; kind?: 'primary' | 'ghost'; testID?: string }) {
   return (
-    <PressScale onPress={onPress} testID={testID} style={[styles.btn, kind === 'primary' ? styles.btnPrimary : styles.btnGhost]}>
+    <PressScale onPress={onPress} testID={testID} label={label} containerStyle={styles.btnSlot} style={[styles.btn, kind === 'primary' ? styles.btnPrimary : styles.btnGhost]}>
       <Ionicons name={icon} size={20} color={kind === 'primary' ? P.white : P.ink} />
-      <Text style={[styles.btnText, { color: kind === 'primary' ? P.white : P.ink }]}>{label}</Text>
+      <Text numberOfLines={1} style={[styles.btnText, { color: kind === 'primary' ? P.white : P.ink }]}>{label}</Text>
     </PressScale>
   );
 }
@@ -131,15 +146,20 @@ export function LoseCard({ reason, onRetry, onHint, onLevels }: { reason: string
 }
 
 export function LevelPicker({ levels, unlocked, stars, current, onPick, onClose }: { levels: Level[]; unlocked: number; stars: Record<string, number>; current: number; onPick: (i: number) => void; onClose: () => void }) {
-  const { height } = useWindowDimensions();
+  const { width } = useWindowDimensions();
+  const ins = useSafeInsets();
+  const cardW = Math.min(420, width - ins.left - ins.right - 28);
+  const inner = cardW - 42;
+  const gap = 10;
+  const cols = Math.max(2, Math.floor((inner + gap) / 98));
+  const tileW = Math.floor((inner - gap * (cols - 1)) / cols);
   return (
-    <Card title="Garden beds" onClose={onClose}>
-      <ScrollView style={{ maxHeight: height * 0.6 }} showsVerticalScrollIndicator testID="level-list">
+    <Card title="Garden beds" onClose={onClose} scrollID="level-list">
       <View style={styles.grid}>
         {levels.map((l, i) => {
           const locked = i > unlocked;
           return (
-            <PressScale key={l.id} containerStyle={styles.tileSlot} disabled={locked} onPress={() => onPick(i)} testID={`level-${l.id}`} style={[styles.tile, i === current && styles.tileCur, locked && { backgroundColor: P.paperDeep }]}>
+            <PressScale key={l.id} containerStyle={{ width: tileW }} disabled={locked} label={locked ? `Bed ${l.id}, locked` : `Bed ${l.id}, ${l.name}`} selected={i === current} onPress={() => onPick(i)} testID={`level-${l.id}`} style={[styles.tile, i === current && styles.tileCur, locked && { backgroundColor: P.paperDeep }]}>
               {locked ? <Ionicons name="lock-closed" size={22} color={P.inkSoft} /> : <Text style={styles.tileNum}>{l.id}</Text>}
               <Text style={styles.tileName} numberOfLines={2}>{l.name}</Text>
               <Stars count={stars[i] ?? 0} size={14} />
@@ -147,15 +167,14 @@ export function LevelPicker({ levels, unlocked, stars, current, onPick, onClose 
           );
         })}
       </View>
-      </ScrollView>
     </Card>
   );
 }
 
 function Toggle({ on, onChange, label, sub, testID }: { on: boolean; onChange: (v: boolean) => void; label: string; sub: string; testID: string }) {
   return (
-    <PressScale onPress={() => onChange(!on)} testID={testID} style={styles.toggleRow}>
-      <View style={{ flex: 1 }}>
+    <PressScale onPress={() => onChange(!on)} testID={testID} role="switch" selected={on} label={`${label}: ${sub}`} style={styles.toggleRow}>
+      <View style={{ flex: 1, minWidth: 0 }}>
         <Text style={styles.toggleLabel}>{label}</Text>
         <Text style={styles.toggleSub}>{sub}</Text>
       </View>
@@ -192,28 +211,29 @@ export function SettingsSheet({ haptics, guides, sound, onHaptics, onGuides, onS
 }
 
 const styles = StyleSheet.create({
-  scrim: { ...StyleSheet.absoluteFill, backgroundColor: 'rgba(23,52,59,0.55)', alignItems: 'center', justifyContent: 'center', padding: 22, zIndex: 50 },
-  card: { width: '100%', maxWidth: 380, backgroundColor: P.paper, borderRadius: 30, borderWidth: 3, borderColor: P.ink, padding: 20, alignItems: 'stretch', shadowColor: P.ink, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.35, shadowRadius: 0 },
+  scrim: { ...StyleSheet.absoluteFill, backgroundColor: 'rgba(23,52,59,0.55)', alignItems: 'center', justifyContent: 'center', zIndex: 50 },
+  card: { width: '100%', maxWidth: 420, backgroundColor: P.paper, borderRadius: 30, borderWidth: 3, borderColor: P.ink, padding: 18, alignItems: 'stretch', flexShrink: 1, shadowColor: P.ink, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.35, shadowRadius: 0 },
   cardHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 },
-  cardTitle: { fontFamily: F.bold, fontSize: 26, color: P.ink },
-  closeBtn: { width: 38, height: 38, borderRadius: 19, backgroundColor: P.paperDeep, borderWidth: 2, borderColor: P.ink, alignItems: 'center', justifyContent: 'center' },
+  cardTitle: { flex: 1, fontFamily: F.bold, fontSize: 26, color: P.ink },
+  body: { flexGrow: 0, flexShrink: 1 },
+  closeBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: P.paperDeep, borderWidth: 2, borderColor: P.ink, alignItems: 'center', justifyContent: 'center' },
   brand: { fontFamily: F.semi, fontSize: 12, color: P.inkSoft, textAlign: 'center', textTransform: 'uppercase', letterSpacing: 2, marginBottom: 4 },
   kicker: { fontFamily: F.semi, fontSize: 14, color: P.coral, textAlign: 'center', textTransform: 'uppercase', letterSpacing: 1.5 },
-  big: { fontFamily: F.bold, fontSize: 38, color: P.ink, textAlign: 'center' },
+  big: { fontFamily: F.bold, fontSize: 34, color: P.ink, textAlign: 'center' },
   sub: { fontFamily: F.medium, fontSize: 15, color: P.inkSoft, textAlign: 'center' },
-  row: { flexDirection: 'row', gap: 10, marginTop: 12 },
-  btn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 14, paddingHorizontal: 16, borderRadius: 22, borderWidth: 3, borderColor: P.ink, minWidth: 130 },
+  row: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 12 },
+  btnSlot: { flexGrow: 1, flexBasis: 120, minWidth: 0 },
+  btn: { minHeight: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 14, paddingHorizontal: 16, borderRadius: 22, borderWidth: 3, borderColor: P.ink, },
   btnPrimary: { backgroundColor: P.coral },
   btnGhost: { backgroundColor: P.white },
   btnText: { fontFamily: F.bold, fontSize: 17 },
   starShadow: { textShadowColor: P.ink, textShadowRadius: 0, textShadowOffset: { width: 0, height: 2 } },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, justifyContent: 'space-between' },
-  tileSlot: { width: '31%' },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   tile: { width: '100%', aspectRatio: 0.9, backgroundColor: P.white, borderRadius: 20, borderWidth: 3, borderColor: P.ink, alignItems: 'center', justifyContent: 'center', gap: 4, padding: 6 },
   tileCur: { backgroundColor: P.mint },
   tileNum: { fontFamily: F.bold, fontSize: 30, color: P.ink },
   tileName: { fontFamily: F.medium, fontSize: 12, color: P.inkSoft, textAlign: 'center' },
-  toggleRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, gap: 12 },
+  toggleRow: { flexDirection: 'row', alignItems: 'center', minHeight: 48, paddingVertical: 10, gap: 12 },
   toggleLabel: { fontFamily: F.semi, fontSize: 18, color: P.ink },
   toggleSub: { fontFamily: F.regular, fontSize: 13, color: P.inkSoft },
   track: { width: 52, height: 30, borderRadius: 15, backgroundColor: P.paperDeep, borderWidth: 2.5, borderColor: P.ink, padding: 2 },
