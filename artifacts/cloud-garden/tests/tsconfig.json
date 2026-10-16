@@ -1,0 +1,15 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "Node16",
+    "moduleResolution": "Node16",
+    "rootDir": "../lib",
+    "outDir": "../.physics-test-build",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "noEmitOnError": true,
+    "types": []
+  },
+  "files": ["../lib/engine.ts", "../lib/objects.ts", "../lib/levels.ts"]
+}
