@@ -1,4 +1,6 @@
 import { BONUS_LEVELS } from './bonusLevels';
+import { ADVANCED_LEVELS } from './advancedLevels';
+import type { BlockSwitch, PortalPair, Slider, WindZone } from './mechanics';
 
 export interface V {
   x: number;
@@ -31,6 +33,11 @@ export interface Level {
   stones: { x: number; y: number; r: number }[];
   hint: HintStep[];
   ropes?: { from: number; to: number; pointA?: V; pointB?: V }[];
+  winds?: WindZone[];
+  movers?: Slider[];
+  portals?: PortalPair[];
+  switches?: BlockSwitch[];
+  weights?: Block[];
 }
 
 export const W = 360;
@@ -353,4 +360,5 @@ export const LEVELS: Level[] = [
     ],
   },
   ...BONUS_LEVELS,
+  ...ADVANCED_LEVELS,
 ];

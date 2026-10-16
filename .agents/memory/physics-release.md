@@ -14,3 +14,9 @@ Keep a running physics world independent of responsive presentation mounts.
 **Why:** Switching between portrait and landscape changes the board's position in the React tree and can remount it even when the level has not changed. A board-owned world silently resets an in-progress puzzle on rotation.
 
 **How to apply:** Dispose the world for a new level, retry, or leaving the game—not for a layout change. Keep inverse touch coordinates aligned with the newly measured board.
+
+Do not automatically memoize renderers that read the mutable Matter world.
+
+**Why:** Expo's React Compiler cached SVG output from stable body arrays even as their contents changed. The simulation won correctly while a heavy block remained drawn at its starting position; Replay also displayed the previous attempt's open gate and bloomed flower.
+
+**How to apply:** Keep imperative physics views out of automatic memoization, refresh them on simulation frames, and recreate attempt-specific presentation on retry. A passing headless physics test does not verify that the rendered body positions or replay state update.

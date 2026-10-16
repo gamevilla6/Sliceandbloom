@@ -46,8 +46,8 @@ const MAX_RUN_STEPS = Math.ceil(40_000 / STEP) + 1;
 test('campaign beds have stable sequential IDs, unique names and distinct puzzle layouts', () => {
   assert.deepEqual(LEVELS.map((level) => level.id), LEVELS.map((_, i) => i + 1));
   assert.equal(new Set(LEVELS.map((level) => level.name)).size, LEVELS.length);
-  const layouts = LEVELS.map(({ drop, flower, soil, wood, stones, thorns, ropes }) =>
-    JSON.stringify({ drop, flower, soil, wood, stones, thorns, ropes: ropes ?? [] }));
+  const layouts = LEVELS.map(({ drop, flower, soil, wood, stones, thorns, ropes, winds, movers, portals, switches, weights }) =>
+    JSON.stringify({ drop, flower, soil, wood, stones, thorns, ropes: ropes ?? [], winds, movers, portals, switches, weights }));
   assert.equal(new Set(layouts).size, LEVELS.length, 'new beds must not duplicate an existing puzzle');
 });
 
@@ -95,6 +95,8 @@ for (const level of LEVELS) {
     assert.equal(game.status, 'won',
       `level ${level.id} failed: ${game.failReason || 'did not finish'} at ${JSON.stringify(game.drop.position)}`);
     assert.ok(sensorContacts > 0, 'winning must involve the real Cloud/plant collision pair');
+    if (level.portals?.length) assert.ok(game.advanced.teleports > 0, 'portal puzzles must actually teleport Cloud');
+    if (level.switches?.length) assert.ok(game.advanced.switches.every((s) => s.active), 'switch puzzles must open their gates');
     assert.equal(wins, 1);
     assert.equal(game.stars, 3, 'the supplied hint should meet par');
   });
@@ -243,3 +245,168 @@ test('disposal clears static and dynamic bodies, constraints, collision pairs an
   game.dispose(); // Cleanup must be safe to repeat.
   assert.deepEqual(game.bodies, []);
 });
+
+test('wind accelerates only a released Cloud inside its visible zone', (t) => {
+  const winds = [{ x: 180, y: 200, w: 140, h: 100, force: { x: 0.0003, y: 0 } }];
+  const inside = garden(t, fixture({ drop: { x: 180, y: 200 }, winds }));
+  inside.step();
+  assert.equal(inside.drop.position.x, 180, 'a held Cloud must not drift');
+  assert.ok(Number.isFinite(inside.drop.force.x), 'held mass must never produce an infinite force');
+  inside.release();
+  for (let i = 0; i < 20; i++) inside.step();
+  assert.ok(inside.drop.position.x > 190, 'inside the zone, wind changes the trajectory');
+  const outside = garden(t, fixture({ drop: { x: 50, y: 200 }, winds }));
+  outside.release();
+  for (let i = 0; i < 20; i++) outside.step();
+  assert.equal(outside.drop.position.x, 50, 'outside the zone, no wind force is applied');
+});
+
+test('a moving blade follows its track using simulation time, and is not sliceable', (t) => {
+  const game = garden(t, fixture({
+    movers: [{ x: 180, y: 350, w: 40, h: 20, axis: 'x', amplitude: 60, period: 4 }],
+  }));
+  const blade = game.advanced.movers[0].body;
+  for (let i = 0; i < 60; i++) game.step();
+  assert.ok(Math.abs(blade.position.x - 240) < 0.01);
+  assert.equal(blade.position.y, 350);
+  assert.equal(game.slice({ x: 210, y: 350 }, { x: 270, y: 350 }), 0);
+  assert.ok(game.bodies.includes(blade));
+});
+
+test('actual collision with a moving blade loses with a useful reason', (t) => {
+  const game = garden(t, fixture({
+    drop: { x: 180, y: 200 },
+    movers: [{ x: 180, y: 210, w: 40, h: 20, axis: 'x', amplitude: 60, period: 4 }],
+  }));
+  game.release();
+  game.step();
+  assert.equal(game.status, 'lost');
+  assert.match(game.failReason, /moving blade/i);
+});
+
+test('paired portals teleport both ways, retain finite velocity, and prevent repeat-trigger loops', (t) => {
+  const pair = { entry: { x: 80, y: 200 }, exit: { x: 280, y: 180 }, r: 22 };
+  const game = garden(t, fixture({ drop: { x: 80, y: 190 }, portals: [pair] }));
+  game.release();
+  game.step();
+  assert.equal(game.advanced.teleports, 1);
+  assert.equal(game.drop.position.x, 280);
+  assert.ok(game.drop.position.y > 200, 'Cloud emerges below the exit ring');
+  assertFiniteCloud(game.drop, 'portal exit');
+  // Keep touching the destination: a cooldown alone must not cause ping-pong.
+  for (let i = 0; i < 40; i++) {
+    Body.setPosition(game.drop, pair.exit);
+    Body.setVelocity(game.drop, { x: 0, y: 0 });
+    game.step();
+  }
+  assert.equal(game.advanced.teleports, 1);
+  Body.setPosition(game.drop, { x: 180, y: 400 });
+  game.step(); // Leaving all rings rearms portals.
+  Body.setPosition(game.drop, pair.exit);
+  game.step();
+  assert.equal(game.advanced.teleports, 2);
+  assert.equal(game.drop.position.x, pair.entry.x, 'the partner works in reverse too');
+  assertFiniteCloud(game.drop, 'reverse portal exit');
+});
+
+test('a portal moves only Cloud, not other bodies sharing the sensor', (t) => {
+  const game = garden(t, fixture({
+    drop: { x: 180, y: 90 },
+    stones: [{ x: 80, y: 200, r: 18 }],
+    portals: [{ entry: { x: 80, y: 200 }, exit: { x: 280, y: 200 }, r: 24 }],
+  }));
+  game.release();
+  for (let i = 0; i < 5; i++) game.step();
+  const stone = game.bodies.find((b) => b.label === 'stone');
+  assert.equal(stone.position.x, 80);
+  assert.equal(game.advanced.teleports, 0);
+});
+
+test('only a heavy block activates a switch; the gate stays open and resets for a new attempt', (t) => {
+  const spec = fixture({
+    drop: { x: 180, y: 300 },
+    wood: [{ x: 80, y: 100, w: 20, h: 12, dynamic: true }],
+    weights: [{ x: 80, y: 180, w: 40, h: 40 }],
+    switches: [{
+      button: { x: 180, y: 300, w: 80, h: 12 },
+      gate: { x: 180, y: 400, w: 130, h: 20 },
+      minMass: 2,
+    }],
+  });
+  const game = garden(t, spec);
+  const item = game.advanced.switches[0];
+  game.release();
+  game.step();
+  assert.equal(item.active, false, 'Cloud cannot activate a heavy-block switch');
+  assert.ok(game.bodies.includes(item.gate));
+  const lightWood = game.bodies.find((b) => b.label === 'cut');
+  Body.setPosition(lightWood, item.button.position);
+  game.step();
+  assert.equal(item.active, false, 'light fragments cannot activate it either');
+  Body.setPosition(game.advanced.weights[0], item.button.position);
+  game.step();
+  assert.equal(item.active, true);
+  assert.ok(!game.bodies.includes(item.gate), 'the solid gate is physically removed');
+  Body.setPosition(game.advanced.weights[0], { x: 80, y: 100 });
+  game.step();
+  assert.equal(item.active, true, 'the switch latches after its block moves away');
+  const retry = garden(t, spec);
+  assert.equal(retry.advanced.switches[0].active, false);
+  assert.ok(retry.bodies.includes(retry.advanced.switches[0].gate));
+});
+
+test('disposing an advanced world removes its sensors, movers, weights and runtime state', (t) => {
+  const game = garden(t, {
+    ...LEVELS[29],
+    movers: [{ x: 90, y: 300, w: 40, h: 16, axis: 'x', amplitude: 30, period: 3 }],
+  });
+  assert.ok(game.advanced.weights.length && game.advanced.switches.length && game.advanced.portals.length);
+  game.dispose();
+  assert.deepEqual(game.bodies, []);
+  for (const key of ['movers', 'portals', 'switches', 'weights']) assert.deepEqual(game.advanced[key], []);
+  assert.equal(game.advanced.teleports, 0);
+});
+
+test('replaying the final bed rebuilds a closed gate and intact support even after settling', (t) => {
+  const level = LEVELS.find((l) => l.id === 30);
+  const first = garden(t, level);
+  first.slice(level.hint[0].pts[0], level.hint[0].pts[1]);
+  first.endSlice();
+  for (let i = 0; i < 120; i++) first.step();
+  assert.equal(first.advanced.switches[0].active, true);
+  first.release();
+  for (let i = 0; i < MAX_RUN_STEPS && first.status === 'running'; i++) first.step();
+  assert.equal(first.status, 'won');
+  first.dispose();
+  const replay = garden(t, level);
+  for (let i = 0; i < 180; i++) replay.step();
+  assert.equal(replay.status, 'ready');
+  assert.equal(replay.actions, 0);
+  assert.equal(replay.bloom, 0);
+  assert.equal(replay.advanced.switches[0].active, false);
+  assert.ok(replay.bodies.includes(replay.advanced.switches[0].gate));
+  assert.equal(replay.bodies.filter((b) => b.label === 'cut').length, level.wood.length);
+  assert.ok(replay.advanced.weights[0].position.y < 220, 'the intact shelf holds the new weight');
+});
+
+for (const level of LEVELS.filter((l) => l.id >= 27)) {
+  test(`advanced bed ${level.id} remains solvable after different pre-release waiting times`, (t) => {
+    for (const waitingTicks of [20, 90, 180, 300]) {
+      const game = garden(t, level);
+      for (let i = 0; i < waitingTicks; i++) game.step();
+      for (const hint of level.hint) {
+        if (hint.kind === 'draw') assert.equal(game.addStroke(hint.pts), true);
+        else {
+          for (let i = 1; i < hint.pts.length; i++) game.slice(hint.pts[i - 1], hint.pts[i]);
+          game.endSlice();
+        }
+      }
+      if (level.hint.some((hint) => hint.kind === 'slice')) {
+        for (let i = 0; i < SETTLE_STEPS; i++) game.step();
+      }
+      game.release();
+      for (let i = 0; i < MAX_RUN_STEPS && game.status === 'running'; i++) game.step();
+      assert.equal(game.status, 'won', `bed ${level.id}, waited ${waitingTicks} ticks: ${game.failReason}`);
+    }
+  });
+}

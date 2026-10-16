@@ -14,6 +14,8 @@ import { F, P, R } from '@/constants/theme';
 type Sheet = 'none' | 'levels' | 'settings';
 
 export default function GameScreen() {
+  'use no memo';
+  // Retry is an explicit useMemo dependency even though its factory only reads level.
   const { progress, ready, complete, setLast, setSetting, resetAll } = useProgress(LEVELS.length);
 
   const [idx, setIdx] = useState(0);
@@ -38,7 +40,7 @@ export default function GameScreen() {
   const inkMax = level.ink;
   const inkLeft = live ? live.inkLeft : inkMax;
   const canDraw = inkMax > 0;
-  const canSlice = level.wood.length > 0 || !!level.ropes?.length || level.stones.length > 0;
+  const canSlice = level.wood.length > 0 || !!level.ropes?.length || level.stones.length > 0 || !!level.weights?.length;
 
   useEffect(() => {
     if (ready && !loaded.current) {
@@ -124,6 +126,9 @@ export default function GameScreen() {
         <View style={[styles.inkFill, { width: `${Math.max(0, Math.min(1, inkPct)) * 100}%`, backgroundColor: inkPct < 0.2 ? P.coral : P.mint }]} />
       </View>
       <Text style={styles.inkText}>{inkMax > 0 ? `${Math.round(inkLeft)} ink` : 'no ink'}</Text>
+      <Text style={styles.moveText} testID="move-count" accessibilityLabel={`${live?.actions ?? 0} moves used`}>
+        {live?.actions ?? 0} moves
+      </Text>
     </View>
   );
   const captionEl = (!!caption || !landscape) && (
@@ -150,7 +155,7 @@ export default function GameScreen() {
   );
   const frame = (
     <View style={styles.stageArea} testID="region-stage">
-      <GameBoard engine={gameEngine} level={level} attempt={attempt} tool={tool} showHint={hint} guides={progress.settings.guides} paused={sheet !== 'none'} playSound={playSound} engineRef={engineRef} onHud={onHud} />
+      <GameBoard key={tag} engine={gameEngine} level={level} attempt={attempt} tool={tool} showHint={hint} guides={progress.settings.guides} paused={sheet !== 'none'} playSound={playSound} engineRef={engineRef} onHud={onHud} />
     </View>
   );
 
@@ -255,6 +260,7 @@ const styles = StyleSheet.create({
   inkTrack: { flex: 1, height: 16, borderRadius: 8, backgroundColor: P.paperDeep, borderWidth: 2.5, borderColor: P.ink, overflow: 'hidden' },
   inkFill: { height: '100%', borderRadius: 5 },
   inkText: { fontFamily: F.bold, fontSize: 13, color: P.ink, minWidth: 58, textAlign: 'right' },
+  moveText: { fontFamily: F.semi, fontSize: 11, color: P.inkSoft, paddingLeft: 7, borderLeftWidth: 2, borderLeftColor: P.inkSoft },
   caption: { backgroundColor: P.drop, borderRadius: R.btn, borderWidth: 3, borderColor: P.ink, paddingVertical: 6, paddingHorizontal: 12, marginTop: 10, justifyContent: 'center' },
   captionText: { fontFamily: F.semi, fontSize: 14, color: P.white, textAlign: 'center' },
   toolbar: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', marginTop: 10, columnGap: 8, rowGap: 8 },

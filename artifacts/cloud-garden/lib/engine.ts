@@ -1,6 +1,7 @@
 import Matter from 'matter-js';
 import { GROUND, H, Level, V } from './levels';
 import { createCloud, createPlant, createRope, createWood } from './objects';
+import { AdvancedMechanics } from './mechanics';
 
 const { Engine, Bodies, Body, Composite, Events, Query, Vertices } = Matter;
 
@@ -12,6 +13,8 @@ export type GameEvent =
   | { type: 'push' }
   | { type: 'stroke' }
   | { type: 'release' }
+  | { type: 'portal' }
+  | { type: 'switch' }
   | { type: 'win' }
   | { type: 'lose' };
 
@@ -85,6 +88,7 @@ export class GardenEngine {
   engine: Matter.Engine;
   drop: Matter.Body;
   plant: Matter.Body;
+  advanced: AdvancedMechanics;
   ropes: Matter.Constraint[] = [];
   sliceTrails: { a: V; b: V; life: number }[] = [];
   private blades: Matter.Body[] = [];
@@ -140,6 +144,8 @@ export class GardenEngine {
     this.drop = createCloud(level.drop, DROP_R);
     this.plant = createPlant(level.flower);
     Composite.add(world, [this.drop, this.plant]);
+    this.advanced = new AdvancedMechanics(world, level);
+    this.thorns.push(...this.advanced.movers.map(({ body }) => body));
   }
 
   private onCollide = (e: Matter.IEventCollision<Matter.Engine>) => {
@@ -150,8 +156,8 @@ export class GardenEngine {
           this.finish('won');
           continue;
         }
-        if (other.label === 'thorn' && this.status === 'running') {
-          this.finish('lost', 'Thorns popped Cloud.');
+        if ((other.label === 'thorn' || other.label === 'moving-hazard') && this.status === 'running') {
+          this.finish('lost', other.label === 'moving-hazard' ? 'The moving blade popped Cloud.' : 'Thorns popped Cloud.');
           continue;
         }
         const power = this.drop.speed;
@@ -171,6 +177,7 @@ export class GardenEngine {
     Events.off(this.engine, 'collisionStart', this.onCollide);
     Composite.clear(this.engine.world, false);
     Engine.clear(this.engine);
+    this.advanced.clear();
     this.ropes = [];
     this.blades = [];
     this.pushed.clear();
@@ -277,7 +284,7 @@ export class GardenEngine {
     // A transient sensor is queried explicitly to apply a bounded swipe impulse.
     // It survives exactly one Engine.update; it never leaves a hidden wall.
     let pushes = 0;
-    const dynamic = this.bodies.filter((body) => !body.isStatic && (body.label === 'cut' || body.label === 'stone'));
+    const dynamic = this.bodies.filter((body) => !body.isStatic && ['cut', 'stone', 'weight'].includes(body.label));
     for (const collision of Query.collides(blade, dynamic)) {
       const body = collision.bodyA === blade ? collision.bodyB : collision.bodyA;
       if (this.pushed.has(body.id)) continue;
@@ -380,7 +387,12 @@ export class GardenEngine {
         const k = MAX_SPEED / this.drop.speed;
         Body.setVelocity(this.drop, { x: this.drop.velocity.x * k, y: this.drop.velocity.y * k });
       }
+      this.advanced.beforeStep(this.time, STEP / 1000, this.drop, this.status === 'running');
       Engine.update(this.engine, STEP);
+      for (const effect of this.advanced.afterStep(this.drop, this.status === 'running')) {
+        this.burst(effect.at.x, effect.at.y, 14, effect.type === 'portal' ? ['#247BEB', '#5FE0C0'] : ['#FFD348', '#4FB36B'], 2.5);
+        this.onEvent?.({ type: effect.type });
+      }
       if (this.blades.length) {
         Composite.remove(this.engine.world, this.blades);
         this.blades = [];
@@ -393,7 +405,10 @@ export class GardenEngine {
       this.runTime += STEP / 1000;
       const p = this.drop.position;
       if (p.y > H + 80 || p.x < -40 || p.x > 400) this.finish('lost', 'Cloud slipped off the garden.');
-      else if (Query.collides(this.drop, this.thorns).length > 0) this.finish('lost', 'Thorns popped Cloud.');
+      else if (Query.collides(this.drop, this.thorns).length > 0) {
+        const hitBlade = Query.collides(this.drop, this.advanced.movers.map(({ body }) => body)).length > 0;
+        this.finish('lost', hitBlade ? 'The moving blade popped Cloud.' : 'Thorns popped Cloud.');
+      }
       else {
         this.stillTime = this.drop.speed < 0.12 ? this.stillTime + STEP / 1000 : 0;
         if (this.stillTime > 2) this.finish('lost', 'Cloud is stuck and cannot reach the flower.');

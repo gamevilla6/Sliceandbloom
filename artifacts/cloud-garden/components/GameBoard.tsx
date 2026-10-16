@@ -7,6 +7,7 @@ import { haptic } from '@/lib/haptics';
 import { useGameLoop } from '@/hooks/useGameLoop';
 import { Sfx } from '@/lib/audio';
 import { mix, P } from '@/constants/theme';
+import { AdvancedLayer } from '@/components/AdvancedLayer';
 
 export type Tool = 'draw' | 'slice';
 export interface Hud {
@@ -39,6 +40,8 @@ const pts2 = (p: V[]) => p.map((q) => `${q.x.toFixed(1)},${q.y.toFixed(1)}`).joi
 const DROP_PATH = 'M0 -17 C5 -9 11 -3 11 3 A11 11 0 0 1 -11 3 C-11 -3 -5 -9 0 -17 Z';
 
 export function GameBoard({ engine, level, attempt, tool, showHint, guides, paused, playSound, engineRef, onHud }: Props) {
+  'use no memo';
+  // Matter mutates bodies in place; every frame must read current world state.
   const [size, setSize] = useState({ w: 0, h: 0 });
   const [, setTick] = useState(0);
   engineRef.current = engine;
@@ -171,6 +174,8 @@ export function GameBoard({ engine, level, attempt, tool, showHint, guides, paus
       } else if (e.type === 'release') {
         haptic.medium();
         soundRef.current?.('release');
+      } else if (e.type === 'portal' || e.type === 'switch') {
+        haptic.medium();
       } else if (e.type === 'win') {
         haptic.success();
         soundRef.current?.('win');
@@ -409,6 +414,8 @@ export function GameBoard({ engine, level, attempt, tool, showHint, guides, paus
               <Polyline points={pts2(swipeTrail.current)} fill="none" stroke={P.white} strokeWidth={3.5} strokeLinecap="round" strokeLinejoin="round" />
             </G>
           )}
+
+          <AdvancedLayer engine={engine} level={level} />
 
           {showHint &&
             level.hint.map((h, i) => (
