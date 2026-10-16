@@ -1,10 +1,12 @@
 const assert = require('node:assert/strict');
 const { test } = require('node:test');
 const Matter = require('matter-js');
+const crypto = require('node:crypto');
 const { GardenEngine } = require('../.physics-test-build/engine.js');
 const { LEVELS } = require('../.physics-test-build/levels.js');
 const classicBefore = JSON.stringify(LEVELS);
 const { HARDCORE_LEVELS } = require('../.physics-test-build/hardcoreLevels.js');
+const { completeProgress, readProgress, DEFAULT_PROGRESS } = require('../.physics-test-build/progress.js');
 
 function garden(t, level) {
   const g = new GardenEngine(level);
@@ -22,16 +24,20 @@ function fixture(overrides = {}) {
   };
 }
 
-test('45 distinct hardcore levels own their data and never change the 45 classic levels', () => {
+test('100 distinct hardcore levels preserve the original 45 and never change the classic levels', () => {
   assert.equal(LEVELS.length, 100);
   assert.equal(JSON.stringify(LEVELS), classicBefore);
   assert.ok(LEVELS.every(l => !l.hardcore && !l.lasers && !l.gravityZones));
-  assert.equal(HARDCORE_LEVELS.length, 45);
-  assert.deepEqual(HARDCORE_LEVELS.map(l => l.id), Array.from({ length: 45 }, (_, i) => i + 1));
-  assert.equal(new Set(HARDCORE_LEVELS.map(l => l.name)).size, 45);
-  const layouts = HARDCORE_LEVELS.map(({ drop, flower, soil, wood, hint, portals }) =>
-    JSON.stringify({ drop, flower, soil, wood, hint, portals }));
-  assert.equal(new Set(layouts).size, 45);
+  assert.equal(HARDCORE_LEVELS.length, 100);
+  assert.deepEqual(HARDCORE_LEVELS.map(l => l.id), Array.from({ length: 100 }, (_, i) => i + 1));
+  assert.equal(new Set(HARDCORE_LEVELS.map(l => l.name)).size, 100);
+  assert.equal(crypto.createHash('sha256').update(JSON.stringify(HARDCORE_LEVELS.slice(0, 45))).digest('hex'),
+    '1a55ff43e66345cf646401dffabe6fec72f44228666531abbcd2e480bec52c5d');
+  const layouts = HARDCORE_LEVELS.map(({ drop, flower, soil, wood, hint, portals, lasers, weights, switches,
+    ropes, rotatingBarriers, crushingWalls, gravityZones, winds, hardcore }) =>
+    JSON.stringify({ drop, flower, soil, wood, hint, portals, lasers, weights, switches,
+      ropes, rotatingBarriers, crushingWalls, gravityZones, winds, hardcore }));
+  assert.equal(new Set(layouts).size, 100);
   for (const l of HARDCORE_LEVELS) {
     assert.ok(l.hardcore.goldTime < l.hardcore.timeLimit && l.hardcore.timeLimit <= 20);
     assert.equal(l.par, l.hint.length);
@@ -42,6 +48,72 @@ test('45 distinct hardcore levels own their data and never change the 45 classic
       assert.notEqual(l.soil, base.soil);
     }
   }
+});
+
+function solveAt(level, delay) {
+  const g = new GardenEngine(level);
+  g.attach();
+  try {
+    // A short reading pause is free, matching real Hardcore timer rules.
+    for (let i = 0; i < 60; i++) g.step();
+    for (const h of level.hint) {
+      if (!g.beginInput()) return { won: false, failReason: g.failReason };
+      if (h.kind === 'draw') {
+        if (!g.addStroke(h.pts)) return { won: false, failReason: 'Hint exceeded the level ink budget.' };
+      } else {
+        let hits = 0;
+        for (let i = 1; i < h.pts.length; i++) hits += g.slice(h.pts[i - 1], h.pts[i]);
+        if (hits <= 0) return { won: false, failReason: 'Hint missed its cut target.' };
+        g.endSlice();
+      }
+      for (let i = 0; i < 30; i++) g.step();
+    }
+    for (let i = 0; i < 90 + delay; i++) g.step();
+    if (!g.release()) return { won: false, failReason: g.failReason };
+    for (let i = 0; i < 1800 && g.status === 'running'; i++) g.step();
+    return {
+      won: g.status === 'won', stars: g.stars, elapsed: g.elapsed, actions: g.actions,
+      ink: g.inkUsed, portals: g.advanced.teleports,
+      keys: g.advanced.switches.every(s => s.active), failReason: g.failReason,
+    };
+  } finally {
+    g.dispose();
+  }
+}
+
+for (const level of HARDCORE_LEVELS.slice(45)) {
+  test(`Hardcore ${level.id}: ${level.name} has a player-paced, three-star real-physics route`, () => {
+    let result;
+    for (let delay = 0; delay <= 96; delay += 6) {
+      result = solveAt(level, delay);
+      if (result.won && result.stars === 3) break;
+    }
+    assert.equal(result.won, true, `Level ${level.id}: ${result.failReason}, ${result.elapsed?.toFixed(2)}s`);
+    assert.equal(result.stars, 3);
+    assert.equal(result.actions, level.par);
+    assert.ok(result.ink <= level.ink);
+    assert.ok(result.portals >= (level.portals?.length ?? 0));
+    assert.equal(result.keys, true);
+  });
+}
+
+test('unlocking Hardcore level 46 preserves all level 45 progress and the separate campaign save', () => {
+  const hardcore45 = completeProgress(DEFAULT_PROGRESS, 45, 44, 3, { score: 3210, time: 8.2 });
+  const expanded = readProgress(hardcore45, HARDCORE_LEVELS.length);
+  assert.equal(expanded.unlocked, 45);
+  assert.equal(expanded.last, 44);
+  assert.equal(expanded.stars[44], 3);
+  assert.equal(expanded.scores[44], 3210);
+  assert.equal(expanded.bestTimes[44], 8.2);
+  const next = completeProgress(expanded, 100, 45, 2, { score: 2075, time: 11 });
+  const reload = readProgress(JSON.parse(JSON.stringify(next)), 100);
+  assert.equal(reload.stars[44], 3);
+  assert.equal(reload.stars[45], 2);
+  assert.equal(reload.scores[44], 3210);
+  assert.equal(reload.scores[45], 2075);
+  assert.equal(reload.bestTimes[44], 8.2);
+  assert.equal(reload.bestTimes[45], 11);
+  assert.equal(readProgress(null, 100).stars[44], undefined);
 });
 
 for (const level of HARDCORE_LEVELS.slice(0, 25)) {

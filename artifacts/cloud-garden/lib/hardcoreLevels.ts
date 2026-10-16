@@ -1,5 +1,6 @@
 import { LEVELS, type Level } from './levels';
 import { HARDCORE_EXPANSION } from './hardcoreExpansion';
+import { HARDCORE_ENDURANCE } from './hardcoreEndurance';
 
 // Deliberate remixes, not replacements: all campaign geometry and save IDs stay intact.
 // Budget is measured in world units, independent of device size or refresh rate.
@@ -63,4 +64,4 @@ const OPENING_LEVELS: Level[] = REMIXES.map(([sourceId, name], index) => {
   return level;
 });
 
-export const HARDCORE_LEVELS: Level[] = [...OPENING_LEVELS, ...HARDCORE_EXPANSION];
+export const HARDCORE_LEVELS: Level[] = [...OPENING_LEVELS, ...HARDCORE_EXPANSION, ...HARDCORE_ENDURANCE];

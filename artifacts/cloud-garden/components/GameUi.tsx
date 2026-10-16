@@ -192,7 +192,10 @@ export function LevelPicker({ deaths, badges, scores, bestTimes, levels, unlocke
       })),
     ]
     : hc
-    ? [{ n: 'Precision', a: 0, b: 14 }, { n: 'Pressure', a: 15, b: 29 }, { n: 'Gauntlet', a: 30, b: 44 }]
+    ? Array.from({ length: Math.ceil(levels.length / 15) }, (_, i) => ({
+      n: ['Precision', 'Pressure', 'Gauntlet', 'Ascendant', 'Apex', 'Overdrive', 'Final Circuit'][i] ?? `Circuit ${i + 1}`,
+      a: i * 15, b: Math.min(levels.length - 1, i * 15 + 14),
+    }))
     : levels.length > 45
       ? [{ n: 'Campaign', a: 0, b: 44 }, { n: 'Infinity Cascade', a: 45, b: 59 }, { n: 'Infinity Cascade', a: 60, b: 74 }, { n: 'Infinity Cascade', a: 75, b: 89 }, { n: 'Infinity Cascade', a: 90, b: levels.length - 1 }]
       : null;
