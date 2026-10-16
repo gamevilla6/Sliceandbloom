@@ -1,0 +1,30 @@
+Create a complete 2D physics-based puzzle game named "Slice & Bloom" using React (or React Native web canvas using matter.js). The game features progressively harder levels with unique mechanics.
+
+### 1. Game Concept & Core Loop
+- Objective: Guide a water droplet (the "Cloud") to a dry plant (the "Target") using physics, gravity, and user-drawn cutting lines/barriers.
+- One-Touch Drawing: The player drags their finger/mouse to draw a physical line on the canvas. This line interacts with the physics world for a brief moment to push objects or act as a ramp/blocker.
+- Slicing Mechanics: If the drawn line crosses a specific "Rope" constraint or breakable link, that link snaps.
+
+### 2. Progressive Difficulty & Level Design System (Create at least 4 Levels)
+Implement a structured Level System where each level introduces a new mechanic to make the game progressively harder:
+- Level 1 (Introduction): Static wood blocks and simple gravity. Player draws a ramp to guide the droplet to the plant.
+- Level 2 (Ropes & Pulleys): Introduce hanging blocks held by Matter.Constraint ropes. The player must slice the correct rope at the right time so the block shifts out of the way.
+- Level 3 (Moving Hazards / Wind Zones): Introduce a moving obstacle (a pendulum or side-to-side slider) and a "wind zone" force field that pushes the droplet sideways.
+- Level 4 (Portals & Multi-Step Logic): Introduce dual portals (entering one teleports the droplet to another part of the screen) and switches that must be hit by a heavy block before the path to the plant opens.
+
+### 3. Technical Requirements & Tech Stack
+- Use Matter.js for physics simulation (gravity, restitution, collisions, constraints).
+- Use HTML5 Canvas or React SVG for rendering the physics bodies cleanly with a minimalist, hand-drawn pastel aesthetic.
+- Game States: 'START', 'PLAYING', 'LEVEL_COMPLETE', 'GAME_OVER', 'VICTORY'.
+- UI Overlays:
+  - Level select screen showing unlocked levels.
+  - In-game HUD: Current Level indicator, Reset / Retry button, and Move/Slice counter (optional restriction for extra difficulty).
+  - Victory modal with "Next Level" button when the droplet touches the plant.
+
+### 4. Visual & Audio Feel (Styling)
+- Clean, calming pastel background (cream/off-white).
+- Water droplet: Glowing blue circle with smooth trail particles.
+- Plant: Closed grey bud that blooms into a vibrant animated green flower upon successful collision.
+- ASMR style visual feedbacks: Ink-splash effect when drawing a line, subtle particle burst on win.
+
+Please write clean, modular, and error-free code with comments explaining the level structures and physics setup.
