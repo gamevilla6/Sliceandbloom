@@ -684,6 +684,10 @@ export function GameBoard({ engine, level, attempt, modeKey = 'classic', tool, s
 const styles = StyleSheet.create({
   wrap: {
     flex: 1,
+    width: '100%',
+    minWidth: 0,
+    minHeight: 0,
+    alignSelf: 'stretch',
     overflow: 'hidden',
     ...(Platform.OS === 'web' ? ({ touchAction: 'none', userSelect: 'none', cursor: 'crosshair' } as object) : {}),
   },

@@ -38,3 +38,24 @@ test('viewport scaling safely handles zero-sized layouts before the first layout
   });
 });
 
+test('resizing the gameplay canvas preserves every world edge and stroke coordinates', () => {
+  // Canvas sizes after the compact HUD and native safe areas are laid out.
+  // Resizing changes presentation only, never level geometry or ink lengths.
+  const points = [{ x: 0, y: 0 }, { x: 360, y: 640 }, { x: 73, y: 219 }];
+  for (const [width, height] of [[320, 416], [390, 680], [430, 768], [768, 860], [550, 360]]) {
+    const viewport = fitLogicalViewport(width, height, 360, 640);
+    assert.equal(viewport.scale, Math.min(width / 360, height / 640));
+    for (const point of points) {
+      const restored = screenPointToWorld(
+        viewport.offsetX + point.x * viewport.scale,
+        viewport.offsetY + point.y * viewport.scale,
+        viewport, 360, 640,
+      );
+      assert.ok(Math.abs(restored.x - point.x) < 1e-8);
+      assert.ok(Math.abs(restored.y - point.y) < 1e-8);
+    }
+    assert.ok(Math.abs(viewport.offsetX) < 1e-8 || Math.abs(viewport.offsetY) < 1e-8,
+      'The world must use the full available width or height, not a fixed-size inner frame');
+  }
+});
+

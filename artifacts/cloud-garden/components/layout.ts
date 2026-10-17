@@ -1,4 +1,4 @@
-import { Platform, useWindowDimensions } from 'react-native';
+import { useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { H, W } from '@/lib/levels';
 
@@ -6,10 +6,7 @@ export const ASPECT = W / H;
 
 export function useSafeInsets() {
   const i = useSafeAreaInsets();
-  const { width, height } = useWindowDimensions();
-  // Portrait preview keeps its breathing room; landscape must not reserve
-  // fictitious portrait status/home bars and lose a third of its usable height.
-  if (Platform.OS === 'web' && width <= height) return { top: 67, bottom: 34, left: i.left, right: i.right };
+  // Use actual insets, not simulated phone bars that waste browser canvas space.
   return { top: i.top, bottom: i.bottom, left: i.left, right: i.right };
 }
 

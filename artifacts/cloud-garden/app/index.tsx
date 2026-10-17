@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
-import { Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Modal, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { GameBoard, Hud, Tool } from '@/components/GameBoard';
 import { LevelPicker, LoseCard, PressScale, SettingsSheet, Stars, WinCard } from '@/components/GameUi';
@@ -77,6 +77,12 @@ export default function GameScreen() {
   const [rewardMessage, setRewardMessage] = useState<string>();
   const [rewardedHintUnlocked, setRewardedHintUnlocked] = useState(false);
   const [hintPrompt, setHintPrompt] = useState(false);
+  const [puzzleDetails, setPuzzleDetails] = useState(false);
+  const detailsRef = useRef(false);
+  detailsRef.current = puzzleDetails;
+  useEffect(() => {
+    if (sheet !== 'none') setPuzzleDetails(false);
+  }, [sheet]);
   const [hintWatchRequested, setHintWatchRequested] = useState(false);
   const rewardActionRef = useRef<RewardAction | null>(null);
   const rewardReceiptRef = useRef('');
@@ -176,7 +182,7 @@ export default function GameScreen() {
     const onKey = (e: KeyboardEvent) => {
       if (e.repeat || e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
       if (e.key !== 'r' && e.key !== 'R') return;
-      if (sheetRef.current !== 'none') return;
+      if (sheetRef.current !== 'none' || detailsRef.current) return;
       const t = e.target as HTMLElement | null;
       if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
       e.preventDefault();
@@ -295,10 +301,10 @@ export default function GameScreen() {
   // The ghost path is guidance, never an automatic stroke or physics mutation.
   // It fades after 15 seconds; the earned unlock can re-display it this attempt.
   useEffect(() => {
-    if (!hint) return;
+    if (!hint || puzzleDetails || sheet !== 'none') return;
     const timer = setTimeout(() => dispatchHint({ type: 'toggle' }), 15000);
     return () => clearTimeout(timer);
-  }, [hint, tag]);
+  }, [hint, tag, puzzleDetails, sheet]);
   const requestRewardedAction = (action: RewardAction) => {
     const watch = () => {
       dailyOfferRef.current = action === 'dailyBrush' ? createDailyRewardOffer(appRewards.profile, Date.now()) : undefined;
@@ -336,6 +342,7 @@ export default function GameScreen() {
 
   const switchMode = (m: Mode, nextSheet: Sheet = 'none') => {
     if (adManager.getSnapshot().fullscreen || victoryTransition.current) return;
+    setPuzzleDetails(false);
     if (m === mode) {
       setSheet(nextSheet);
       return;
@@ -446,8 +453,8 @@ export default function GameScreen() {
   const maxMoves = hc?.maxStrokes ?? 0;
   const { landscape, compact, panelW, availW, insets } = useLayoutMode();
   const safeAreaEdges: Edge[] = Platform.OS === 'web' ? [] : ['top', 'right', 'bottom', 'left'];
-  // Native SafeAreaView applies device insets; web keeps the preview's simulated
-  // safe-area padding because browsers do not expose phone cutouts to the view.
+  // Native SafeAreaView applies device insets once. Web uses actual browser
+  // insets only; never reserve fictitious phone/status bars around the puzzle.
   const contentInsets = Platform.OS === 'web' ? insets : { top: 0, bottom: 0, left: 0, right: 0 };
   const tightTools = !landscape && availW < 380;
   // The ready board is interactive too: banners belong only to menu/result cards.
@@ -597,6 +604,13 @@ export default function GameScreen() {
   const frame = (
     <View style={[styles.stageArea, isVoid && { backgroundColor: VD.bgDeep, borderWidth: 2, borderColor: VD.red }, isGenesis && { backgroundColor: GN.bgDeep, borderWidth: 2, borderColor: GN.amber }, isSingularity && { backgroundColor: SG.bgDeep, borderWidth: 2, borderColor: SG.cyan }]} testID="region-stage">
       <View style={styles.stageHud}>
+        {!landscape && (
+          <PressScale label={`Choose level. ${noun} ${level.id}: ${level.name}`} testID="gameplay-level" onPress={() => setSheet('levels')} containerStyle={styles.stageLevelSlot} style={styles.stageLevel}>
+            <Ionicons name="grid" size={16} color={isDarkScreen ? P.white : P.ink} />
+            <Text numberOfLines={1} style={[styles.stageLevelText, isDarkScreen && { color: P.white }]}>{level.id} · {level.name}</Text>
+          </PressScale>
+        )}
+        <MiniBtn dark={isVoid} tone={tone} name="Puzzle details and settings" icon="information-circle-outline" onPress={() => setPuzzleDetails(true)} id="puzzle-details" />
         <MiniBtn dark={isVoid} tone={tone} name={Platform.OS === 'web' ? 'Retry level (R)' : 'Retry level'} icon="refresh" onPress={reset} id="reset" />
         <PressScale label={hint ? 'Hide hint' : 'Hint'} testID="hint" disabled={!level.hint.length || status === 'won' || status === 'lost'} onPress={() => {
           if (rewardedHintUnlocked) dispatchHint({ type: 'toggle' });
@@ -606,7 +620,8 @@ export default function GameScreen() {
           <Text style={styles.smartHintText}>Hint</Text>
         </PressScale>
       </View>
-      <GameBoard key={tag} modeKey={mode} engine={gameEngine} level={level} attempt={attempt} tool={tool} showHint={hint} hintStep={hintView.step} hintOverview={hintView.overview} guides={progress.settings.guides} paused={hintPrompt || sheet !== 'none' || !!adNexus.fullscreen || (rewardAction === 'retryInk' && canUsePendingReward && (rewardedAd.status === 'loading' || rewardedAd.status === 'ready'))} playSound={playSound} engineRef={engineRef} onHud={onHud} />
+      {!landscape && <View style={styles.stageCounters}>{ink}{hudCore}</View>}
+      <GameBoard key={tag} modeKey={mode} engine={gameEngine} level={level} attempt={attempt} tool={tool} showHint={hint} hintStep={hintView.step} hintOverview={hintView.overview} guides={progress.settings.guides} paused={puzzleDetails || hintPrompt || sheet !== 'none' || !!adNexus.fullscreen || (rewardAction === 'retryInk' && canUsePendingReward && (rewardedAd.status === 'loading' || rewardedAd.status === 'ready'))} playSound={playSound} engineRef={engineRef} onHud={onHud} />
     </View>
   );
 
@@ -634,16 +649,10 @@ export default function GameScreen() {
           </View>
         </View>
       ) : (
-        <View style={[styles.root, { backgroundColor: screenBg }, { paddingTop: contentInsets.top + 6, paddingBottom: contentInsets.bottom + 8 + mainBannerSpace, paddingLeft: contentInsets.left + 12, paddingRight: contentInsets.right + 12 }]} testID="layout-portrait">
+        <View style={[styles.root, { backgroundColor: screenBg }, { paddingTop: contentInsets.top, paddingBottom: contentInsets.bottom + mainBannerSpace, paddingLeft: contentInsets.left, paddingRight: contentInsets.right }]} testID="layout-portrait">
           <View style={styles.column}>
-            {header}
-            {modeBar}
-            {!hc && modBadges}
-            {ink}
-            {outOfInkOffer}
-            {hudBar}
             {frame}
-            {captionEl}
+            {outOfInkOffer}
             {tools}
           </View>
         </View>
@@ -715,6 +724,21 @@ export default function GameScreen() {
           onLevels={() => setSheet('levels')}
         />
       )}
+      <Modal visible={puzzleDetails} transparent animationType="slide" onRequestClose={() => setPuzzleDetails(false)}>
+        <SafeAreaView style={[styles.detailsSafe, { backgroundColor: screenBg }]}>
+          <ScrollView contentContainerStyle={styles.detailsContent}>
+            <PressScale label="Close puzzle details and resume" testID="close-puzzle-details" onPress={() => setPuzzleDetails(false)} style={styles.detailsClose}>
+              <Ionicons name="close" size={22} color={P.ink} />
+              <Text style={styles.smartHintText}>Back to puzzle</Text>
+            </PressScale>
+            {header}
+            {modeBar}
+            {modBadges}
+            {isVoid && hudBar}
+            {captionEl}
+          </ScrollView>
+        </SafeAreaView>
+      </Modal>
       <SmartHintPrompt visible={hintPrompt} busy={rewardAction === 'hint' && (hintWatchRequested || rewardedAd.status === 'loading' || rewardedAd.status === 'showing')} supported={rewardedAd.supported && appRewards.ready && !appRewards.storageError} message={rewardAction === 'hint' ? rewardedAd.message : appRewards.storageError ?? undefined} onClose={closeHintPrompt} onWatch={() => {
         setHintWatchRequested(true);
         requestRewardedAction('hint');
@@ -750,7 +774,14 @@ function MiniBtn({ dark, tone, icon, onPress, disabled, active, id, name }: { da
 
 const lift = { shadowColor: P.ink, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 1, shadowRadius: 0, elevation: 3 } as const;
 const styles = StyleSheet.create({
-  stageHud: { flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', gap: 8, padding: 6 },
+  stageHud: { flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', gap: 6, padding: 4 },
+  stageLevelSlot: { flex: 1, minWidth: 0 },
+  stageLevel: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 4 },
+  stageLevelText: { flexShrink: 1, fontFamily: F.bold, fontSize: 13, color: P.ink },
+  stageCounters: { paddingHorizontal: 4 },
+  detailsSafe: { flex: 1 },
+  detailsContent: { padding: 12, gap: 10 },
+  detailsClose: { minHeight: 48, flexDirection: 'row', gap: 8, alignItems: 'center', alignSelf: 'flex-end', backgroundColor: P.marigold, borderRadius: R.btn, paddingHorizontal: 12 },
   smartHint: { minHeight: 44, paddingHorizontal: 14, flexDirection: 'row', gap: 6, alignItems: 'center', backgroundColor: P.marigold, borderRadius: R.btn, shadowColor: P.marigold, shadowOpacity: 0.6, shadowRadius: 8, shadowOffset: { width: 0, height: 0 }, elevation: 4 },
   smartHintText: { fontFamily: F.bold, color: P.ink, fontSize: 14 },
   outer: { flex: 1, backgroundColor: P.paper },
@@ -792,7 +823,7 @@ const styles = StyleSheet.create({
   hintControls: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12, marginTop: 8, marginBottom: 3 },
   hintOverview: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 10 },
   hintOverviewText: { fontFamily: F.semi, fontSize: 14, color: P.white, textDecorationLine: 'underline' },
-  toolbar: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', marginTop: 10, columnGap: 8, rowGap: 8 },
+  toolbar: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', marginTop: 4, paddingHorizontal: 6, paddingBottom: 4, columnGap: 8, rowGap: 8 },
   toolGroup: { flexDirection: 'row', gap: 6, alignItems: 'center' },
   toolBtn: { alignItems: 'center', justifyContent: 'center', borderRadius: R.btn, backgroundColor: P.white, borderWidth: 3, borderColor: P.ink, ...lift },
   toolBtnOn: { backgroundColor: P.drop },
