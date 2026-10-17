@@ -1,8 +1,9 @@
 import React, { ReactNode, useEffect, useRef, useState } from 'react';
-import { Animated, Pressable, ScrollView, ScrollViewProps, StyleProp, StyleSheet, Text, View, ViewStyle, useWindowDimensions } from 'react-native';
+import { Animated, Platform, Pressable, ScrollView, ScrollViewProps, StyleProp, StyleSheet, Text, View, ViewStyle, useWindowDimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { F, P, R, VD } from '@/constants/theme';
 import { useSafeInsets } from '@/components/layout';
+import { BannerAdComponent, BANNER_AD_RESERVED_HEIGHT } from '@/components/BannerAdComponent';
 import { Level } from '@/lib/levels';
 import { haptic } from '@/lib/haptics';
 import { levelGrid, levelScrollOffset } from '@/lib/levelGrid';
@@ -70,8 +71,9 @@ export function Stars({ count, size = 30, pop = false }: { count: number; size?:
   );
 }
 
-function Card({ children, onClose, title, scrollID, expanded = false, scrollRef, onScrollLayout, onContentSizeChange, footer, dark }: {
+function Card({ children, onClose, title, scrollID, expanded = false, scrollRef, onScrollLayout, onContentSizeChange, footer, dark, showBanner = false }: {
   dark?: boolean;
+  showBanner?: boolean;
   children: ReactNode;
   onClose?: () => void;
   title?: string;
@@ -85,14 +87,16 @@ function Card({ children, onClose, title, scrollID, expanded = false, scrollRef,
   const a = useRef(new Animated.Value(0)).current;
   const { height } = useWindowDimensions();
   const ins = useSafeInsets();
+  const [loadedBannerHeight, setLoadedBannerHeight] = useState<number | null>(null);
   useEffect(() => {
     Animated.spring(a, { toValue: 1, useNativeDriver: true, bounciness: 10, speed: 12 }).start();
   }, [a]);
   const pad = expanded ? 8 : 14;
-  const availableHeight = Math.max(0, height - ins.top - ins.bottom - pad * 2);
+  const bannerHeight = showBanner ? loadedBannerHeight ?? BANNER_AD_RESERVED_HEIGHT : 0;
+  const availableHeight = Math.max(0, height - ins.top - ins.bottom - pad * 2 - bannerHeight);
   const short = expanded && availableHeight < 400;
   return (
-    <Animated.View style={[styles.scrim, dark && { backgroundColor: 'rgba(5,3,10,0.82)' }, { opacity: a, paddingTop: ins.top + pad, paddingBottom: ins.bottom + pad, paddingLeft: ins.left + pad, paddingRight: ins.right + pad }]}>
+    <Animated.View style={[styles.scrim, dark && { backgroundColor: 'rgba(5,3,10,0.82)' }, { opacity: a, paddingTop: ins.top + pad, paddingBottom: ins.bottom + pad + bannerHeight, paddingLeft: ins.left + pad, paddingRight: ins.right + pad }]}>
       <Animated.View style={[styles.card, dark && styles.cardDark, expanded && { maxWidth: 840, height: availableHeight }, short && { padding: 12 }, { maxHeight: availableHeight, transform: [{ scale: a.interpolate({ inputRange: [0, 1], outputRange: [0.85, 1] }) }] }]} accessibilityViewIsModal>
         {title !== undefined && (
           <View style={[styles.cardHead, short && { marginBottom: 8 }]}>
@@ -109,6 +113,11 @@ function Card({ children, onClose, title, scrollID, expanded = false, scrollRef,
         </ScrollView>
         {footer}
       </Animated.View>
+      {showBanner && (
+        <View style={[styles.bannerDock, { bottom: ins.bottom + 4 }]} pointerEvents="box-none">
+          <BannerAdComponent onHeightChange={setLoadedBannerHeight} />
+        </View>
+      )}
     </Animated.View>
   );
 }
@@ -124,7 +133,7 @@ function Btn({ dark, label, icon, onPress, kind = 'primary', testID, disabled }:
 
 export function WinCard({ dark, badge, deaths, masterclass, score, highScore, bestTime, level, stars, elapsed, hasNext, onNext, onReplay, onLevels }: { dark?: boolean; badge?: string; deaths?: number; masterclass?: boolean; score?: number; highScore?: number; bestTime?: number; level: Level; stars: number; elapsed?: number; hasNext: boolean; onNext: () => void; onReplay: () => void; onLevels: () => void }) {
   return (
-    <Card dark={dark}>
+    <Card dark={dark} showBanner={Platform.OS !== 'web'}>
       <Text style={[styles.kicker, dark && { color: VD.red }]}>{level.name}</Text>
       <Text style={[styles.big, dark && { color: VD.purple, textShadowColor: VD.red }]}>{dark ? 'Protocol cleared' : masterclass ? 'Masterclass complete' : 'It bloomed!'}</Text>
       <Text style={styles.brand}>Slice & Bloom</Text>
@@ -168,7 +177,7 @@ export function LoseCard({ reason, onRetry, onHint, onLevels, rewardedRetry }: {
   };
 }) {
   return (
-    <Card>
+    <Card showBanner={Platform.OS !== 'web'}>
       <Text style={styles.kicker}>Oh no</Text>
       <Text style={styles.big}>Cloud dried up</Text>
       <Text style={[styles.sub, { marginVertical: 12 }]}>{reason}</Text>
@@ -210,8 +219,9 @@ export function LoseCard({ reason, onRetry, onHint, onLevels, rewardedRetry }: {
 export function LevelPicker({ deaths, badges, scores, bestTimes, levels, unlocked, stars, current, onPick, onClose, title = 'Garden beds', noun = 'Bed' }: { deaths?: Record<string, number>; badges?: Record<string, string>; scores?: Record<string, number>; bestTimes?: Record<string, number>; levels: Level[]; unlocked: number; stars: Record<string, number>; current: number; onPick: (i: number) => void; onClose: () => void; title?: string; noun?: string }) {
   const { width, height, fontScale } = useWindowDimensions();
   const ins = useSafeInsets();
+  const showBanner = Platform.OS !== 'web';
   const [measuredWidth, setMeasuredWidth] = useState(0);
-  const short = height - ins.top - ins.bottom - 16 < 400;
+  const short = height - ins.top - ins.bottom - 16 - (showBanner ? BANNER_AD_RESERVED_HEIGHT : 0) < 400;
   const estimatedWidth = Math.min(840, width - ins.left - ins.right - 16) - (short ? 32 : 44);
   const { gap, columns, tileWidth } = levelGrid(measuredWidth || Math.max(0, estimatedWidth), fontScale);
   const hc = !!levels[0]?.hardcore;
@@ -265,7 +275,7 @@ export function LevelPicker({ deaths, badges, scores, bestTimes, levels, unlocke
     setJump((n) => n + 1);
   };
   return (
-    <Card dark={vd} title={title} onClose={onClose} scrollID="level-list" expanded
+    <Card dark={vd} title={title} onClose={onClose} scrollID="level-list" expanded showBanner={showBanner}
       scrollRef={scrollRef}
       onScrollLayout={(e) => setViewportHeight(e.nativeEvent.layout.height)}
       onContentSizeChange={(_, h) => setContentHeight(h)}
@@ -365,6 +375,7 @@ export function SettingsSheet({ dark, haptics, guides, sound, onHaptics, onGuide
 
 const styles = StyleSheet.create({
   scrim: { ...StyleSheet.absoluteFill, backgroundColor: 'rgba(20,39,92,0.6)', alignItems: 'center', justifyContent: 'center', zIndex: 50 },
+  bannerDock: { position: 'absolute', left: 0, right: 0, alignItems: 'center', zIndex: 51 },
   card: { width: '100%', maxWidth: 420, backgroundColor: P.paper, borderRadius: R.card, borderWidth: 4, borderColor: P.ink, borderTopColor: P.ink, padding: 18, alignItems: 'stretch', flexShrink: 1, shadowColor: P.ink, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 1, shadowRadius: 0 },
   cardHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 },
   cardTitle: { flex: 1, fontFamily: F.bold, fontSize: 28, textTransform: 'uppercase', color: P.ink },

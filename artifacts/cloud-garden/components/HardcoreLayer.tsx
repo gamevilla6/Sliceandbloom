@@ -1,8 +1,10 @@
-import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import React, { useState } from 'react';
+import { Platform, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { F, P, R, VD } from '@/constants/theme';
 import { PressScale } from '@/components/GameUi';
+import { useSafeInsets } from '@/components/layout';
+import { BannerAdComponent, BANNER_AD_RESERVED_HEIGHT } from '@/components/BannerAdComponent';
 import { HARDCORE_LEVELS } from '@/lib/hardcoreLevels';
 
 export type Mode = 'classic' | 'hardcore' | 'genesis' | 'void';
@@ -82,8 +84,12 @@ export function HardcoreHud({ themed, started, timeLeft, limit, elapsed, gold, p
 }
 
 export function HardcoreFail({ themed, reason, onRetry, title = 'Wilted' }: { themed?: boolean; reason: string; onRetry: () => void; title?: string }) {
+  const insets = useSafeInsets();
+  const showBanner = Platform.OS !== 'web';
+  const [loadedBannerHeight, setLoadedBannerHeight] = useState<number | null>(null);
+  const bannerHeight = showBanner ? loadedBannerHeight ?? BANNER_AD_RESERVED_HEIGHT : 0;
   return (
-    <View style={styles.failWrap} pointerEvents="box-none" testID="hc-fail">
+    <View style={[styles.failWrap, showBanner && { paddingBottom: 16 + bannerHeight }]} pointerEvents="box-none" testID="hc-fail">
       <View style={[styles.fail, themed && { backgroundColor: VD.bg, borderColor: VD.red, shadowColor: VD.red }]} accessibilityLiveRegion="assertive">
         <Text style={[styles.failKicker, themed && { color: VD.red }]}>{title}</Text>
         <Text style={[styles.failText, themed && { color: VD.textSoft }]} numberOfLines={2}>{reason || 'Try again, faster.'}</Text>
@@ -92,6 +98,11 @@ export function HardcoreFail({ themed, reason, onRetry, title = 'Wilted' }: { th
           <Text style={styles.failBtnText}>Retry now</Text>
         </PressScale>
       </View>
+      {showBanner && (
+        <View style={[styles.bannerDock, { bottom: insets.bottom + 4 }]} pointerEvents="box-none">
+          <BannerAdComponent onHeightChange={setLoadedBannerHeight} />
+        </View>
+      )}
     </View>
   );
 }
@@ -135,6 +146,7 @@ const styles = StyleSheet.create({
   bar: { height: 8, borderRadius: 4, backgroundColor: P.paperDeep, borderWidth: 2, borderColor: P.ink, overflow: 'hidden' },
   barFill: { height: '100%' },
   failWrap: { ...StyleSheet.absoluteFill, alignItems: 'center', justifyContent: 'center', zIndex: 40, padding: 16 },
+  bannerDock: { position: 'absolute', left: 0, right: 0, alignItems: 'center', zIndex: 41 },
   fail: { maxWidth: 320, width: '100%', alignItems: 'center', gap: 6, backgroundColor: P.paper, borderWidth: 4, borderColor: P.ink, borderRadius: R.card, padding: 14, ...lift, shadowColor: HOT },
   failKicker: { fontFamily: F.bold, fontSize: 24, color: P.coralDeep, textTransform: 'uppercase' },
   failText: { fontFamily: F.semi, fontSize: 14, color: P.inkSoft, textAlign: 'center' },

@@ -16,6 +16,7 @@ import { setHapticsEnabled } from '@/lib/haptics';
 import { F, P, R, VD } from '@/constants/theme';
 import { hintReducer, INITIAL_HINT_VIEW } from '@/lib/hints';
 import { useRewardedRetry } from '@/lib/rewardedAds';
+import { BannerAdComponent, BANNER_AD_RESERVED_HEIGHT } from '@/components/BannerAdComponent';
 
 type Sheet = 'none' | 'levels' | 'settings';
 
@@ -49,6 +50,7 @@ export default function GameScreen() {
   const [sheet, setSheet] = useState<Sheet>('none');
   const [hud, setHud] = useState<Hud | null>(null);
   const [overlay, setOverlay] = useState(false);
+  const [mainBannerHeight, setMainBannerHeight] = useState<number | null>(null);
   const engineRef = useRef<GardenEngine | null>(null);
   const loaded = useRef(false);
   const savedKey = useRef('');
@@ -182,6 +184,8 @@ export default function GameScreen() {
   const maxMoves = hc?.maxStrokes ?? 0;
   const { landscape, compact, panelW, availW, insets } = useLayoutMode();
   const tightTools = !landscape && availW < 380;
+  const showMainBanner = Platform.OS !== 'web' && sheet === 'none' && !overlay && status === 'ready';
+  const mainBannerSpace = showMainBanner ? mainBannerHeight ?? BANNER_AD_RESERVED_HEIGHT : 0;
   const unit = compact ? 48 : 56;
   const showBrand = !landscape && availW >= 360;
 
@@ -302,7 +306,7 @@ export default function GameScreen() {
   return (
     <View style={[styles.outer, isVoid && { backgroundColor: VD.bg }]}>
       {landscape ? (
-        <View style={[styles.root, isVoid && { backgroundColor: VD.bg }, styles.rootRow, { paddingTop: insets.top + 6, paddingBottom: insets.bottom + 6, paddingLeft: insets.left + 12, paddingRight: insets.right + 12 }]} testID="layout-landscape">
+        <View style={[styles.root, isVoid && { backgroundColor: VD.bg }, styles.rootRow, { paddingTop: insets.top + 6, paddingBottom: insets.bottom + 6 + mainBannerSpace, paddingLeft: insets.left + 12, paddingRight: insets.right + 12 }]} testID="layout-landscape">
           <View style={styles.landGroup}>
              <View style={{ width: panelW, minHeight: 0, flexShrink: 0 }} testID="region-panel">
               <ScrollView style={{ flex: 1, minHeight: 0 }} contentContainerStyle={[styles.panelContent, compact && { gap: 4, paddingVertical: 0 }]} showsVerticalScrollIndicator testID="panel-scroll">
@@ -321,7 +325,7 @@ export default function GameScreen() {
           </View>
         </View>
       ) : (
-        <View style={[styles.root, isVoid && { backgroundColor: VD.bg }, { paddingTop: insets.top + 6, paddingBottom: insets.bottom + 8, paddingLeft: insets.left + 12, paddingRight: insets.right + 12 }]} testID="layout-portrait">
+        <View style={[styles.root, isVoid && { backgroundColor: VD.bg }, { paddingTop: insets.top + 6, paddingBottom: insets.bottom + 8 + mainBannerSpace, paddingLeft: insets.left + 12, paddingRight: insets.right + 12 }]} testID="layout-portrait">
           <View style={styles.column}>
             {header}
             {modeBar}
@@ -332,6 +336,12 @@ export default function GameScreen() {
             {captionEl}
             {tools}
           </View>
+        </View>
+      )}
+
+      {showMainBanner && (
+        <View style={[styles.bannerDock, { bottom: insets.bottom + 4 }]} pointerEvents="box-none">
+          <BannerAdComponent onHeightChange={setMainBannerHeight} />
         </View>
       )}
 
@@ -392,6 +402,7 @@ function MiniBtn({ dark, icon, onPress, disabled, active, id, name }: { dark?: b
 const lift = { shadowColor: P.ink, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 1, shadowRadius: 0, elevation: 3 } as const;
 const styles = StyleSheet.create({
   outer: { flex: 1, backgroundColor: P.paper },
+  bannerDock: { position: 'absolute', left: 0, right: 0, alignItems: 'center', zIndex: 60 },
   root: { flex: 1, backgroundColor: P.paper },
   rootRow: { alignItems: 'stretch', justifyContent: 'center' },
   column: { flex: 1, width: '100%', alignSelf: 'center', minHeight: 0 },
