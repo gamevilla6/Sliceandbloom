@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "Slice & Bloom",
-    "slug": "cloud-garden",
+    "slug": "slice-and-bloom",
     "extra": {
       "eas": {
         "projectId": "e20e9de1-ea5b-4b14-93e4-4d42ba186d5f"
@@ -39,7 +39,7 @@
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "monochromeImage": "./assets/images/monochrome-icon.png",
-        "backgroundColor": "#FFF5D6"
+        "backgroundColor": "#1E293B"
       }
     },
     "web": {
