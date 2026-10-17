@@ -1,30 +1,45 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { Platform } from 'react-native';
 import {
+  AdsConsent,
   AdEventType,
-  mobileAds,
+  default as mobileAds,
   RewardedAd,
   RewardedAdEventType,
   TestIds,
 } from 'react-native-google-mobile-ads';
-
-export type RewardedRetryStatus = 'loading' | 'ready' | 'showing' | 'unavailable';
-
-export interface RewardedRetry {
-  supported: true;
-  status: RewardedRetryStatus;
-  message?: string;
-  onPress: () => void;
-}
+import type { RewardedRetry, RewardedRetryStatus } from './rewardedAds';
 
 let initialization: Promise<unknown> | null = null;
 
+function getRewardedUnitId(): string {
+  if (__DEV__) return TestIds.REWARDED;
+  const productionUnitId = Platform.select({
+    ios: process.env.EXPO_PUBLIC_ADMOB_REWARDED_IOS,
+    android: process.env.EXPO_PUBLIC_ADMOB_REWARDED_ANDROID,
+  });
+  if (!productionUnitId) {
+    throw new Error('Set the platform EXPO_PUBLIC_ADMOB_REWARDED_* ad unit ID before enabling production ads.');
+  }
+  return productionUnitId;
+}
+
 /** Initialize the native Google Mobile Ads SDK once for the app process. */
 export function initializeRewardedAds(): Promise<unknown> {
-  initialization ??= mobileAds().initialize().catch((error: unknown) => {
+  if (initialization) return initialization;
+  const promise = (async () => {
+    // UMP presents a consent form only when required for this user/region.
+    const consent = await AdsConsent.gatherConsent();
+    if (!consent.canRequestAds) {
+      throw new Error('User consent or regional rules do not currently permit ad requests.');
+    }
+    return mobileAds().initialize();
+  })().catch((error: unknown) => {
     initialization = null;
     throw error;
   });
-  return initialization;
+  initialization = promise;
+  return promise;
 }
 
 /**
@@ -61,8 +76,8 @@ export function useRewardedRetry(
         await initializeRewardedAds();
         if (!active) return;
 
-        // TestIds.REWARDED selects Google's official iOS/Android test unit ID.
-        ad = RewardedAd.createForAdRequest(TestIds.REWARDED, {
+        // Development builds always use Google's official platform test unit ID.
+        ad = RewardedAd.createForAdRequest(getRewardedUnitId(), {
           requestNonPersonalizedAdsOnly: true,
         });
         adRef.current = ad;
@@ -85,12 +100,10 @@ export function useRewardedRetry(
           if (!active) return;
           loadedRef.current = false;
           showingRef.current = false;
-          setStatus('loading');
           if (!earnedRef.current) {
+            setStatus('unavailable');
             setMessage('The ad ended before the reward was earned. You can retry normally.');
           }
-          // Preload another ad only while this failure card remains open.
-          ad?.load();
         });
 
         removeError = ad.addAdEventListener(AdEventType.ERROR, (error) => {

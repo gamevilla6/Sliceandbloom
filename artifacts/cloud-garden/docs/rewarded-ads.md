@@ -5,7 +5,7 @@ Slice & Bloom offers one optional rewarded retry on the standard campaign's fail
 ## Included setup
 
 - `react-native-google-mobile-ads` is configured through its Expo config plugin.
-- The app initializes the Google Mobile Ads SDK once at startup.
+- The app runs Google's UMP consent flow first, then initializes the Google Mobile Ads SDK once at startup only when `canRequestAds` is true.
 - Google's official test App IDs are set in `app.json`:
   - Android: `ca-app-pub-3940256099942544~3347511713`
   - iOS: `ca-app-pub-3940256099942544~1458002511`
@@ -25,8 +25,8 @@ After building, launch the app on an iOS or Android device and fail a regular Ca
 
 1. Create the app and rewarded ad unit in AdMob.
 2. Replace both test App IDs in the Expo plugin options in `app.json` with the app's actual platform App IDs.
-3. Replace `TestIds.REWARDED` in `lib/rewardedAds.native.ts` with the platform's production ad-unit ID (read from a non-secret app config value, not committed source). Keep test IDs enabled for development builds.
-4. Add the required privacy disclosures and Google's User Messaging Platform consent flow for regions where consent is required. The current request asks for non-personalized ads, but this does not replace applicable consent, privacy-policy, or store disclosure requirements.
+3. Set `EXPO_PUBLIC_ADMOB_REWARDED_IOS` and `EXPO_PUBLIC_ADMOB_REWARDED_ANDROID` to the platform's production rewarded ad-unit IDs in the build environment. Development builds (`__DEV__`) continue to use `TestIds.REWARDED`; release builds fail closed and offer the ordinary Retry button if a production ID is missing.
+4. Add the required privacy disclosures, privacy-policy link, and a settings entry point for UMP privacy choices when the AdMob privacy-options requirement calls for one. The current ad request is non-personalized, but that does not replace applicable consent or store disclosure requirements.
 5. Test no-fill, load errors, early close, and completed reward with test ads before enabling real inventory.
 
 Never grant currency or unlocks from `LOADED`, `CLOSED`, or the return value of `show()`. Put all reward-granting logic inside the `RewardedAdEventType.EARNED_REWARD` listener.
