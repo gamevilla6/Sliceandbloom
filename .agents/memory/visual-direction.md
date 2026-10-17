@@ -20,3 +20,9 @@ Do not frame the play area as a phone screen.
 **Why:** The user explicitly requested removing the phone-shaped play-area frame so gameplay uses more screen space.
 
 **How to apply:** Let scenery fill the available gameplay region without a device-like border, while preserving puzzle proportions and accurate touch mapping.
+
+The user approved **“Draw. Slice. Bloom.”** as the animated promo's closing line.
+
+**Why:** They explicitly chose to keep the suggested closing line.
+
+**How to apply:** Preserve this copy in promo revisions unless requested otherwise; this approval does not establish a new slogan throughout the game.
