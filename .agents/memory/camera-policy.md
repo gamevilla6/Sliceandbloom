@@ -1,16 +1,12 @@
 ---
-name: Cinematic camera and puzzle access
-description: Keep a full-level view available when adding camera focus effects.
+name: Normal gameplay view
+description: The user removed the cinematic Overview/Focus camera modes.
 ---
 
-Cinematic focus must retain an accessible full-level overview, and must remain
-a rendering effect rather than a change to puzzle geometry or physics.
+Use the normal, unzoomed full-level gameplay view without Overview/Focus modes.
 
-**Why:** A 1.5× phone viewport cannot always contain both the water and distant
-mechanisms or targets. Mandatory zoom without an overview could make existing
-routes impossible to draw, even when their physics solutions remain valid.
+**Why:** The user asked to remove Overview and Focus after the cinematic camera
+was added.
 
-**How to apply:** Preserve the overview option in future camera changes. Keep
-controls and ads outside camera transforms, and use the same transform for
-rendering and inverse draw/slice input. Hold the camera steady during strokes so
-camera movement alone cannot consume ink under a stationary finger.
+**How to apply:** Preserve the normal viewport in subsequent visual changes
+unless the user requests a different camera behavior.
