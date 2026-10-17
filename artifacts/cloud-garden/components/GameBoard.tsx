@@ -10,6 +10,7 @@ import { Sfx } from '@/lib/audio';
 import { GN, mix, P, SG, VD } from '@/constants/theme';
 import { AdvancedLayer } from '@/components/AdvancedLayer';
 import { GenesisLayer } from '@/components/GenesisLayer';
+import { SKINS } from '@/lib/rewardHub';
 import { HOT } from '@/components/HardcoreLayer';
 import { fitLogicalViewport, screenPointToWorld } from '@/lib/viewport';
 
@@ -105,6 +106,8 @@ export function GameBoard({ engine, level, attempt, modeKey = 'classic', tool, s
       : isSingularity
         ? { top: SG.bgDeep, bottom: SG.skyBottom, soil: SG.bgDeep, grass: SG.cyan, wood: SG.panelHi, woodEdge: SG.cyan, draw: SG.cyan, glow: SG.gold, drop: SG.cyan }
         : { top: P.skyTop, bottom: P.skyBottom, soil: P.soil, grass: P.leaf, wood: P.wood, woodEdge: P.ink, draw: P.mint, glow: P.drop, drop: P.drop };
+  const skin = SKINS.find(s => s.id === engine.cosmeticSkin);
+  const dropColor = engine.cosmeticSkin === 'classic' ? art.drop : skin?.color ?? art.drop;
   useEffect(() => {
     AccessibilityInfo.isReduceMotionEnabled?.().then((v) => { reduceMotion.current = !!v; }).catch(() => {});
   }, []);
@@ -627,7 +630,7 @@ export function GameBoard({ engine, level, attempt, modeKey = 'classic', tool, s
             <G transform={`translate(${dx} ${dy}) scale(${(dScale / stretch).toFixed(3)} ${(dScale * stretch).toFixed(3)})`}>
               <Circle r={21} fill={art.glow} opacity={isDarkScreen ? 0.26 : 0.18} />
               <Circle r={15} fill={art.glow} opacity={isDarkScreen ? 0.18 : 0.12} />
-              <Path d={DROP_PATH} fill={lost ? mix(art.drop, P.wilt, 0.6) : art.drop} stroke={isDarkScreen ? SG.glow : P.ink} strokeWidth={2.5} strokeLinejoin="round" />
+              <Path d={DROP_PATH} fill={lost ? mix(dropColor, P.wilt, 0.6) : dropColor} stroke={isDarkScreen ? SG.glow : P.ink} strokeWidth={2.5} strokeLinejoin="round" />
               <Ellipse cx={-5} cy={-2} rx={2.4} ry={4} fill={P.white} opacity={0.75} transform="rotate(20 -5 -2)" />
               {blink || lost ? (
                 <G stroke={P.ink} strokeWidth={1.6} strokeLinecap="round">

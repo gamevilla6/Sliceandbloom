@@ -45,6 +45,11 @@ export function useProgress(total: number, key = KEY) {
   );
   const resetAll = useCallback(() => update((p) => ({ ...DEFAULT, settings: p.settings })), [update]);
   const recordDeath = useCallback((idx: number) => update(p => addDeath(p, total, idx)), [update, total]);
+  // A skip opens the next stage but never fabricates a clear, star, or score.
+  const skip = useCallback((idx: number) => update(p => idx >= 0 && idx + 1 < total
+    ? { ...p, unlocked: Math.max(p.unlocked, idx + 1), last: idx + 1 } : p), [update, total]);
+  const unlockThrough = useCallback((idx: number) => update(p => idx > p.unlocked
+    ? { ...p, unlocked: Math.min(total - 1, idx) } : p), [update, total]);
 
-  return { progress: state, ready, complete, setLast, setSetting, resetAll, recordDeath };
+  return { progress: state, ready, complete, setLast, setSetting, resetAll, recordDeath, skip, unlockThrough };
 }

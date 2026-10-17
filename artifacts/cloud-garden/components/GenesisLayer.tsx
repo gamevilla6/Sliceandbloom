@@ -5,6 +5,7 @@ import type { Level } from '@/lib/levels';
 import { W } from '@/lib/levels';
 import { F, GN, P } from '@/constants/theme';
 import { HOT } from '@/components/HardcoreLayer';
+import { SKINS } from '@/lib/rewardHub';
 
 const OK = P.mint;
 const poly = (v: { x: number; y: number }[]) => 'M' + v.map((p) => `${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' L') + ' Z';
@@ -14,6 +15,7 @@ export function GenesisLayer({ engine, level }: { engine: GardenEngine; level: L
   'use no memo';
   // Mutable Matter state: read every frame, never cache.
   const g = engine.genesis;
+  const skin = SKINS.find(s => s.id === engine.cosmeticSkin);
   const t = engine.time;
   const pulse = 0.6 + 0.4 * Math.sin(t * 6);
   const rec = g.receivers;
@@ -121,7 +123,7 @@ export function GenesisLayer({ engine, level }: { engine: GardenEngine; level: L
         const r = c.circleRadius ?? 8;
         return (
           <G key={`drop${i}`} testID={`genesis-droplet-${n - 1}`} accessibilityLabel={`Droplet ${n}, matches bud ${n}`}>
-            <Circle cx={c.position.x} cy={c.position.y} r={r} fill={P.drop} stroke={P.ink} strokeWidth={3} />
+            <Circle cx={c.position.x} cy={c.position.y} r={r} fill={engine.cosmeticSkin === 'classic' ? P.drop : skin?.color ?? P.drop} stroke={P.ink} strokeWidth={3} />
             <Circle cx={c.position.x - r * 0.3} cy={c.position.y - r * 0.3} r={r * 0.25} fill={P.white} opacity={0.8} />
             <SvgText x={c.position.x} y={c.position.y + 4} fontSize={Math.max(9, r)} fontFamily={F.bold} fill={P.white} textAnchor="middle">{n}</SvgText>
           </G>

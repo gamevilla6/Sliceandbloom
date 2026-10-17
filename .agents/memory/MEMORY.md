@@ -2,3 +2,4 @@
 - [Visual direction](visual-direction.md) — Arcade Pop is the default; Void Protocol uses its own dark neon red/purple theme.
 - [Campaign expansion](campaign-expansion.md) — Campaign, Hardcore and Genesis have 100 levels each; Void Protocol is a separate 110-level mode.
 - [Browser verification](browser-verification.md) — seed progress once; batch short-countdown actions so test overhead does not create false deaths or lost saves.
+- [Reward economy](reward-economy.md) — free-only virtual wagers; review policy before adding paid stakes, cash-out or transferable prizes.

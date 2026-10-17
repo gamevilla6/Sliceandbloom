@@ -7,6 +7,7 @@ import { InfinityMechanics } from './infinity';
 import { VoidMechanics } from './void';
 import { FX } from './fxColors';
 import { GenesisMechanics } from './genesis';
+import type { SkinId } from './rewardHub';
 
 const { Engine, Bodies, Body, Composite, Events, Query, Vertices } = Matter;
 
@@ -96,6 +97,9 @@ function splitPoly(poly: V[], a: V, b: V): [V[], V[]] | null {
 }
 
 export class GardenEngine {
+  cosmeticSkin: SkinId = 'classic';
+  /** Wall-clock expiry is owned by the profile hook; toggling never resets physics. */
+  infiniteInk = false;
   engine: Matter.Engine;
   drop: Matter.Body;
   plant: Matter.Body;
@@ -258,13 +262,15 @@ export class GardenEngine {
     return Math.max(0, this.inkMax - this.inkUsed);
   }
   get inkMax() {
+    if (this.infiniteInk) return 1_000_000;
     const base = Math.min(this.level.ink, this.level.maxInkLength ?? Infinity,
       this.level.strictInkLength === undefined ? Infinity : 400 * this.level.strictInkLength);
     return Math.round(base * (1 + this.bonusInkFraction));
   }
   get score() {
     if (!this.level.hardcore || this.status !== 'won') return 0;
-    return Math.max(100, Math.round(this.stars * 1000 + this.timeLeft * 100 + this.inkLeft * 3 - this.actions * 50));
+    const scoredInk = this.infiniteInk ? Math.min(this.inkLeft, this.level.maxInkLength ?? this.level.ink) : this.inkLeft;
+    return Math.max(100, Math.round(this.stars * 1000 + this.timeLeft * 100 + scoredInk * 3 - this.actions * 50));
   }
   get stars() {
     const moves = this.actions <= this.level.par ? 3 : this.actions <= this.level.par + 1 ? 2 : 1;
@@ -392,6 +398,8 @@ export class GardenEngine {
 
   addStroke(pts: V[]) {
     if (this.status !== 'ready' && this.status !== 'running') return false;
+    // Timed unlimited ink must not allow an unbounded Matter body count.
+    if (this.infiniteInk && (pts.length > 160 || this.strokes.reduce((n, s) => n + s.bodies.length, 0) + pts.length - 1 > 512)) return false;
     if (this.level.hardcore && this.actions >= this.level.hardcore.maxStrokes) return false;
     if (pts.length < 2) return false;
     let len = 0;

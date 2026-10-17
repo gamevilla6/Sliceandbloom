@@ -1,4 +1,6 @@
-export interface AppRewardProfile {
+import { DEFAULT_HUB, readHubInventory, type HubInventory } from './rewardHub';
+
+export interface AppRewardProfile extends HubInventory {
   dailyClaimDate: string | null;
   goldenBrushes: number;
   genesisFastPasses: number;
@@ -9,6 +11,7 @@ export interface AppRewardProfile {
 }
 
 export const DEFAULT_APP_REWARDS: AppRewardProfile = {
+  ...DEFAULT_HUB,
   dailyClaimDate: null,
   goldenBrushes: 0,
   genesisFastPasses: 0,
@@ -32,6 +35,7 @@ export function readAppRewardProfile(raw: unknown): AppRewardProfile {
     ? value.dailyClaimDate
     : null;
   return {
+    ...readHubInventory(value),
     dailyClaimDate: date,
     goldenBrushes: count(value.goldenBrushes),
     genesisFastPasses: count(value.genesisFastPasses),

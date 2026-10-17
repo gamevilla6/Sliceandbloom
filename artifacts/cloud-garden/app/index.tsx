@@ -2,7 +2,8 @@ import React, { useCallback, useEffect, useMemo, useReducer, useRef, useState } 
 import { Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { GameBoard, Hud, Tool } from '@/components/GameBoard';
-import { LevelPicker, LoseCard, PressScale, RewardHub, SettingsSheet, Stars, WinCard, type HubRewardAction } from '@/components/GameUi';
+import { LevelPicker, LoseCard, PressScale, SettingsSheet, Stars, WinCard } from '@/components/GameUi';
+import { RewardHub } from '@/components/RewardHub';
 import { useLayoutMode } from '@/components/layout';
 import { HardcoreFail, HardcoreHud, Mode, ModeSwitch, VoidHud } from '@/components/HardcoreLayer';
 import { useProgress } from '@/hooks/useProgress';
@@ -19,7 +20,7 @@ import { hintReducer, INITIAL_HINT_VIEW } from '@/lib/hints';
 import { useRewardedAd } from '@/lib/rewardedAds';
 import { BannerAdComponent, BANNER_AD_RESERVED_HEIGHT } from '@/components/BannerAdComponent';
 import { useAppRewards } from '@/hooks/useAppRewards';
-import { localRewardDay } from '@/lib/appRewards';
+import { dailyStatus, formatCountdown, type HubRewardAction } from '@/lib/rewardHub';
 import { SINGULARITY_LEVELS } from '@/lib/singularityLevels';
 import type { RewardedAdReward } from 'react-native-google-mobile-ads';
 import { SafeAreaView, type Edge } from 'react-native-safe-area-context';
@@ -70,6 +71,8 @@ export default function GameScreen() {
   const [rewardMessage, setRewardMessage] = useState<string>();
   const [rewardedHintUnlocked, setRewardedHintUnlocked] = useState(false);
   const rewardActionRef = useRef<RewardAction | null>(null);
+  const rewardReceiptRef = useRef('');
+  const skipLock = useRef(false);
   const fastPassTrialRef = useRef(false);
   const engineRef = useRef<GardenEngine | null>(null);
   const loaded = useRef(false);
@@ -81,6 +84,10 @@ export default function GameScreen() {
   const hc = level.hardcore;
   // The world belongs to the screen, not the responsive board's mount point.
   const gameEngine = useMemo(() => new GardenEngine(level, bonusInkFraction), [level, attempt, bonusInkFraction]);
+  // These presentation/boost properties change in place: expiry and equipping
+  // must not recreate an active Matter world or reset its countdown.
+  gameEngine.infiniteInk = appRewards.profile.infiniteInkUntil > appRewards.now;
+  gameEngine.cosmeticSkin = appRewards.profile.equippedSkin;
   useEffect(() => () => gameEngine.dispose(), [gameEngine]);
   const tag = `${mode}:${level.id}:${attempt}`;
   const live = hud && hud.tag === tag ? hud : null;
@@ -89,6 +96,17 @@ export default function GameScreen() {
   const inkMax = gameEngine.inkMax;
   const inkLeft = live ? live.inkLeft : inkMax;
   const { canDraw, canSlice, initialTool } = levelTools(level, inkMax);
+  useEffect(() => { skipLock.current = false; }, [idx, attempt, mode]);
+  useEffect(() => {
+    if (!ready || !appRewards.ready) return;
+    const saves = { classic, hardcore: hard, genesis: gen, void: vd, singularity: sing };
+    for (const [m, entitlement] of Object.entries(appRewards.profile.skipUnlocks)) {
+      const save = saves[m as keyof typeof saves];
+      if (save && entitlement > save.progress.unlocked) save.unlockThrough(entitlement);
+    }
+  }, [ready, appRewards.ready, appRewards.profile.skipUnlocks, classic.progress.unlocked,
+    hard.progress.unlocked, gen.progress.unlocked, vd.progress.unlocked, sing.progress.unlocked,
+    classic.unlockThrough, hard.unlockThrough, gen.unlockThrough, vd.unlockThrough, sing.unlockThrough]);
 
   useEffect(() => {
     if (ready && !loaded.current) {
@@ -201,7 +219,7 @@ export default function GameScreen() {
     ? canOfferRewardedRetry
     : rewardAction === 'hint'
       ? sheet === 'none' && !overlay && (hardcore || isGenesis) && status !== 'won' && status !== 'lost'
-      : (rewardAction === 'dailyBrush' || rewardAction === 'fastPass') && sheet === 'rewards';
+      : !!rewardAction && sheet === 'rewards';
 
   const onRewardAfterClose = useCallback((reward: RewardedAdReward) => {
     const action = rewardActionRef.current;
@@ -209,15 +227,6 @@ export default function GameScreen() {
     setRewardAction(null);
     if (!action) return;
     switch (action) {
-      case 'dailyBrush':
-        setRewardMessage(appRewards.claimDailyBrush()
-          ? 'Golden Ink Brush earned and saved to your kit.'
-          : 'Today’s Golden Ink Brush was already claimed.');
-        break;
-      case 'fastPass':
-        appRewards.earnFastPass();
-        setRewardMessage('Genesis Fast-Pass earned and saved. Choose a locked challenge when ready.');
-        break;
       case 'retryInk':
         appRewards.recordInkRetry();
         retryWithBonusInk();
@@ -228,15 +237,28 @@ export default function GameScreen() {
         dispatchHint({ type: 'show' });
         setRewardMessage('Ghost-line solution unlocked for this attempt.');
         break;
+      default: {
+        const receipt = rewardReceiptRef.current;
+        rewardReceiptRef.current = '';
+        const label = appRewards.grantHubAd(action, receipt);
+        setRewardMessage(label ?? 'This reward was already claimed or its cooldown is still active.');
+        if (label) playSound('win');
+        break;
+      }
     }
     // The SDK reward payload is verified above by the ad hook; reward units are
     // game inventory, not the publisher's configured amount.
     void reward;
-  }, [appRewards.claimDailyBrush, appRewards.earnFastPass, appRewards.recordHint, appRewards.recordInkRetry, retryWithBonusInk]);
+  }, [appRewards.grantHubAd, appRewards.recordHint, appRewards.recordInkRetry, retryWithBonusInk, playSound]);
   const rewardedAd = useRewardedAd(!!rewardAction && canUsePendingReward, rewardAdRequest, onRewardAfterClose);
   const requestRewardedAction = (action: RewardAction) => {
-    if (!appRewards.ready || !rewardedAd.supported) return;
+    if (!appRewards.ready || appRewards.storageError || !rewardedAd.supported) return;
+    if (rewardActionRef.current && rewardActionRef.current !== action
+      && ['loading', 'ready', 'showing'].includes(rewardedAd.status)) return;
+    if (action === 'dailyBrush' && !dailyStatus(appRewards.profile, Date.now()).canClaim) return;
+    if (action.startsWith('vault') && appRewards.profile.vaultNextAt > Date.now()) return;
     if (rewardAction !== action) {
+      rewardReceiptRef.current = `ad:${Date.now()}:${Math.random().toString(36).slice(2)}`;
       rewardActionRef.current = action;
       setRewardAction(action);
       setRewardMessage(undefined);
@@ -244,7 +266,10 @@ export default function GameScreen() {
       return;
     }
     if (rewardedAd.status === 'ready') rewardedAd.onPress();
-    else if (rewardedAd.status === 'unavailable') setRewardAdRequest((n) => n + 1);
+    else if (rewardedAd.status === 'unavailable') {
+      rewardReceiptRef.current = `ad:${Date.now()}:${Math.random().toString(36).slice(2)}`;
+      setRewardAdRequest((n) => n + 1);
+    }
   };
   const rewardedRetry = {
     supported: appRewards.ready && rewardedAd.supported,
@@ -274,14 +299,14 @@ export default function GameScreen() {
     setHud(null);
   };
   const closeRewardHub = () => {
-    if (rewardAction === 'dailyBrush' || rewardAction === 'fastPass') {
-      rewardActionRef.current = null;
-      setRewardAction(null);
-    }
+    if (rewardedAd.status === 'showing') return;
+    rewardActionRef.current = null;
+    rewardReceiptRef.current = '';
+    setRewardAction(null);
     setSheet('none');
   };
   const useGoldenBrush = () => {
-    if (!appRewards.ready || inkMax <= 0 || !appRewards.useGoldenBrush()) return;
+    if (!appRewards.ready || appRewards.storageError || gameEngine.infiniteInk || level.ink <= 0 || !appRewards.useGoldenBrush()) return;
     setBonusInkFraction(0.5);
     setAttempt((a) => a + 1);
     setRewardedHintUnlocked(false);
@@ -293,6 +318,33 @@ export default function GameScreen() {
   const useGenesisFastPass = () => {
     if (appRewards.profile.genesisFastPasses < 1) return;
     switchMode('genesis', 'levels');
+  };
+  const useInkRefill = () => {
+    if (!appRewards.ready || appRewards.storageError || gameEngine.infiniteInk || level.ink <= 0 || !appRewards.useRefill()) return;
+    reset();
+    setSheet('none');
+    setRewardMessage('Ink refilled. A fresh attempt has the full normal ink budget.');
+    playSound('release');
+  };
+  const useLevelSkip = (genesisOnly: boolean) => {
+    if (!appRewards.ready || appRewards.storageError || skipLock.current) return;
+    if (genesisOnly && !isGenesis) { switchMode('genesis', 'rewards'); return; }
+    if (fastPassTrialRef.current || idx + 1 >= levels.length) return;
+    if (!appRewards.useSkip(genesisOnly, mode, idx, levels.length)) return;
+    skipLock.current = true;
+    active.skip(idx);
+    setIdx(idx + 1);
+    fastPassTrialRef.current = false;
+    reset();
+    setSheet('none');
+    setRewardMessage('Next stage opened. Skipping does not award stars, scores or a clear.');
+    playSound('release');
+  };
+  const wagerWheel = () => {
+    if (!appRewards.ready || appRewards.storageError || ['loading', 'ready', 'showing'].includes(rewardedAd.status)) return;
+    const result = appRewards.spinWheel();
+    setRewardMessage(result ?? 'You need 20 free ink credits to wager.');
+    if (result) playSound('release');
   };
   const release = () => engineRef.current?.release();
   const undo = () => engineRef.current?.undo();
@@ -410,7 +462,7 @@ export default function GameScreen() {
       <View style={[styles.inkTrack, isVoid && { backgroundColor: VD.bgDeep, borderColor: VD.line }, isGenesis && { backgroundColor: GN.bgDeep, borderColor: GN.line }, isSingularity && { backgroundColor: SG.bgDeep, borderColor: SG.line }]}>
         <View style={[styles.inkFill, { width: `${Math.max(0, Math.min(1, inkPct)) * 100}%`, backgroundColor: inkPct < 0.2 ? (isVoid ? VD.red : isGenesis ? GN.orange : isSingularity ? SG.gold : P.coral) : isVoid ? VD.purple : isGenesis ? GN.amber : isSingularity ? SG.cyan : P.mint }]} />
       </View>
-      <Text style={[styles.inkText, isVoid && { color: VD.text }, isGenesis && { color: GN.text }, isSingularity && { color: SG.text }]}>{inkMax > 0 ? `${Math.round(inkLeft)} ink` : 'no ink'}</Text>
+      <Text testID="ink-budget" style={[styles.inkText, isVoid && { color: VD.text }, isGenesis && { color: GN.text }, isSingularity && { color: SG.text }]}>{gameEngine.infiniteInk ? `∞ · ${formatCountdown(appRewards.profile.infiniteInkUntil - appRewards.now).slice(3)}` : inkMax > 0 ? `${Math.round(inkLeft)} ink` : 'no ink'}</Text>
       {!!level.inkLimitPercent && (
         <Text style={styles.capText} testID="ink-cap" accessibilityLabel={`Ink capped at ${level.inkLimitPercent} percent`}>CAP {level.inkLimitPercent}%</Text>
       )}
@@ -424,7 +476,7 @@ export default function GameScreen() {
   const outOfInkOffer = showOutOfInkOffer ? (
       <PressScale
       onPress={() => requestRewardedAction('retryInk')}
-      disabled={!appRewards.ready || rewardedAd.status === 'loading' || rewardedAd.status === 'showing'}
+      disabled={!appRewards.ready || !!appRewards.storageError || rewardedAd.status === 'loading' || rewardedAd.status === 'showing'}
       testID="out-of-ink-reward"
       label="Watch a rewarded video for fifty percent extra ink and instant retry"
       style={[styles.inkOffer, isVoid && { backgroundColor: VD.panel, borderColor: VD.red }, isGenesis && { backgroundColor: GN.panel, borderColor: GN.amber }, isSingularity && { backgroundColor: SG.panel, borderColor: SG.cyan }]}
@@ -553,6 +605,7 @@ export default function GameScreen() {
           onGuides={(v) => setSetting('guides', v)}
           resetLabel={isVoid ? 'Reset Void progress' : isGenesis ? 'Reset Genesis progress' : isSingularity ? 'Reset Singularity progress' : hardcore ? 'Reset Hardcore progress' : 'Reset progress'}
           onReset={() => {
+            appRewards.clearModeSkips(mode);
             active.resetAll();
             load(0);
           }}
@@ -563,17 +616,23 @@ export default function GameScreen() {
         <RewardHub
           ready={appRewards.ready}
           supported={rewardedAd.supported}
-          dailyClaimed={appRewards.profile.dailyClaimDate === localRewardDay()}
-          brushCount={appRewards.profile.goldenBrushes}
-          fastPassCount={appRewards.profile.genesisFastPasses}
-          canUseBrush={inkMax > 0}
+          profile={appRewards.profile}
+          now={appRewards.now}
+          storageError={appRewards.storageError}
+          canUseBrush={level.ink > 0 && !gameEngine.infiniteInk}
+          canSkip={idx + 1 < levels.length && !fastPassTrialRef.current}
           inGenesis={isGenesis}
           adStatus={rewardedAd.status}
           pendingReward={rewardAction}
           message={rewardMessage ?? rewardedAd.message}
           onWatch={requestRewardedAction}
           onUseBrush={useGoldenBrush}
+          onUseRefill={useInkRefill}
           onUseFastPass={useGenesisFastPass}
+          onWheelWager={wagerWheel}
+          onSkip={useLevelSkip}
+          onEquipSkin={appRewards.equipSkin}
+          onRetrySave={appRewards.retrySave}
           onClose={closeRewardHub}
         />
       )}
