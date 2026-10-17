@@ -29,6 +29,7 @@
         "EXPO_PUBLIC_ADMOB_TEST_ADS": "true"
       },
       "android": {
+        "image": "latest",
         "buildType": "apk"
       }
     },

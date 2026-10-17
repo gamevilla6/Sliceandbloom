@@ -2,6 +2,11 @@
   "expo": {
     "name": "Slice & Bloom",
     "slug": "cloud-garden",
+    "extra": {
+      "eas": {
+        "projectId": "e20e9de1-ea5b-4b14-93e4-4d42ba186d5f"
+      }
+    },
     "version": "1.0.0",
     "orientation": "default",
     "icon": "./assets/images/icon.png",
