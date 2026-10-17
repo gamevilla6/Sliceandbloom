@@ -6,4 +6,5 @@ artifacts/cloud-garden/.physics-test-build/
 
 # No need to store the pnpm store twice.
 .local
-artifacts/cloud-garden/web-build/
+# Keep the generated browser game in the published image: serve:web requires it.
+# It remains excluded from Git by artifacts/cloud-garden/.gitignore.
