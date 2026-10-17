@@ -23,7 +23,10 @@ async function main() {
   const eas = json('eas.json');
   const ads = await import('../lib/adConfig.ts');
   verifyAndroidAdConfig(config, ads.ANDROID_ADMOB_APP_ID);
-  assert.equal(app.android.package, 'com.gogoldatta.sliceandbloom');
+  assert.equal(app.android.package, 'com.gamevilla.sliceandbloom');
+  assert.equal(app.ios.bundleIdentifier, 'com.gamevilla.sliceandbloom');
+  assert.equal(app.extra.developerName, 'Game Villa');
+  assert.equal(app.extra.supportEmail, 'gameover0134@gmail.com');
   assert.match(app.version, /^\d+\.\d+\.\d+$/);
   assert.ok(Number.isSafeInteger(app.android.versionCode) && app.android.versionCode >= 1);
   assert.equal(eas.cli.appVersionSource, 'local');

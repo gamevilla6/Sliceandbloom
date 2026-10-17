@@ -8,7 +8,7 @@ It does not need an Expo account, an Expo token, or a production signing key.
 - The real game and native Google Mobile Ads SDK, with official **test ad units**.
 - Release-mode bundled JavaScript: no Metro server or Expo Go is needed.
 - A separate name, **Slice & Bloom Preview**, and package,
-  `com.gogoldatta.sliceandbloom.preview`, so it can coexist with the store app.
+  `com.gamevilla.sliceandbloom.preview`, so it can coexist with the store app.
 - The Expo template's **public debug certificate**. This is for testing only.
 - ARM64 and ARMv7 native libraries for physical Android devices.
 

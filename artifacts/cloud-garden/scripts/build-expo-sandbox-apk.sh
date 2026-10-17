@@ -56,7 +56,7 @@ build_tools=$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d |
 grep -Eq 'Signer #1 certificate DN:.*CN=Android Debug' /tmp/slice-bloom-apk/output/signature.txt
 analyzer="$ANDROID_HOME/cmdline-tools/latest/bin/apkanalyzer"
 "$analyzer" manifest application-id "$apk" > /tmp/slice-bloom-apk/output/package.txt
-grep -qx 'com.gogoldatta.sliceandbloom.preview' /tmp/slice-bloom-apk/output/package.txt
+grep -qx 'com.gamevilla.sliceandbloom.preview' /tmp/slice-bloom-apk/output/package.txt
 "$analyzer" manifest print "$apk" > /tmp/slice-bloom-apk/output/manifest.xml
 cp "$apk" /tmp/slice-bloom-apk/output/slice-and-bloom-preview.apk
 cd /tmp/slice-bloom-apk/output

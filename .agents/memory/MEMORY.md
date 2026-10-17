@@ -10,3 +10,4 @@
 - [Expo APK build route](expo-apk-route.md) — an approved Expo Linux sandbox can build without GitHub; export the verified artifact and confirm shutdown.
 - [Google Play access](google-play-access.md) — verify the publishing API destination separately from OAuth; repeated authorization cannot fix a wrong host.
 - [Web publishing](web-publishing.md) — a healthy Expo landing page is not a playable web release; verify the export and distinguish preview from republished public play.
+- [Developer branding](developer-branding.md) — use Game Villa as the developer brand; account ownership and store display names are separate.

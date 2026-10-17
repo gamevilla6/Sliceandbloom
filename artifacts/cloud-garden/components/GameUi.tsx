@@ -1,5 +1,5 @@
 import React, { ReactNode, useEffect, useRef, useState } from 'react';
-import { Animated, Platform, Pressable, ScrollView, ScrollViewProps, StyleProp, StyleSheet, Text, View, ViewStyle, useWindowDimensions } from 'react-native';
+import { Animated, Linking, Platform, Pressable, ScrollView, ScrollViewProps, StyleProp, StyleSheet, Text, View, ViewStyle, useWindowDimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { F, GN, P, R, REWARD_GOLD, SG, VD } from '@/constants/theme';
 import { useSafeInsets } from '@/components/layout';
@@ -7,6 +7,10 @@ import { BannerAdComponent, BANNER_AD_RESERVED_HEIGHT } from '@/components/Banne
 import { Level } from '@/lib/levels';
 import { haptic } from '@/lib/haptics';
 import { levelGrid, levelScrollOffset } from '@/lib/levelGrid';
+import appConfig from '../app.json';
+
+// Keep displayed credits and contact details aligned with release metadata.
+const { developerName, supportEmail } = appConfig.expo.extra;
 
 type UiTone = 'campaign' | 'genesis' | 'hardcore' | 'void' | 'singularity' | 'reward';
 
@@ -400,9 +404,20 @@ function Toggle({ on, onChange, label, sub, testID, tone }: { on: boolean; onCha
 
 export function SettingsSheet({ dark, tone, haptics, guides, sound, onHaptics, onGuides, onSound, onReset, onClose, resetLabel = 'Reset progress' }: { dark?: boolean; tone?: UiTone; resetLabel?: string; haptics: boolean; guides: boolean; sound: boolean; onHaptics: (v: boolean) => void; onSound: (v: boolean) => void; onGuides: (v: boolean) => void; onReset: () => void; onClose: () => void }) {
   const [armed, setArmed] = React.useState(false);
+  const [supportError, setSupportError] = React.useState(false);
   return (
     <Card title="Settings" onClose={onClose} dark={dark} tone={tone}>
       <Text style={[styles.brand, tone === 'singularity' && { color: SG.textSoft }, tone === 'genesis' && { color: GN.textSoft }]} >Slice & Bloom</Text>
+      <Text testID="developer-credit" style={[styles.developerCredit, dark && { color: VD.text }, tone === 'singularity' && { color: SG.textSoft }, tone === 'genesis' && { color: GN.textSoft }]}>By {developerName}</Text>
+      <Text selectable testID="support-email" style={[styles.developerCredit, dark && { color: VD.text }, tone === 'singularity' && { color: SG.textSoft }, tone === 'genesis' && { color: GN.textSoft }]}>{supportEmail}</Text>
+      <Btn dark={dark} tone={tone} label="Email support" icon="mail" kind="ghost" testID="email-support" onPress={() => {
+        setSupportError(false);
+        // Opening a draft never sends mail. Keep the address selectable above
+        // so devices without a configured mail app still have a usable contact.
+        void Linking.openURL(`mailto:${supportEmail}?subject=${encodeURIComponent('Slice & Bloom support')}`)
+          .catch(() => setSupportError(true));
+      }} />
+      {supportError && <Text accessibilityLiveRegion="polite" style={[styles.developerCredit, dark && { color: VD.text }]}>Could not open a mail app. Please copy the email address above to contact support.</Text>}
       <Toggle on={sound} onChange={onSound} label="Sound" sub="Snips, rope twangs and splashes" testID="toggle-sound" tone={tone} />
       <Toggle on={haptics} onChange={onHaptics} label="Haptics" sub="Taps, cuts and splashes" testID="toggle-haptics" tone={tone} />
       <Toggle on={guides} onChange={onGuides} label="Cut guides" sub="Dashed outline on timber you can slice" testID="toggle-guides" tone={tone} />
@@ -426,6 +441,7 @@ export function SettingsSheet({ dark, tone, haptics, guides, sound, onHaptics, o
 }
 
 const styles = StyleSheet.create({
+  developerCredit: { fontFamily: F.semi, fontSize: 14, color: P.inkSoft, textAlign: 'center', marginBottom: 12 },
   scrim: { ...StyleSheet.absoluteFill, backgroundColor: 'rgba(20,39,92,0.6)', alignItems: 'center', justifyContent: 'center', zIndex: 50 },
   bannerDock: { position: 'absolute', left: 0, right: 0, alignItems: 'center', zIndex: 51 },
   card: { width: '100%', maxWidth: 420, backgroundColor: P.paper, borderRadius: R.card, borderWidth: 4, borderColor: P.ink, borderTopColor: P.ink, padding: 18, alignItems: 'stretch', flexShrink: 1, shadowColor: P.ink, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 1, shadowRadius: 0 },

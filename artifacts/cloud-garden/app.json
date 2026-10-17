@@ -3,6 +3,8 @@
     "name": "Slice & Bloom",
     "slug": "slice-and-bloom",
     "extra": {
+      "developerName": "Game Villa",
+      "supportEmail": "gameover0134@gmail.com",
       "eas": {
         "projectId": "e20e9de1-ea5b-4b14-93e4-4d42ba186d5f"
       }
@@ -13,10 +15,11 @@
     "scheme": "cloud-garden",
     "userInterfaceStyle": "automatic",
     "ios": {
+      "bundleIdentifier": "com.gamevilla.sliceandbloom",
       "supportsTablet": true
     },
     "android": {
-      "package": "com.gogoldatta.sliceandbloom",
+      "package": "com.gamevilla.sliceandbloom",
       "versionCode": 1,
       "permissions": [
         "android.permission.INTERNET",

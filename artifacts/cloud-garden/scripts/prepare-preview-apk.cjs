@@ -5,13 +5,13 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const appDir = path.resolve(__dirname, '..');
-const PREVIEW_PACKAGE = 'com.gogoldatta.sliceandbloom.preview';
+const PREVIEW_PACKAGE = 'com.gamevilla.sliceandbloom.preview';
 
 function previewConfig(source) {
   const result = structuredClone(source);
   assert.ok(result.expo?.android, 'Missing Expo Android configuration.');
   assert.ok(
-    ['com.gogoldatta.sliceandbloom', PREVIEW_PACKAGE].includes(result.expo.android.package),
+    ['com.gamevilla.sliceandbloom', PREVIEW_PACKAGE].includes(result.expo.android.package),
     'Unexpected application ID; review preview isolation before building.',
   );
   result.expo.name = 'Slice & Bloom Preview';
