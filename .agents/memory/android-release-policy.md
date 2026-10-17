@@ -1,6 +1,6 @@
 ---
 name: Android release policy
-description: First-upload versioning and safe ad behavior in EAS preview versus production.
+description: First-upload versioning, safe preview ads and GitHub build authorization.
 ---
 
 Keep preview APKs on official Google test ad units even though their JavaScript
@@ -22,3 +22,15 @@ build code 2, contrary to the requested starting value.
 **How to apply:** Increase the code for subsequent Play uploads. If switching to
 remote versioning later, initialize it from the actual latest Play version;
 never reset it to 1 after a release.
+
+Treat GitHub connection health and build-tool authentication as separate checks.
+
+**Why:** A healthy OAuth connection with repository/workflow scopes has been
+observed while the workspace CLI remained logged out and the integration SDK
+provided no API client. Reconnecting healthy OAuth is not a demonstrated fix
+for credential-delivery failures.
+
+**How to apply:** Verify the actual execution path before promising repository
+creation or a remote build. Use an available provider API or the Git pane/manual
+Actions flow when CLI authentication is unavailable. Do not loop on OAuth or
+request raw tokens to work around an unexplained healthy-connection mismatch.

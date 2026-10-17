@@ -1,0 +1,102 @@
+name: Build Android test APK
+
+# Manual only: committing this file does not start a paid cloud build.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-preview-apk
+  cancel-in-progress: false
+
+jobs:
+  apk:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      CI: "1"
+      EXPO_PUBLIC_ADMOB_TEST_ADS: "true"
+      CMAKE_BUILD_PARALLEL_LEVEL: "2"
+    steps:
+      - name: Check out source without persisting credentials
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "24.13.0"
+
+      - name: Set up Java
+        uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Install locked dependencies
+        run: |
+          corepack enable
+          corepack prepare pnpm@10.26.1 --activate
+          pnpm install --frozen-lockfile
+
+      - name: Check source release configuration and APK safety tests
+        run: |
+          pnpm --filter @workspace/cloud-garden run release:check
+          node --test artifacts/cloud-garden/tests/apk-preview.test.cjs
+
+      # Only this disposable CI checkout is changed. Store configuration stays
+      # intact in the repository; the preview installs alongside the store app.
+      - name: Configure isolated preview identity
+        run: node artifacts/cloud-garden/scripts/prepare-preview-apk.cjs prepare
+
+      - name: Generate native Android project
+        working-directory: artifacts/cloud-garden
+        run: pnpm exec expo prebuild --platform android --no-install
+
+      - name: Verify preview uses the public Android debug certificate
+        run: node artifacts/cloud-garden/scripts/prepare-preview-apk.cjs signing
+
+      - name: Install Android SDK components required by React Native
+        shell: bash
+        run: |
+          node artifacts/cloud-garden/scripts/prepare-preview-apk.cjs sdk > "$RUNNER_TEMP/android-sdk-packages.txt"
+          mapfile -t packages < "$RUNNER_TEMP/android-sdk-packages.txt"
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "${packages[@]}"
+
+      - name: Build bundled, installable release-mode test APK
+        working-directory: artifacts/cloud-garden/android
+        run: |
+          chmod +x gradlew
+          ./gradlew :app:assembleRelease --no-daemon --max-workers=2 \
+            -PreactNativeArchitectures=arm64-v8a,armeabi-v7a \
+            '-Dorg.gradle.jvmargs=-Xmx3g -XX:MaxMetaspaceSize=768m'
+
+      - name: Verify signature and package; collect APK and checksum
+        shell: bash
+        run: |
+          mkdir -p generated-artifacts/android
+          apk=artifacts/cloud-garden/android/app/build/outputs/apk/release/app-release.apk
+          test -s "$apk"
+          build_tools=$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)
+          "$build_tools/apksigner" verify --verbose --print-certs "$apk" > generated-artifacts/android/signature.txt
+          grep -Eq 'Signer #1 certificate DN:.*CN=Android Debug' generated-artifacts/android/signature.txt
+          analyzer="$ANDROID_HOME/cmdline-tools/latest/bin/apkanalyzer"
+          "$analyzer" manifest application-id "$apk" > generated-artifacts/android/package.txt
+          grep -qx 'com.gogoldatta.sliceandbloom.preview' generated-artifacts/android/package.txt
+          "$analyzer" manifest print "$apk" > generated-artifacts/android/manifest.xml
+          cp "$apk" generated-artifacts/android/slice-and-bloom-preview.apk
+          (cd generated-artifacts/android && sha256sum slice-and-bloom-preview.apk > SHA256SUMS.txt)
+          echo "### Slice & Bloom test APK" >> "$GITHUB_STEP_SUMMARY"
+          echo "Download the slice-and-bloom-preview artifact below, extract it, then open the APK on Android." >> "$GITHUB_STEP_SUMMARY"
+          echo "Preview package; official test ad units; public debug signing. Not a Play Store release." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload downloadable APK
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: slice-and-bloom-preview
+          path: generated-artifacts/android/
+          if-no-files-found: error
+          retention-days: 14

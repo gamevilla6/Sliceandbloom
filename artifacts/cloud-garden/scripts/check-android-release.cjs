@@ -57,8 +57,8 @@ async function main() {
   }
   const projectId = app.extra?.eas?.projectId;
   if (projectId) assert.match(projectId, /^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i);
-  else if (process.env.EAS_BUILD === 'true') throw new Error('Link your own Expo project with eas init before cloud builds.');
-  else console.warn('NEXT: eas login && eas init in this app directory; no account/project UUID has been fabricated.');
+  else if (process.env.EAS_BUILD === 'true') throw new Error('Link your own Expo project before an EAS-hosted build.');
+  else console.warn('No Expo project is linked. EAS-hosted builds require one; the native GitHub APK workflow does not.');
   console.log(`Android config OK: ${app.android.package} · ${app.version} (${app.android.versionCode})`);
   console.log('Production AAB/live ads and preview APK/test ads configured; icons and splash assets verified.');
   if (process.argv.includes('--native')) {

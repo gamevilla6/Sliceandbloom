@@ -1,4 +1,5 @@
 # Headless physics test compilation
+/generated-artifacts/
 artifacts/cloud-garden/.physics-test-build/
 # See https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files for more about ignoring files.
 
