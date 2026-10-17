@@ -31,6 +31,10 @@ async function main() {
   assert.equal(prod.distribution, 'store');
   assert.equal(prod.developmentClient, false);
   assert.equal(prod.android.buildType, 'app-bundle');
+  assert.ok(typeof prod.android.image === 'string' && prod.android.image.trim(),
+    'Production GitHub builds require an explicit Android build image.');
+  assert.equal(prod.credentialsSource, 'remote',
+    'Production must preserve Expo-managed signing credentials.');
   assert.equal(prod.autoIncrement, false);
   assert.equal(prod.env.EXPO_PUBLIC_ADMOB_TEST_ADS, 'false');
   assert.equal(ads.adsUseTestUnits(false, prod.env.EXPO_PUBLIC_ADMOB_TEST_ADS), false);
