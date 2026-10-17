@@ -8,3 +8,4 @@
 - [Android release policy](android-release-policy.md) — preview APKs need test ads despite release JS; preserve code 1 for the first Play upload.
 - [Native AdMob builds](admob-native-build.md) — SDK Gradle JSON needs native settings alongside the Expo plugin; manifest and JS checks do not verify compilation.
 - [Expo APK build route](expo-apk-route.md) — an approved Expo Linux sandbox can build without GitHub; export the verified artifact and confirm shutdown.
+- [Google Play access](google-play-access.md) — verify the publishing API destination separately from OAuth; repeated authorization cannot fix a wrong host.
