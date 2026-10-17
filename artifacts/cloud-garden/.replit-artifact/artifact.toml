@@ -16,8 +16,8 @@ localPort = 24065
 run = "pnpm --filter @workspace/cloud-garden run dev"
 
 [services.production]
-build = [ "pnpm", "--filter", "@workspace/cloud-garden", "run", "build" ]
-run = [ "pnpm", "--filter", "@workspace/cloud-garden", "run", "serve" ]
+build = [ "pnpm", "--filter", "@workspace/cloud-garden", "run", "build:web" ]
+run = [ "pnpm", "--filter", "@workspace/cloud-garden", "run", "serve:web" ]
 
 [services.env]
 PORT = "24065"

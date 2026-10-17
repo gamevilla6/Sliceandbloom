@@ -1,5 +1,8 @@
 /**
  * Standalone production server for Expo static builds.
+ * --web serves the exported browser game directly, with SPA navigation and
+ * correct asset types. Without it, the original native landing/manifest mode
+ * remains available for the existing mobile build script.
  *
  * Serves the output of build.js (static-build/) with two special routes:
  * - GET / or /manifest with expo-platform header → platform manifest JSON
@@ -12,8 +15,14 @@
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const { serveWebFile } = require('./web-files.cjs');
 
 const STATIC_ROOT = path.resolve(__dirname, '..', 'static-build');
+const WEB_ROOT = path.resolve(__dirname, '..', 'web-build');
+const webMode = process.argv.includes('--web');
+if (webMode && !fs.existsSync(path.join(WEB_ROOT, 'index.html'))) {
+  throw new Error('Browser build missing. Run pnpm --filter @workspace/cloud-garden run build:web first.');
+}
 const TEMPLATE_PATH = path.resolve(__dirname, 'templates', 'landing-page.html');
 const basePath = (process.env.BASE_PATH || '/').replace(/\/+$/, '');
 
@@ -134,6 +143,14 @@ const server = http.createServer((req, res) => {
     pathname = pathname.slice(basePath.length) || '/';
   }
 
+  if (webMode) {
+    if (pathname === '/status') {
+      res.writeHead(200, { 'content-type': 'text/plain', 'cache-control': 'no-store' });
+      return res.end('web-game:running');
+    }
+    return serveWebFile(WEB_ROOT, pathname, req, res);
+  }
+
   if (pathname === '/' || pathname === '/manifest') {
     const platform = req.headers['expo-platform'];
     if (platform === 'ios' || platform === 'android') {
@@ -150,5 +167,5 @@ const server = http.createServer((req, res) => {
 
 const port = parseInt(process.env.PORT || '3000', 10);
 server.listen(port, '0.0.0.0', () => {
-  console.log(`Serving static Expo build on port ${port}`);
+  console.log(`Serving ${webMode ? 'Slice & Bloom browser game' : 'static Expo build'} on port ${server.address().port}`);
 });
