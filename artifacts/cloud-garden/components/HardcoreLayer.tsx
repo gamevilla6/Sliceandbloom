@@ -24,20 +24,20 @@ export function ModeSwitch({ themed, mode, onChange, tight }: { themed?: boolean
           : m === 'genesis' ? 'The Genesis Gauntlet, 45 Masterclass challenges'
           : m === 'void' ? 'Hardcore: The Void Protocol' : `Hardcore mode, ${HARDCORE_LEVELS.length} timed levels`}
         selected={on}
-        containerStyle={m === 'void' ? { flexGrow: 1, flexBasis: '100%', minWidth: 0 } : { flexGrow: 1, flexBasis: 90, minWidth: 0 }}
-        style={[styles.seg, on && (m === 'classic' ? styles.segClassic : m === 'genesis' ? styles.segGen : m === 'void' ? styles.segVoid : styles.segHard)]}
+        containerStyle={{ flexGrow: 1, flexBasis: 0, minWidth: 0 }}
+        style={[styles.seg, tight && { gap: 3, paddingHorizontal: 3 }, on && (m === 'classic' ? styles.segClassic : m === 'genesis' ? styles.segGen : m === 'void' ? styles.segVoid : styles.segHard)]}
       >
-        <Ionicons name={icon} size={16} color={on ? P.white : themed ? VD.textSoft : P.ink} />
-        <Text numberOfLines={1} style={[styles.segText, themed && { color: VD.textSoft }, on && { color: P.white }, tight && { fontSize: 12 }]}>{label}</Text>
+        <Ionicons name={icon} size={tight ? 13 : 16} color={on ? P.white : themed ? VD.textSoft : P.ink} />
+        <Text numberOfLines={1} style={[styles.segText, themed && { color: VD.textSoft }, on && { color: P.white }, tight && { fontSize: 10 }]}>{label}</Text>
       </PressScale>
     );
   };
   return (
     <View style={[styles.switchRow, themed && { backgroundColor: VD.panel, borderColor: VD.purple }]} testID="region-mode" accessibilityRole="tablist">
-      {opt('classic', tight ? 'Campaign 100' : 'Campaign', 'leaf')}
-      {opt('hardcore', tight ? `Hardcore ${HARDCORE_LEVELS.length}` : 'Hardcore', 'flame')}
-      {opt('genesis', tight ? 'Genesis 45' : 'Genesis Gauntlet', 'planet')}
-      {opt('void', 'Hardcore: The Void Protocol', 'skull')}
+      {opt('classic', tight ? 'Camp' : 'Campaign', 'leaf')}
+      {opt('hardcore', tight ? 'Hard' : 'Hardcore', 'flame')}
+      {opt('genesis', tight ? 'Genesis' : 'Genesis Gauntlet', 'planet')}
+      {opt('void', tight ? 'Void' : 'The Void Protocol', 'skull')}
     </View>
   );
 }

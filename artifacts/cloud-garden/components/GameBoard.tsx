@@ -10,6 +10,7 @@ import { Sfx } from '@/lib/audio';
 import { mix, P, VD } from '@/constants/theme';
 import { AdvancedLayer } from '@/components/AdvancedLayer';
 import { HOT } from '@/components/HardcoreLayer';
+import { fitLogicalViewport, screenPointToWorld } from '@/lib/viewport';
 
 export type Tool = 'draw' | 'slice';
 export interface Hud {
@@ -63,7 +64,7 @@ export function GameBoard({ engine, level, attempt, modeKey = 'classic', tool, s
   const tag = `${modeKey}:${level.id}:${attempt}`;
   const tagRef = useRef(tag);
   tagRef.current = tag;
-  const xf = useRef({ s: 1, ox: 0, oy: 0 });
+  const xf = useRef({ scale: 1, offsetX: 0, offsetY: 0 });
   const drawing = useRef<V[]>([]);
   const exhausted = useRef(false);
   const trail = useRef<V[]>([]);
@@ -86,9 +87,13 @@ export function GameBoard({ engine, level, attempt, modeKey = 'classic', tool, s
     AccessibilityInfo.isReduceMotionEnabled?.().then((v) => { reduceMotion.current = !!v; }).catch(() => {});
   }, []);
 
-  const scale = size.w && size.h ? Math.min(size.w / W, size.h / H) : 1;
-  const ox = (size.w - W * scale) / 2;
-  const oy = (size.h - H * scale) / 2;
+  // Keep the Matter world in its level's logical coordinates. Fit it uniformly
+  // inside the measured canvas; React Native and SVG both use dp, so multiplying
+  // by PixelRatio here would double-scale high-density devices.
+  const fitted = fitLogicalViewport(size.w, size.h, W, H);
+  const scale = fitted.scale || 1;
+  const ox = size.w ? fitted.offsetX : 0;
+  const oy = size.h ? fitted.offsetY : 0;
   const sceneryLeft = -ox / scale;
   const sceneryRight = (size.w - ox) / scale;
   const sceneryBottom = Math.max(H, (size.h - oy) / scale);
@@ -96,12 +101,10 @@ export function GameBoard({ engine, level, attempt, modeKey = 'classic', tool, s
   const shakeAmp = reduceMotion.current ? 0 : Math.min(4, (engine.shakeIntensity ?? 0) * 0.5);
   const shx = shakeAmp ? Math.sin(frameN.current * 2.9) * shakeAmp : 0;
   const shy = shakeAmp ? Math.cos(frameN.current * 3.7) * shakeAmp : 0;
-  xf.current = { s: scale, ox: ox + shx, oy: oy + shy };
+  xf.current = { scale, offsetX: ox + shx, offsetY: oy + shy };
 
-  const toLogical = (px: number, py: number): V => ({
-    x: Math.max(0, Math.min(W, (px - xf.current.ox) / xf.current.s)),
-    y: Math.max(0, Math.min(H, (py - xf.current.oy) / xf.current.s)),
-  });
+  const toLogical = (px: number, py: number): V =>
+    screenPointToWorld(px, py, xf.current, W, H);
 
   const pan = useRef(
     PanResponder.create({

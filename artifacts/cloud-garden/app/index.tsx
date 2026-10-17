@@ -20,6 +20,7 @@ import { BannerAdComponent, BANNER_AD_RESERVED_HEIGHT } from '@/components/Banne
 import { useAppRewards } from '@/hooks/useAppRewards';
 import { localRewardDay } from '@/lib/appRewards';
 import type { RewardedAdReward } from 'react-native-google-mobile-ads';
+import { SafeAreaView, type Edge } from 'react-native-safe-area-context';
 
 type Sheet = 'none' | 'levels' | 'settings' | 'rewards';
 type RewardAction = HubRewardAction | 'retryInk' | 'hint';
@@ -317,11 +318,17 @@ export default function GameScreen() {
   const badgeHere = vProg.badges[String(idx)];
   const maxMoves = hc?.maxStrokes ?? 0;
   const { landscape, compact, panelW, availW, insets } = useLayoutMode();
+  const safeAreaEdges: Edge[] = Platform.OS === 'web' ? [] : ['top', 'right', 'bottom', 'left'];
+  // Native SafeAreaView applies device insets; web keeps the preview's simulated
+  // safe-area padding because browsers do not expose phone cutouts to the view.
+  const contentInsets = Platform.OS === 'web' ? insets : { top: 0, bottom: 0, left: 0, right: 0 };
   const tightTools = !landscape && availW < 380;
   const showMainBanner = Platform.OS !== 'web' && sheet === 'none' && !overlay && status === 'ready';
   const mainBannerSpace = showMainBanner ? mainBannerHeight ?? BANNER_AD_RESERVED_HEIGHT : 0;
   const unit = compact ? 48 : 56;
   const showBrand = !landscape && availW >= 430;
+  const showStarsInHeader = !landscape && availW >= 400;
+  const compactModeSwitch = landscape ? panelW < 520 : availW < 520;
 
   if (!ready) return <View style={[styles.root, { backgroundColor: P.skyTop }]} />;
 
@@ -334,7 +341,7 @@ export default function GameScreen() {
           <Text style={[styles.pillName, isVoid && { color: VD.text }]} numberOfLines={1}>{level.name}</Text>
         </View>
       </PressScale>
-      {!landscape && (
+      {showStarsInHeader && (
         <View style={[styles.brandBox, isVoid && styles.vBtn]}>
           {showBrand && <Text style={[styles.brandText, { color: P.white }]} numberOfLines={1}>Slice & Bloom</Text>}
           <Stars count={progress.stars[idx] ?? 0} size={14} />
@@ -358,7 +365,7 @@ export default function GameScreen() {
       </PressScale>
     </View>
   );
-  const modeBar = <ModeSwitch mode={mode} onChange={switchMode} tight={availW < 380} themed={isVoid} />;
+  const modeBar = <ModeSwitch mode={mode} onChange={switchMode} tight={compactModeSwitch} themed={isVoid} />;
   const mods: string[] = [];
   if (isGenesis) {
     if (level.countdownTimer) mods.push(`${level.countdownTimer}s countdown`);
@@ -479,8 +486,9 @@ export default function GameScreen() {
 
   return (
     <View style={[styles.outer, isVoid && { backgroundColor: VD.bg }]}>
+      <SafeAreaView edges={safeAreaEdges} style={styles.safeRoot} testID="safe-area-game">
       {landscape ? (
-        <View style={[styles.root, isVoid && { backgroundColor: VD.bg }, styles.rootRow, { paddingTop: insets.top + 6, paddingBottom: insets.bottom + 6 + mainBannerSpace, paddingLeft: insets.left + 12, paddingRight: insets.right + 12 }]} testID="layout-landscape">
+        <View style={[styles.root, isVoid && { backgroundColor: VD.bg }, styles.rootRow, { paddingTop: contentInsets.top + 6, paddingBottom: contentInsets.bottom + 6 + mainBannerSpace, paddingLeft: contentInsets.left + 12, paddingRight: contentInsets.right + 12 }]} testID="layout-landscape">
           <View style={styles.landGroup}>
              <View style={{ width: panelW, minHeight: 0, flexShrink: 0 }} testID="region-panel">
               <ScrollView style={{ flex: 1, minHeight: 0 }} contentContainerStyle={[styles.panelContent, compact && { gap: 4, paddingVertical: 0 }]} showsVerticalScrollIndicator testID="panel-scroll">
@@ -500,7 +508,7 @@ export default function GameScreen() {
           </View>
         </View>
       ) : (
-        <View style={[styles.root, isVoid && { backgroundColor: VD.bg }, { paddingTop: insets.top + 6, paddingBottom: insets.bottom + 8 + mainBannerSpace, paddingLeft: insets.left + 12, paddingRight: insets.right + 12 }]} testID="layout-portrait">
+        <View style={[styles.root, isVoid && { backgroundColor: VD.bg }, { paddingTop: contentInsets.top + 6, paddingBottom: contentInsets.bottom + 8 + mainBannerSpace, paddingLeft: contentInsets.left + 12, paddingRight: contentInsets.right + 12 }]} testID="layout-portrait">
           <View style={styles.column}>
             {header}
             {modeBar}
@@ -514,6 +522,7 @@ export default function GameScreen() {
           </View>
         </View>
       )}
+      </SafeAreaView>
 
       {showMainBanner && (
         <View style={[styles.bannerDock, { bottom: insets.bottom + 4 }]} pointerEvents="box-none">
@@ -596,6 +605,7 @@ function MiniBtn({ dark, icon, onPress, disabled, active, id, name }: { dark?: b
 const lift = { shadowColor: P.ink, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 1, shadowRadius: 0, elevation: 3 } as const;
 const styles = StyleSheet.create({
   outer: { flex: 1, backgroundColor: P.paper },
+  safeRoot: { flex: 1, backgroundColor: P.paper },
   bannerDock: { position: 'absolute', left: 0, right: 0, alignItems: 'center', zIndex: 60 },
   inkOffer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, minHeight: 42, marginTop: 7, paddingHorizontal: 10, paddingVertical: 6, borderRadius: R.btn, borderWidth: 2.5, borderColor: P.dropDeep, backgroundColor: P.paperDeep },
   inkOfferText: { flexShrink: 1, fontFamily: F.bold, fontSize: 13, color: P.dropDeep, textAlign: 'center' },
