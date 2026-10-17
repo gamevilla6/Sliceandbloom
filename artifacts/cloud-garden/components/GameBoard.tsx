@@ -1,5 +1,7 @@
 import React, { MutableRefObject, useEffect, useRef, useState } from 'react';
-import { AccessibilityInfo, LayoutChangeEvent, PanResponder, Platform, StyleSheet, View } from 'react-native';
+import { LayoutChangeEvent, PanResponder, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import Animated from 'react-native-reanimated';
+import { Ionicons } from '@expo/vector-icons';
 import Svg, { Circle, Defs, Ellipse, G, LinearGradient, Path, Polyline, Rect, Stop, Text as SvgText } from 'react-native-svg';
 import type Matter from 'matter-js';
 import { GardenEngine, DROP_R, Status } from '@/lib/engine';
@@ -12,7 +14,8 @@ import { AdvancedLayer } from '@/components/AdvancedLayer';
 import { GenesisLayer } from '@/components/GenesisLayer';
 import { SKINS } from '@/lib/rewardHub';
 import { HOT } from '@/components/HardcoreLayer';
-import { fitLogicalViewport, screenPointToWorld } from '@/lib/viewport';
+import { cinematicFocus, fitLogicalViewport } from '@/lib/viewport';
+import { useCinematicCamera } from '@/hooks/useCinematicCamera';
 
 export type Tool = 'draw' | 'slice';
 export interface Hud {
@@ -77,7 +80,6 @@ export function GameBoard({ engine, level, attempt, modeKey = 'classic', tool, s
   const tag = `${modeKey}:${level.id}:${attempt}`;
   const tagRef = useRef(tag);
   tagRef.current = tag;
-  const xf = useRef({ scale: 1, offsetX: 0, offsetY: 0 });
   const drawing = useRef<V[]>([]);
   const exhausted = useRef(false);
   const trail = useRef<V[]>([]);
@@ -108,9 +110,6 @@ export function GameBoard({ engine, level, attempt, modeKey = 'classic', tool, s
         : { top: P.skyTop, bottom: P.skyBottom, soil: P.soil, grass: P.leaf, wood: P.wood, woodEdge: P.ink, draw: P.mint, glow: P.drop, drop: P.drop };
   const skin = SKINS.find(s => s.id === engine.cosmeticSkin);
   const dropColor = engine.cosmeticSkin === 'classic' ? art.drop : skin?.color ?? art.drop;
-  useEffect(() => {
-    AccessibilityInfo.isReduceMotionEnabled?.().then((v) => { reduceMotion.current = !!v; }).catch(() => {});
-  }, []);
 
   // Keep the Matter world in its level's logical coordinates. Fit it uniformly
   // inside the measured canvas; React Native and SVG both use dp, so multiplying
@@ -126,10 +125,22 @@ export function GameBoard({ engine, level, attempt, modeKey = 'classic', tool, s
   const shakeAmp = reduceMotion.current ? 0 : Math.min(4, (engine.shakeIntensity ?? 0) * 0.5);
   const shx = shakeAmp ? Math.sin(frameN.current * 2.9) * shakeAmp : 0;
   const shy = shakeAmp ? Math.cos(frameN.current * 3.7) * shakeAmp : 0;
-  xf.current = { scale, offsetX: ox + shx, offsetY: oy + shy };
-
-  const toLogical = (px: number, py: number): V =>
-    screenPointToWorld(px, py, xf.current, W, H);
+  const water = engine.genesis.activeDrops(engine.drop).map(body => body.position);
+  const buds = engine.genesis.buds.filter(bud => !bud.complete);
+  const target = buds.length ? {
+    x: buds.reduce((n, bud) => n + bud.spec.x / buds.length, 0),
+    y: buds.reduce((n, bud) => n + bud.spec.y / buds.length, 0),
+  } : level.flower;
+  const camera = useCinematicCamera({
+    active: !paused && engine.status !== 'won' && engine.status !== 'lost',
+    resetKey: engine, width: size.w, height: size.h, base: fitted,
+    shake: { x: shx, y: shy }, worldWidth: W, worldHeight: H,
+    focus: cinematicFocus(water, target, size.w, size.h, fitted),
+  });
+  reduceMotion.current = camera.reducedMotion;
+  // The untransformed touch surface reports local dp. Invert camera × viewport
+  // (plus shake) before sending points to Matter, for both draw and slice.
+  const toLogical = camera.toWorld;
 
   const pan = useRef(
     PanResponder.create({
@@ -137,12 +148,13 @@ export function GameBoard({ engine, level, attempt, modeKey = 'classic', tool, s
       onMoveShouldSetPanResponder: () => true,
       onPanResponderTerminationRequest: () => false,
       onPanResponderGrant: (e) => {
-        const p = toLogical(e.nativeEvent.locationX, e.nativeEvent.locationY);
         const eng = engRef.current;
         if (pausedRef.current || eng.status === 'won' || eng.status === 'lost') return;
+        camera.beginGesture();
+        const p = toLogical(e.nativeEvent.locationX, e.nativeEvent.locationY);
         revealing.current = true;
         eng.revealAt(p);
-        if (eng.level.hardcore && !eng.beginInput()) return;
+        if (eng.level.hardcore && !eng.beginInput()) { camera.endGesture(); return; }
         active.current = true;
         if (toolRef.current === 'draw') {
           drawing.current = [p];
@@ -195,6 +207,7 @@ export function GameBoard({ engine, level, attempt, modeKey = 'classic', tool, s
 
   function end() {
     const eng = engRef.current;
+    camera.endGesture();
     revealing.current = false;
     if (!active.current) return;
     active.current = false;
@@ -347,7 +360,9 @@ export function GameBoard({ engine, level, attempt, modeKey = 'classic', tool, s
   const clouds = [0, 1, 2].map((i) => ({ x: ((i * 190 + t * (4 + i * 2)) % 520) - 80, y: 70 + i * 85, s: 0.8 + i * 0.25 }));
 
   return (
-    <View style={styles.wrap} onLayout={onLayout} {...pan.panHandlers} testID="game-board">
+    <View style={styles.wrap} onLayout={onLayout} testID="game-board">
+      <View style={StyleSheet.absoluteFill} {...pan.panHandlers} testID="puzzle-touch-surface">
+      <Animated.View style={[styles.canvas, camera.animatedStyle]} pointerEvents="none" testID="cinematic-canvas">
       <Svg width={size.w} height={size.h} pointerEvents="none">
         <Defs>
           <LinearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
@@ -675,11 +690,26 @@ export function GameBoard({ engine, level, attempt, modeKey = 'classic', tool, s
           <Circle cx={-100} cy={-100} r={DROP_R} fill="none" />
         </G>
       </Svg>
+      </Animated.View>
+      </View>
+      {!paused && engine.status !== 'won' && engine.status !== 'lost' && !camera.reducedMotion && (
+        <Pressable testID="camera-overview" accessibilityRole="button"
+          accessibilityLabel={camera.overview ? 'Enable cinematic focus' : 'Show full-level overview'}
+          accessibilityHint="Use overview to reach any part of a wide puzzle."
+          onPress={camera.toggleOverview}
+          style={[styles.cameraButton, { backgroundColor: isDarkScreen ? art.top : P.white, borderColor: isDarkScreen ? art.glow : P.ink }]}>
+          <Ionicons name={camera.overview ? 'videocam-outline' : 'scan-outline'} size={16} color={isDarkScreen ? P.white : P.ink} />
+          <Text style={[styles.cameraLabel, { color: isDarkScreen ? P.white : P.ink }]}>{camera.overview ? 'Focus' : 'Overview'}</Text>
+        </Pressable>
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  canvas: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, transformOrigin: [0, 0, 0] },
+  cameraButton: { position: 'absolute', left: 10, bottom: 10, minHeight: 40, paddingHorizontal: 10, flexDirection: 'row', alignItems: 'center', gap: 6, borderWidth: 1.5, borderRadius: 14 },
+  cameraLabel: { fontSize: 12, fontWeight: '700', maxWidth: 100 },
   wrap: {
     flex: 1,
     overflow: 'hidden',
