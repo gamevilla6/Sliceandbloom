@@ -13,6 +13,7 @@ import {
 } from '@expo-google-fonts/fredoka';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
+import { initializeRewardedAds } from '@/lib/rewardedAds';
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
@@ -34,6 +35,12 @@ export default function RootLayout() {
     Fredoka_600SemiBold,
     Fredoka_700Bold,
   });
+
+  useEffect(() => {
+    initializeRewardedAds().catch((error: unknown) => {
+      console.warn('[ads] Google Mobile Ads SDK initialization failed.', error);
+    });
+  }, []);
 
   useEffect(() => {
     if (fontsLoaded || fontError) {

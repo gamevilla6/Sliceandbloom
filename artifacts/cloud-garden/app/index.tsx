@@ -15,6 +15,7 @@ import { useSound } from '@/lib/audio';
 import { setHapticsEnabled } from '@/lib/haptics';
 import { F, P, R, VD } from '@/constants/theme';
 import { hintReducer, INITIAL_HINT_VIEW } from '@/lib/hints';
+import { useRewardedRetry } from '@/lib/rewardedAds';
 
 type Sheet = 'none' | 'levels' | 'settings';
 
@@ -151,6 +152,8 @@ export default function GameScreen() {
     setOverlay(false);
   };
   resetRef.current = reset;
+  const canOfferRewardedRetry = overlay && sheet === 'none' && status === 'lost' && !hardcore && !thermalFailure;
+  const rewardedRetry = useRewardedRetry(canOfferRewardedRetry, reset);
   const switchMode = (m: Mode) => {
     if (m === mode) return;
     const p = m === 'void' ? vd.progress : m === 'genesis' ? gen.progress : m === 'hardcore' ? hard.progress : classic.progress;
@@ -358,6 +361,7 @@ export default function GameScreen() {
         <LoseCard
           reason={live?.fail ?? ''}
           onRetry={reset}
+          rewardedRetry={rewardedRetry}
           onHint={() => {
             reset();
             dispatchHint({ type: 'show' });

@@ -113,9 +113,9 @@ function Card({ children, onClose, title, scrollID, expanded = false, scrollRef,
   );
 }
 
-function Btn({ dark, label, icon, onPress, kind = 'primary', testID }: { dark?: boolean; label: string; icon: keyof typeof Ionicons.glyphMap; onPress: () => void; kind?: 'primary' | 'ghost'; testID?: string }) {
+function Btn({ dark, label, icon, onPress, kind = 'primary', testID, disabled }: { dark?: boolean; label: string; icon: keyof typeof Ionicons.glyphMap; onPress: () => void; kind?: 'primary' | 'ghost'; testID?: string; disabled?: boolean }) {
   return (
-    <PressScale onPress={onPress} testID={testID} label={label} containerStyle={styles.btnSlot} style={[styles.btn, kind === 'primary' ? styles.btnPrimary : styles.btnGhost, dark && (kind === 'primary' ? styles.btnVoid : styles.btnVoidGhost)]}>
+    <PressScale disabled={disabled} onPress={onPress} testID={testID} label={label} containerStyle={styles.btnSlot} style={[styles.btn, kind === 'primary' ? styles.btnPrimary : styles.btnGhost, dark && (kind === 'primary' ? styles.btnVoid : styles.btnVoidGhost)]}>
       <Ionicons name={icon} size={20} color={dark ? VD.text : kind === 'primary' ? P.white : P.ink} />
       <Text numberOfLines={1} style={[styles.btnText, { color: dark ? VD.text : kind === 'primary' ? P.white : P.ink }]}>{label}</Text>
     </PressScale>
@@ -155,12 +155,47 @@ export function WinCard({ dark, badge, deaths, masterclass, score, highScore, be
   );
 }
 
-export function LoseCard({ reason, onRetry, onHint, onLevels }: { reason: string; onRetry: () => void; onHint: () => void; onLevels: () => void }) {
+export function LoseCard({ reason, onRetry, onHint, onLevels, rewardedRetry }: {
+  reason: string;
+  onRetry: () => void;
+  onHint: () => void;
+  onLevels: () => void;
+  rewardedRetry?: {
+    status: 'loading' | 'ready' | 'showing' | 'unavailable';
+    supported: boolean;
+    message?: string;
+    onPress: () => void;
+  };
+}) {
   return (
     <Card>
       <Text style={styles.kicker}>Oh no</Text>
       <Text style={styles.big}>Cloud dried up</Text>
       <Text style={[styles.sub, { marginVertical: 12 }]}>{reason}</Text>
+      {rewardedRetry?.supported && (
+        <>
+          <View style={styles.row}>
+            <Btn
+              label={
+                rewardedRetry.status === 'ready' ? 'Watch ad · Earn a retry'
+                  : rewardedRetry.status === 'showing' ? 'Ad playing…'
+                    : rewardedRetry.status === 'loading' ? 'Loading rewarded ad…'
+                      : 'Rewarded ad unavailable'
+              }
+              icon="play-circle"
+              kind="ghost"
+              disabled={rewardedRetry.status !== 'ready'}
+              onPress={rewardedRetry.onPress}
+              testID="rewarded-retry"
+            />
+          </View>
+          {!!rewardedRetry.message && (
+            <Text style={styles.rewardedNote} testID="rewarded-retry-status" accessibilityLiveRegion="polite">
+              {rewardedRetry.message}
+            </Text>
+          )}
+        </>
+      )}
       <View style={styles.row}>
         <Btn label="Retry" icon="refresh" onPress={onRetry} testID="retry" />
       </View>
@@ -345,6 +380,7 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 12 },
   btnSlot: { flexGrow: 1, flexBasis: 120, minWidth: 0 },
   btn: { minHeight: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 14, paddingHorizontal: 16, borderRadius: R.btn, borderWidth: 3, borderColor: P.ink, shadowColor: P.ink, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 1, shadowRadius: 0 },
+  rewardedNote: { fontFamily: F.medium, fontSize: 13, color: P.inkSoft, textAlign: 'center', marginTop: 6 },
   btnPrimary: { backgroundColor: P.drop },
   btnGhost: { backgroundColor: P.marigold },
   btnText: { fontFamily: F.bold, fontSize: 17 },

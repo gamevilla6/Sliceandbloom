@@ -61,6 +61,8 @@
   "dependencies": {
     "@expo-google-fonts/fredoka": "^0.4.1",
     "expo-audio": "~57.0.5",
-    "matter-js": "^0.20.0"
+    "expo-dev-client": "~57.0.20",
+    "matter-js": "^0.20.0",
+    "react-native-google-mobile-ads": "^17.2.0"
   }
 }
