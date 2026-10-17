@@ -108,7 +108,7 @@ export function useRewardedAd(
           showingRef.current = false;
           const reward = earnedRef.current;
           earnedRef.current = null;
-          if (reward && reward.type && Number.isFinite(reward.amount) && reward.amount > 0) {
+          if (reward && Number.isFinite(reward.amount)) {
             setStatus('idle');
             setMessage(undefined);
             onRewardRef.current(reward);

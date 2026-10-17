@@ -154,39 +154,160 @@ export default function GameScreen() {
   const onHud = useCallback((h: Hud) => setHud(h), []);
 
   const load = (i: number) => {
+    const fastPassTrial = mode === 'genesis' && i > progress.unlocked;
+    if (i > progress.unlocked && (!fastPassTrial || appRewards.profile.genesisFastPasses < 1)) return;
+    if (fastPassTrial && !appRewards.useFastPass()) return;
+    fastPassTrialRef.current = fastPassTrial;
     setIdx(i);
     setLast(i);
     setAttempt((a) => a + 1);
+    setBonusInkFraction(0);
+    setRewardedHintUnlocked(false);
+    rewardActionRef.current = null;
+    setRewardAction(null);
+    setRewardMessage(undefined);
     dispatchHint({ type: 'reset' });
     setSheet('none');
     setOverlay(false);
   };
   const reset = () => {
     setAttempt((a) => a + 1);
+    setBonusInkFraction(0);
+    setRewardedHintUnlocked(false);
+    rewardActionRef.current = null;
+    setRewardAction(null);
+    setRewardMessage(undefined);
     dispatchHint({ type: 'reset' });
     setOverlay(false);
   };
+  const retryWithBonusInk = useCallback(() => {
+    setBonusInkFraction(0.5);
+    setAttempt((a) => a + 1);
+    setRewardedHintUnlocked(false);
+    dispatchHint({ type: 'reset' });
+    setOverlay(false);
+    setRewardMessage('Extra ink added. This retry has 50% more line length.');
+  }, []);
   resetRef.current = reset;
-  const canOfferRewardedRetry = overlay && sheet === 'none' && status === 'lost' && !hardcore && !thermalFailure;
-  const rewardedRetry = useRewardedRetry(canOfferRewardedRetry, reset);
-  const switchMode = (m: Mode) => {
-    if (m === mode) return;
+  const canOfferRewardedRetry = overlay && sheet === 'none' && status === 'lost';
+  const canUsePendingReward = rewardAction === 'retryInk'
+    ? canOfferRewardedRetry
+    : rewardAction === 'hint'
+      ? sheet === 'none' && !overlay && (hardcore || isGenesis) && status !== 'won' && status !== 'lost'
+      : (rewardAction === 'dailyBrush' || rewardAction === 'fastPass') && sheet === 'rewards';
+
+  const onRewardAfterClose = useCallback((reward: RewardedAdReward) => {
+    const action = rewardActionRef.current;
+    rewardActionRef.current = null;
+    setRewardAction(null);
+    if (!action) return;
+    switch (action) {
+      case 'dailyBrush':
+        setRewardMessage(appRewards.claimDailyBrush()
+          ? 'Golden Ink Brush earned and saved to your kit.'
+          : 'Today’s Golden Ink Brush was already claimed.');
+        break;
+      case 'fastPass':
+        appRewards.earnFastPass();
+        setRewardMessage('Genesis Fast-Pass earned and saved. Choose a locked challenge when ready.');
+        break;
+      case 'retryInk':
+        appRewards.recordInkRetry();
+        retryWithBonusInk();
+        break;
+      case 'hint':
+        appRewards.recordHint();
+        setRewardedHintUnlocked(true);
+        dispatchHint({ type: 'show' });
+        setRewardMessage('Ghost-line solution unlocked for this attempt.');
+        break;
+    }
+    // The SDK reward payload is verified above by the ad hook; reward units are
+    // game inventory, not the publisher's configured amount.
+    void reward;
+  }, [appRewards.claimDailyBrush, appRewards.earnFastPass, appRewards.recordHint, appRewards.recordInkRetry, retryWithBonusInk]);
+  const rewardedAd = useRewardedAd(!!rewardAction && canUsePendingReward, rewardAdRequest, onRewardAfterClose);
+  const requestRewardedAction = (action: RewardAction) => {
+    if (!appRewards.ready || !rewardedAd.supported) return;
+    if (rewardAction !== action) {
+      rewardActionRef.current = action;
+      setRewardAction(action);
+      setRewardMessage(undefined);
+      setRewardAdRequest((n) => n + 1);
+      return;
+    }
+    if (rewardedAd.status === 'ready') rewardedAd.onPress();
+    else if (rewardedAd.status === 'unavailable') setRewardAdRequest((n) => n + 1);
+  };
+  const rewardedRetry = {
+    supported: appRewards.ready && rewardedAd.supported,
+    status: rewardAction === 'retryInk' ? rewardedAd.status : 'idle' as const,
+    message: rewardAction === 'retryInk' ? rewardedAd.message : undefined,
+    onPress: () => requestRewardedAction('retryInk'),
+  };
+
+  const switchMode = (m: Mode, nextSheet: Sheet = 'none') => {
+    if (m === mode) {
+      setSheet(nextSheet);
+      return;
+    }
     const p = m === 'void' ? vd.progress : m === 'genesis' ? gen.progress : m === 'hardcore' ? hard.progress : classic.progress;
     const n = m === 'void' ? VOID_LEVELS.length : m === 'genesis' ? GENESIS_LEVELS.length : m === 'hardcore' ? HARDCORE_LEVELS.length : LEVELS.length;
+    fastPassTrialRef.current = false;
     setMode(m);
     setIdx(Math.min(p.last, p.unlocked, n - 1));
     setAttempt((a) => a + 1);
+    setBonusInkFraction(0);
+    setRewardedHintUnlocked(false);
+    rewardActionRef.current = null;
+    setRewardAction(null);
     dispatchHint({ type: 'reset' });
-    setSheet('none');
+    setSheet(nextSheet);
     setOverlay(false);
     setHud(null);
+  };
+  const closeRewardHub = () => {
+    if (rewardAction === 'dailyBrush' || rewardAction === 'fastPass') {
+      rewardActionRef.current = null;
+      setRewardAction(null);
+    }
+    setSheet('none');
+  };
+  const useGoldenBrush = () => {
+    if (!appRewards.ready || inkMax <= 0 || !appRewards.useGoldenBrush()) return;
+    setBonusInkFraction(0.5);
+    setAttempt((a) => a + 1);
+    setRewardedHintUnlocked(false);
+    dispatchHint({ type: 'reset' });
+    setOverlay(false);
+    setSheet('none');
+    setRewardMessage('Golden Ink Brush used. This attempt has 50% more line length.');
+  };
+  const useGenesisFastPass = () => {
+    if (appRewards.profile.genesisFastPasses < 1) return;
+    switchMode('genesis', 'levels');
   };
   const release = () => engineRef.current?.release();
   const undo = () => engineRef.current?.undo();
 
   const inkPct = inkMax > 0 ? inkLeft / inkMax : 0;
   const rules = 'First touch starts the timer. Undo: no refunds.';
-  const caption = hint ? level.hintText : status === 'ready' ? (hc ? `${level.lesson.replace(/^HARDCORE · /, '')} ${rules}` : level.lesson) : '';
+  const hintAdNote = rewardAction === 'hint'
+    ? rewardedAd.status === 'loading' ? 'Loading a video for the ghost-line solution…'
+      : rewardedAd.status === 'ready' ? 'Tap Hint again to watch and reveal the ghost line.'
+        : rewardedAd.status === 'showing' ? 'Video playing…'
+          : rewardedAd.message ?? 'Rewarded hint unavailable. Try again.'
+    : '';
+  const caption = hint ? level.hintText : hintAdNote || rewardMessage || (status === 'ready' ? (hc ? `${level.lesson.replace(/^HARDCORE · /, '')} ${rules}` : level.lesson) : '');
+  const showOutOfInkOffer = rewardedAd.supported && appRewards.ready && canDraw && inkMax > 0
+    && inkLeft <= 0 && status !== 'won' && status !== 'lost' && sheet === 'none';
+  const outOfInkLabel = rewardAction === 'retryInk'
+    ? rewardedAd.status === 'loading' ? 'Loading ink-refill video…'
+      : rewardedAd.status === 'ready' ? 'Watch video · +50% ink'
+        : rewardedAd.status === 'showing' ? 'Video playing…'
+          : rewardedAd.status === 'unavailable' ? 'Try ink-refill video again'
+            : 'Watch a video for +50% ink'
+    : 'Watch a video for +50% ink';
   const currentHint = level.hint[hintView.step];
   const noun = isVoid ? 'Void' : isGenesis ? 'Challenge' : hardcore ? 'Hardcore' : 'Bed';
   const modeName = isVoid ? 'The Void Protocol' : isGenesis ? 'The Genesis Gauntlet' : hardcore ? 'Hardcore levels' : 'Garden beds';
@@ -200,7 +321,7 @@ export default function GameScreen() {
   const showMainBanner = Platform.OS !== 'web' && sheet === 'none' && !overlay && status === 'ready';
   const mainBannerSpace = showMainBanner ? mainBannerHeight ?? BANNER_AD_RESERVED_HEIGHT : 0;
   const unit = compact ? 48 : 56;
-  const showBrand = !landscape && availW >= 360;
+  const showBrand = !landscape && availW >= 430;
 
   if (!ready) return <View style={[styles.root, { backgroundColor: P.skyTop }]} />;
 
@@ -221,6 +342,19 @@ export default function GameScreen() {
       )}
       <PressScale onPress={() => setSheet('settings')} testID="open-settings" label="Settings" style={[styles.roundBtn, isVoid && styles.vBtn]}>
         <Ionicons name="settings-sharp" size={20} color={isVoid ? VD.text : P.ink} />
+      </PressScale>
+      <PressScale
+        onPress={() => {
+          rewardActionRef.current = null;
+          setRewardAction(null);
+          setRewardMessage(undefined);
+          setSheet('rewards');
+        }}
+        testID="open-reward-hub"
+        label="App Reward Hub"
+        style={[styles.roundBtn, isVoid && styles.vBtn]}
+      >
+        <Ionicons name="gift" size={20} color={isVoid ? VD.text : P.ink} />
       </PressScale>
     </View>
   );
@@ -271,6 +405,18 @@ export default function GameScreen() {
       )}
     </View>
   );
+  const outOfInkOffer = showOutOfInkOffer ? (
+    <PressScale
+      onPress={() => requestRewardedAction('retryInk')}
+      disabled={!appRewards.ready || rewardedAd.status === 'loading' || rewardedAd.status === 'showing'}
+      testID="out-of-ink-reward"
+      label="Watch a rewarded video for fifty percent extra ink and instant retry"
+      style={[styles.inkOffer, isVoid && { backgroundColor: VD.panel, borderColor: VD.red }]}
+    >
+      <Ionicons name="play-circle" size={18} color={isVoid ? VD.red : P.dropDeep} />
+      <Text style={[styles.inkOfferText, isVoid && { color: VD.text }]} numberOfLines={2}>{outOfInkLabel}</Text>
+    </PressScale>
+  ) : null;
   const captionEl = (!!caption || !landscape) && (
     <View style={[styles.caption, isVoid && { backgroundColor: VD.panel, borderColor: VD.purple }, !caption && { opacity: 0 }, !landscape && { minHeight: compact ? 44 : 52 }]} testID="region-caption" accessibilityLiveRegion="polite">
       {hint && currentHint && (
@@ -302,7 +448,22 @@ export default function GameScreen() {
       <View style={[styles.toolGroup, tightTools && { gap: 4 }]}>
         <MiniBtn dark={isVoid} name="Undo" icon="arrow-undo" disabled={!live || live.strokes === 0 || (status !== 'ready' && status !== 'running')} onPress={undo} id="undo" />
         <MiniBtn dark={isVoid} name={Platform.OS === 'web' ? 'Retry level (R)' : 'Retry level'} icon="refresh" onPress={reset} id="reset" />
-        <MiniBtn dark={isVoid} name={hint ? 'Hide hint' : 'Show hint'} icon="bulb" active={hint} disabled={level.hint.length === 0} onPress={() => dispatchHint({ type: 'toggle' })} id="hint" />
+        <MiniBtn
+          dark={isVoid}
+          name={hint ? 'Hide hint' : (hardcore || isGenesis) && !rewardedHintUnlocked ? 'Watch video for ghost-line hint' : 'Show hint'}
+          icon="bulb"
+          active={hint}
+          disabled={level.hint.length === 0 || (rewardAction === 'hint' && (rewardedAd.status === 'loading' || rewardedAd.status === 'showing'))}
+          onPress={() => {
+            if (hardcore || isGenesis) {
+              if (rewardedHintUnlocked) dispatchHint({ type: 'toggle' });
+              else requestRewardedAction('hint');
+            } else {
+              dispatchHint({ type: 'toggle' });
+            }
+          }}
+          id="hint"
+        />
       </View>
       <PressScale onPress={release} disabled={status !== 'ready'} testID="release" label="Drop water" containerStyle={[styles.releaseSlot, tightTools && { flexGrow: 0, flexBasis: 44, minWidth: 44 }]} style={[styles.release, isVoid && { backgroundColor: VD.redDeep, borderColor: VD.red, shadowColor: VD.red }, { height: tightTools ? 44 : unit }, tightTools && { paddingHorizontal: 0 }]}>
         <Ionicons name="water" size={24} color={P.white} />
@@ -330,6 +491,7 @@ export default function GameScreen() {
                 {!compact && <Stars count={progress.stars[idx] ?? 0} size={16} />}
                 {hudBar}
                 {ink}
+                {outOfInkOffer}
                 {captionEl}
               </ScrollView>
               {tools}
@@ -344,6 +506,7 @@ export default function GameScreen() {
             {modeBar}
             {!hc && modBadges}
             {ink}
+            {outOfInkOffer}
             {hudBar}
             {frame}
             {captionEl}
@@ -358,7 +521,7 @@ export default function GameScreen() {
         </View>
       )}
 
-      {sheet === 'levels' && <LevelPicker deaths={vProg.deaths} badges={vProg.badges} title={isVoid ? 'Hardcore: The Void Protocol' : isGenesis ? 'The Genesis Gauntlet' : hardcore ? 'Hardcore' : 'Garden beds'} noun={noun} levels={levels} unlocked={progress.unlocked} stars={progress.stars} scores={hardcore ? arcade.progress.scores : undefined} bestTimes={hardcore ? arcade.progress.bestTimes : undefined} current={idx} onPick={load} onClose={() => setSheet('none')} />}
+      {sheet === 'levels' && <LevelPicker deaths={vProg.deaths} badges={vProg.badges} title={isVoid ? 'Hardcore: The Void Protocol' : isGenesis ? 'The Genesis Gauntlet' : hardcore ? 'Hardcore' : 'Garden beds'} noun={noun} levels={levels} unlocked={progress.unlocked} fastPasses={isGenesis ? appRewards.profile.genesisFastPasses : 0} stars={progress.stars} scores={hardcore ? arcade.progress.scores : undefined} bestTimes={hardcore ? arcade.progress.bestTimes : undefined} current={idx} onPick={load} onClose={() => setSheet('none')} />}
       {sheet === 'settings' && (
         <SettingsSheet
           dark={isVoid}
@@ -376,10 +539,28 @@ export default function GameScreen() {
           onClose={() => setSheet('none')}
         />
       )}
-      {overlay && sheet === 'none' && status === 'won' && (
-        <WinCard dark={isVoid} badge={badgeHere} deaths={isVoid ? deathsHere : undefined} level={level} stars={live?.stars ?? 1} score={hardcore ? live?.score : undefined} highScore={hardcore ? arcade.progress.scores[String(idx)] : undefined} bestTime={hardcore ? arcade.progress.bestTimes[String(idx)] : undefined} masterclass={isGenesis} elapsed={live?.elapsed} hasNext={idx + 1 < levels.length} onNext={() => load(idx + 1)} onReplay={reset} onLevels={() => setSheet('levels')} />
+      {sheet === 'rewards' && (
+        <RewardHub
+          ready={appRewards.ready}
+          supported={rewardedAd.supported}
+          dailyClaimed={appRewards.profile.dailyClaimDate === localRewardDay()}
+          brushCount={appRewards.profile.goldenBrushes}
+          fastPassCount={appRewards.profile.genesisFastPasses}
+          canUseBrush={inkMax > 0}
+          inGenesis={isGenesis}
+          adStatus={rewardedAd.status}
+          pendingReward={rewardAction}
+          message={rewardMessage ?? rewardedAd.message}
+          onWatch={requestRewardedAction}
+          onUseBrush={useGoldenBrush}
+          onUseFastPass={useGenesisFastPass}
+          onClose={closeRewardHub}
+        />
       )}
-      {overlay && sheet === 'none' && status === 'lost' && (hardcore || thermalFailure) && <HardcoreFail themed={isVoid} title={isVoid ? 'Voided' : hardcore ? 'Wilted' : 'Overheated'} reason={live?.fail ?? ''} onRetry={reset} />}
+      {overlay && sheet === 'none' && status === 'won' && (
+        <WinCard dark={isVoid} badge={badgeHere} deaths={isVoid ? deathsHere : undefined} level={level} stars={live?.stars ?? 1} score={hardcore ? live?.score : undefined} highScore={hardcore ? arcade.progress.scores[String(idx)] : undefined} bestTime={hardcore ? arcade.progress.bestTimes[String(idx)] : undefined} masterclass={isGenesis} trial={fastPassTrialRef.current} elapsed={live?.elapsed} hasNext={idx + 1 < levels.length && (!fastPassTrialRef.current || appRewards.profile.genesisFastPasses > 0)} onNext={() => load(idx + 1)} onReplay={reset} onLevels={() => setSheet('levels')} />
+      )}
+      {overlay && sheet === 'none' && status === 'lost' && (hardcore || thermalFailure) && <HardcoreFail themed={isVoid} title={isVoid ? 'Voided' : hardcore ? 'Wilted' : 'Overheated'} reason={live?.fail ?? ''} onRetry={reset} rewardedRetry={rewardedRetry} />}
       {overlay && sheet === 'none' && status === 'lost' && !hardcore && !(level.thermalZone && live?.fail.includes('Thermal')) && (
         <LoseCard
           reason={live?.fail ?? ''}
@@ -416,6 +597,8 @@ const lift = { shadowColor: P.ink, shadowOffset: { width: 0, height: 3 }, shadow
 const styles = StyleSheet.create({
   outer: { flex: 1, backgroundColor: P.paper },
   bannerDock: { position: 'absolute', left: 0, right: 0, alignItems: 'center', zIndex: 60 },
+  inkOffer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, minHeight: 42, marginTop: 7, paddingHorizontal: 10, paddingVertical: 6, borderRadius: R.btn, borderWidth: 2.5, borderColor: P.dropDeep, backgroundColor: P.paperDeep },
+  inkOfferText: { flexShrink: 1, fontFamily: F.bold, fontSize: 13, color: P.dropDeep, textAlign: 'center' },
   root: { flex: 1, backgroundColor: P.paper },
   rootRow: { alignItems: 'stretch', justifyContent: 'center' },
   column: { flex: 1, width: '100%', alignSelf: 'center', minHeight: 0 },

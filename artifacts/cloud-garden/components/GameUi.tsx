@@ -131,16 +131,17 @@ function Btn({ dark, label, icon, onPress, kind = 'primary', testID, disabled }:
   );
 }
 
-export function WinCard({ dark, badge, deaths, masterclass, score, highScore, bestTime, level, stars, elapsed, hasNext, onNext, onReplay, onLevels }: { dark?: boolean; badge?: string; deaths?: number; masterclass?: boolean; score?: number; highScore?: number; bestTime?: number; level: Level; stars: number; elapsed?: number; hasNext: boolean; onNext: () => void; onReplay: () => void; onLevels: () => void }) {
+export function WinCard({ dark, badge, deaths, masterclass, trial, score, highScore, bestTime, level, stars, elapsed, hasNext, onNext, onReplay, onLevels }: { dark?: boolean; badge?: string; deaths?: number; masterclass?: boolean; trial?: boolean; score?: number; highScore?: number; bestTime?: number; level: Level; stars: number; elapsed?: number; hasNext: boolean; onNext: () => void; onReplay: () => void; onLevels: () => void }) {
   return (
     <Card dark={dark} showBanner={Platform.OS !== 'web'}>
       <Text style={[styles.kicker, dark && { color: VD.red }]}>{level.name}</Text>
-      <Text style={[styles.big, dark && { color: VD.purple, textShadowColor: VD.red }]}>{dark ? 'Protocol cleared' : masterclass ? 'Masterclass complete' : 'It bloomed!'}</Text>
+      <Text style={[styles.big, dark && { color: VD.purple, textShadowColor: VD.red }]}>{trial ? 'Fast-pass trial cleared' : dark ? 'Protocol cleared' : masterclass ? 'Masterclass complete' : 'It bloomed!'}</Text>
       <Text style={styles.brand}>Slice & Bloom</Text>
       <View style={{ marginVertical: 14 }}>
         <Stars count={stars} size={44} pop />
       </View>
-      <Text style={styles.sub}>{level.hardcore
+      <Text style={styles.sub}>{trial ? 'This preview does not change permanent unlock progress.'
+        : level.hardcore
         ? `${(elapsed ?? 0).toFixed(1)}s · ${stars === 3 ? 'Gold earned!' : `Gold needs ${level.hardcore.goldTime}s or less and at most ${level.par} ${level.par === 1 ? 'move' : 'moves'}.`}`
         : stars === 3 ? 'Perfect watering.' : stars === 2 ? 'Nicely done. Fewer moves earn a third star.' : 'Bloomed. Try fewer moves for more stars.'}</Text>
       {dark && (
@@ -223,6 +224,8 @@ export function LoseCard({ reason, onRetry, onHint, onLevels, rewardedRetry }: {
 export type HubRewardAction = 'dailyBrush' | 'fastPass';
 
 export function RewardHub({
+  ready,
+  supported,
   dailyClaimed,
   brushCount,
   fastPassCount,
@@ -236,6 +239,8 @@ export function RewardHub({
   onUseFastPass,
   onClose,
 }: {
+  ready: boolean;
+  supported: boolean;
   dailyClaimed: boolean;
   brushCount: number;
   fastPassCount: number;
@@ -250,6 +255,8 @@ export function RewardHub({
   onClose: () => void;
 }) {
   const actionLabel = (action: HubRewardAction, defaultLabel: string) => {
+    if (!supported) return 'Available in the native app';
+    if (!ready) return 'Loading saved rewards…';
     if (pendingReward !== action) return defaultLabel;
     if (adStatus === 'loading') return 'Loading video…';
     if (adStatus === 'showing') return 'Video playing…';
@@ -273,18 +280,18 @@ export function RewardHub({
         <Text style={styles.rewardInventory} testID="golden-brush-count">In your kit: {brushCount}</Text>
         <View style={styles.row}>
           <Btn
-            label={dailyClaimed ? 'Claimed today' : actionLabel('dailyBrush', 'Watch video · Claim brush')}
+            label={dailyClaimed ? 'Claimed today' : actionLabel('dailyBrush', 'Watch · Brush')}
             icon={dailyClaimed ? 'checkmark-circle' : 'play-circle'}
             kind={dailyClaimed ? 'ghost' : 'primary'}
-            disabled={dailyClaimed || actionDisabled('dailyBrush')}
+            disabled={!ready || !supported || dailyClaimed || actionDisabled('dailyBrush')}
             onPress={() => onWatch('dailyBrush')}
             testID="claim-daily-brush"
           />
           <Btn
-            label="Use on this level"
+            label="Use Brush"
             icon="flash"
             kind="ghost"
-            disabled={!canUseBrush || brushCount < 1}
+            disabled={!ready || !canUseBrush || brushCount < 1}
             onPress={onUseBrush}
             testID="use-golden-brush"
           />
@@ -301,18 +308,18 @@ export function RewardHub({
         <Text style={styles.rewardInventory} testID="genesis-fast-pass-count">Fast-passes: {fastPassCount}</Text>
         <View style={styles.row}>
           <Btn
-            label={actionLabel('fastPass', 'Watch video · Get a pass')}
+            label={actionLabel('fastPass', 'Watch · Fast-pass')}
             icon="play-circle"
             kind="primary"
-            disabled={actionDisabled('fastPass')}
+            disabled={!ready || !supported || actionDisabled('fastPass')}
             onPress={() => onWatch('fastPass')}
             testID="claim-genesis-fast-pass"
           />
           <Btn
-            label={inGenesis ? 'Choose a challenge' : 'Open Genesis'}
+            label={inGenesis ? 'Choose level' : 'Open Genesis'}
             icon="grid"
             kind="ghost"
-            disabled={fastPassCount < 1}
+            disabled={!ready || fastPassCount < 1}
             onPress={onUseFastPass}
             testID="use-genesis-fast-pass"
           />
@@ -320,11 +327,12 @@ export function RewardHub({
       </View>
 
       {!!message && <Text style={styles.rewardMessage} testID="reward-hub-message" accessibilityLiveRegion="polite">{message}</Text>}
+      {!supported && <Text style={styles.rewardFootnote}>Reward videos need an iOS or Android build with Google Mobile Ads.</Text>}
     </Card>
   );
 }
 
-export function LevelPicker({ deaths, badges, scores, bestTimes, levels, unlocked, stars, current, onPick, onClose, title = 'Garden beds', noun = 'Bed' }: { deaths?: Record<string, number>; badges?: Record<string, string>; scores?: Record<string, number>; bestTimes?: Record<string, number>; levels: Level[]; unlocked: number; stars: Record<string, number>; current: number; onPick: (i: number) => void; onClose: () => void; title?: string; noun?: string }) {
+export function LevelPicker({ deaths, badges, scores, bestTimes, levels, unlocked, fastPasses = 0, stars, current, onPick, onClose, title = 'Garden beds', noun = 'Bed' }: { deaths?: Record<string, number>; badges?: Record<string, string>; scores?: Record<string, number>; bestTimes?: Record<string, number>; levels: Level[]; unlocked: number; fastPasses?: number; stars: Record<string, number>; current: number; onPick: (i: number) => void; onClose: () => void; title?: string; noun?: string }) {
   const { width, height, fontScale } = useWindowDimensions();
   const ins = useSafeInsets();
   const showBanner = Platform.OS !== 'web';
@@ -425,14 +433,17 @@ export function LevelPicker({ deaths, badges, scores, bestTimes, levels, unlocke
       }}>
         {range.map((i) => {
           const l = levels[i];
-          const locked = i > unlocked;
+          const fastPassTrial = i > unlocked && fastPasses > 0;
+          const locked = i > unlocked && !fastPassTrial;
           return (
-            <PressScale key={l.id} containerStyle={{ width: tileWidth }} disabled={locked} label={locked ? `${noun} ${l.id}, ${l.name}, locked` : `${noun} ${l.id}, ${l.name}`} selected={i === current} onPress={() => onPick(i)} testID={`level-${l.id}`} style={[styles.tile, { height: tileHeight }, vd && styles.vTile, i === current && (vd ? styles.vTileCur : styles.tileCur), locked && { backgroundColor: vd ? VD.bgDeep : P.paperDeep }]}>
+            <PressScale key={l.id} containerStyle={{ width: tileWidth }} disabled={locked} label={locked ? `${noun} ${l.id}, ${l.name}, locked` : fastPassTrial ? `${noun} ${l.id}, ${l.name}, temporary fast-pass trial` : `${noun} ${l.id}, ${l.name}`} selected={i === current} onPress={() => onPick(i)} testID={`level-${l.id}`} style={[styles.tile, { height: tileHeight }, vd && styles.vTile, i === current && (vd ? styles.vTileCur : styles.tileCur), locked && { backgroundColor: vd ? VD.bgDeep : P.paperDeep }]}>
               {locked ? <Ionicons name="lock-closed" size={22} color={vd ? VD.textSoft : P.inkSoft} /> : <Text style={[styles.tileNum, vd && { color: VD.text }]}>{l.id}</Text>}
               <Text style={[styles.tileName, vd && { color: VD.textSoft }, { minHeight: 30 * Math.max(1, fontScale) }]} numberOfLines={2}>{l.name}</Text>
               <Stars count={stars[i] ?? 0} size={14} />
               {vd && <Text style={[styles.tileRec, { color: badges?.[String(i)] === 'Gold' ? VD.gold : VD.textSoft }]}>{deaths?.[String(i)] ?? 0} deaths · {badges?.[String(i)] ?? 'No badge'}</Text>}
-              {hc && <Text style={[styles.tileRec, vd && { color: VD.textSoft }]}>{scores?.[String(i)] !== undefined ? scores[String(i)] : '—'} · {bestTimes?.[String(i)] !== undefined ? `${bestTimes[String(i)].toFixed(1)}s` : '—'}</Text>}
+              {fastPassTrial
+                ? <Text style={[styles.tileRec, styles.fastPassTrial]}>FAST-PASS TRIAL</Text>
+                : hc && <Text style={[styles.tileRec, vd && { color: VD.textSoft }]}>{scores?.[String(i)] !== undefined ? scores[String(i)] : '—'} · {bestTimes?.[String(i)] !== undefined ? `${bestTimes[String(i)].toFixed(1)}s` : '—'}</Text>}
             </PressScale>
           );
         })}
@@ -508,6 +519,7 @@ const styles = StyleSheet.create({
   rewardInventory: { fontFamily: F.bold, fontSize: 13, color: P.dropDeep },
   rewardFootnote: { fontFamily: F.medium, fontSize: 12, color: P.coralDeep, textAlign: 'center' },
   rewardMessage: { fontFamily: F.bold, fontSize: 14, color: P.dropDeep, textAlign: 'center', paddingVertical: 8 },
+  fastPassTrial: { color: P.coralDeep },
   btnPrimary: { backgroundColor: P.drop },
   btnGhost: { backgroundColor: P.marigold },
   btnText: { fontFamily: F.bold, fontSize: 17 },
