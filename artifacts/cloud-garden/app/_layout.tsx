@@ -13,7 +13,7 @@ import {
 } from '@expo-google-fonts/fredoka';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import { initializeRewardedAds } from '@/lib/rewardedAds';
+import { initializeAds } from '@/lib/AdManager';
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
@@ -37,7 +37,7 @@ export default function RootLayout() {
   });
 
   useEffect(() => {
-    initializeRewardedAds().catch((error: unknown) => {
+    initializeAds().catch((error: unknown) => {
       console.warn('[ads] Google Mobile Ads SDK initialization failed.', error);
     });
   }, []);

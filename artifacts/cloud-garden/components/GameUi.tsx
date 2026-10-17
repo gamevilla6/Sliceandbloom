@@ -73,7 +73,7 @@ export function Stars({ count, size = 30, pop = false }: { count: number; size?:
   );
 }
 
-function Card({ children, onClose, title, scrollID, expanded = false, scrollRef, onScrollLayout, onContentSizeChange, footer, dark, tone, showBanner = false }: {
+export function Card({ children, onClose, title, scrollID, expanded = false, scrollRef, onScrollLayout, onContentSizeChange, footer, dark, tone, showBanner = false }: {
   dark?: boolean;
   tone?: UiTone;
   showBanner?: boolean;
@@ -137,7 +137,7 @@ function Card({ children, onClose, title, scrollID, expanded = false, scrollRef,
   );
 }
 
-function Btn({ dark, tone, label, icon, onPress, kind = 'primary', testID, disabled }: { dark?: boolean; tone?: UiTone; label: string; icon: keyof typeof Ionicons.glyphMap; onPress: () => void; kind?: 'primary' | 'ghost'; testID?: string; disabled?: boolean }) {
+export function Btn({ dark, tone, label, icon, onPress, kind = 'primary', testID, disabled }: { dark?: boolean; tone?: UiTone; label: string; icon: keyof typeof Ionicons.glyphMap; onPress: () => void; kind?: 'primary' | 'ghost'; testID?: string; disabled?: boolean }) {
   const darkMode = dark || tone === 'void' || tone === 'singularity' || tone === 'reward';
   const toneBtn = tone === 'void' ? (kind === 'primary' ? styles.btnVoid : styles.btnVoidGhost)
     : tone === 'singularity' ? (kind === 'primary' ? styles.btnSing : styles.btnSingGhost)
@@ -211,7 +211,7 @@ export function LoseCard({ reason, tone = 'campaign', onRetry, onHint, onLevels,
       {rewardedRetry?.supported && (
         <>
           <Text style={[styles.sub, tone === 'singularity' && { color: SG.textSoft }, tone === 'genesis' && { color: GN.textSoft }, { textAlign: 'center' }]}>
-            Watch a quick video to get +50% Extra Ink &amp; Retry instantly!
+            Watch a quick video for +50% Extra Ink &amp; Revive!
           </Text>
           <View style={styles.row}>
             <Btn

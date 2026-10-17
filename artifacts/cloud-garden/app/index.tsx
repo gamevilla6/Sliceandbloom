@@ -18,14 +18,16 @@ import { setHapticsEnabled } from '@/lib/haptics';
 import { F, GN, P, R, SG, VD } from '@/constants/theme';
 import { hintReducer, INITIAL_HINT_VIEW } from '@/lib/hints';
 import { useRewardedAd } from '@/lib/rewardedAds';
-import { BannerAdComponent, BANNER_AD_RESERVED_HEIGHT } from '@/components/BannerAdComponent';
+import { MainMenu } from '@/components/MainMenu';
+import { adManager } from '@/lib/AdManager';
+import { useAdNexus } from '@/hooks/useAdNexus';
 import { useAppRewards } from '@/hooks/useAppRewards';
-import { dailyStatus, formatCountdown, type HubRewardAction } from '@/lib/rewardHub';
+import { createDailyRewardOffer, dailyStatus, formatCountdown, type DailyRewardOffer, type HubRewardAction } from '@/lib/rewardHub';
 import { SINGULARITY_LEVELS } from '@/lib/singularityLevels';
 import type { RewardedAdReward } from 'react-native-google-mobile-ads';
 import { SafeAreaView, type Edge } from 'react-native-safe-area-context';
 
-type Sheet = 'none' | 'levels' | 'settings' | 'rewards';
+type Sheet = 'none' | 'menu' | 'levels' | 'settings' | 'rewards';
 type RewardAction = HubRewardAction | 'retryInk' | 'hint';
 
 export default function GameScreen() {
@@ -61,10 +63,13 @@ export default function GameScreen() {
   const [tool, setTool] = useState<Tool>('draw');
   const [hintView, dispatchHint] = useReducer(hintReducer, INITIAL_HINT_VIEW);
   const hint = hintView.visible;
-  const [sheet, setSheet] = useState<Sheet>('none');
+  const [sheet, setSheet] = useState<Sheet>('menu');
   const [hud, setHud] = useState<Hud | null>(null);
   const [overlay, setOverlay] = useState(false);
-  const [mainBannerHeight, setMainBannerHeight] = useState<number | null>(null);
+  const adNexus = useAdNexus();
+  const adSession = useRef(`${Date.now()}:${Math.random().toString(36).slice(2)}`);
+  const victoryTransition = useRef(false);
+  const winRecord = useRef<Promise<void>>(Promise.resolve());
   const [bonusInkFraction, setBonusInkFraction] = useState(0);
   const [rewardAction, setRewardAction] = useState<RewardAction | null>(null);
   const [rewardAdRequest, setRewardAdRequest] = useState(0);
@@ -72,6 +77,7 @@ export default function GameScreen() {
   const [rewardedHintUnlocked, setRewardedHintUnlocked] = useState(false);
   const rewardActionRef = useRef<RewardAction | null>(null);
   const rewardReceiptRef = useRef('');
+  const dailyOfferRef = useRef<DailyRewardOffer | undefined>(undefined);
   const skipLock = useRef(false);
   const fastPassTrialRef = useRef(false);
   const engineRef = useRef<GardenEngine | null>(null);
@@ -128,6 +134,7 @@ export default function GameScreen() {
       if (hardcore && fastPassTrialRef.current) appRewards.recordFastPassClear();
       else if (hardcore) hardComplete(idx, live.stars, { score: live.score, time: live.elapsed });
       else classicComplete(idx, live.stars);
+      winRecord.current = adManager.recordCompletion(`${adSession.current}:${tag}`);
     }
   }, [status, live, tag, idx, hardcore, hardComplete, classicComplete, appRewards.recordFastPassClear]);
 
@@ -179,6 +186,7 @@ export default function GameScreen() {
   const onHud = useCallback((h: Hud) => setHud(h), []);
 
   const load = (i: number) => {
+    if (adManager.getSnapshot().fullscreen || victoryTransition.current) return;
     const fastPassTrial = mode === 'genesis' && i > progress.unlocked;
     if (i > progress.unlocked && (!fastPassTrial || appRewards.profile.genesisFastPasses < 1)) return;
     if (fastPassTrial && !appRewards.useFastPass()) return;
@@ -196,6 +204,7 @@ export default function GameScreen() {
     setOverlay(false);
   };
   const reset = () => {
+    if (adManager.getSnapshot().fullscreen || victoryTransition.current) return;
     setAttempt((a) => a + 1);
     setBonusInkFraction(0);
     setRewardedHintUnlocked(false);
@@ -213,8 +222,11 @@ export default function GameScreen() {
     setOverlay(false);
     setRewardMessage('Extra ink added. This retry has 50% more line length.');
   }, []);
-  resetRef.current = reset;
-  const canOfferRewardedRetry = overlay && sheet === 'none' && status === 'lost';
+  // R is a free instant retry after failure; after a win it follows the same
+  // natural-break cadence as tapping Replay, rather than bypassing the nexus.
+  resetRef.current = () => { if (status === 'won') void leaveVictory(reset); else reset(); };
+  const canOfferRewardedRetry = sheet === 'none' && canDraw && level.ink > 0
+    && ((overlay && status === 'lost') || (inkLeft <= 0 && status !== 'won'));
   const canUsePendingReward = rewardAction === 'retryInk'
     ? canOfferRewardedRetry
     : rewardAction === 'hint'
@@ -240,7 +252,9 @@ export default function GameScreen() {
       default: {
         const receipt = rewardReceiptRef.current;
         rewardReceiptRef.current = '';
-        const label = appRewards.grantHubAd(action, receipt);
+        const offer = dailyOfferRef.current;
+        dailyOfferRef.current = undefined;
+        const label = appRewards.grantHubAd(action, receipt, offer);
         setRewardMessage(label ?? 'This reward was already claimed or its cooldown is still active.');
         if (label) playSound('win');
         break;
@@ -252,6 +266,11 @@ export default function GameScreen() {
   }, [appRewards.grantHubAd, appRewards.recordHint, appRewards.recordInkRetry, retryWithBonusInk, playSound]);
   const rewardedAd = useRewardedAd(!!rewardAction && canUsePendingReward, rewardAdRequest, onRewardAfterClose);
   const requestRewardedAction = (action: RewardAction) => {
+    const watch = () => {
+      dailyOfferRef.current = action === 'dailyBrush' ? createDailyRewardOffer(appRewards.profile, Date.now()) : undefined;
+      if (action === 'dailyBrush' && !dailyOfferRef.current) return;
+      adManager.showRewarded(onRewardAfterClose);
+    };
     if (!appRewards.ready || appRewards.storageError || !rewardedAd.supported) return;
     if (rewardActionRef.current && rewardActionRef.current !== action
       && ['loading', 'ready', 'showing'].includes(rewardedAd.status)) return;
@@ -263,22 +282,26 @@ export default function GameScreen() {
       setRewardAction(action);
       setRewardMessage(undefined);
       setRewardAdRequest((n) => n + 1);
+      // An already-cached ad can show immediately after this explicit opt-in.
+      if (adManager.getSnapshot().rewarded === 'ready')
+        watch();
       return;
     }
-    if (rewardedAd.status === 'ready') rewardedAd.onPress();
+    if (rewardedAd.status === 'ready') watch();
     else if (rewardedAd.status === 'unavailable') {
       rewardReceiptRef.current = `ad:${Date.now()}:${Math.random().toString(36).slice(2)}`;
       setRewardAdRequest((n) => n + 1);
     }
   };
   const rewardedRetry = {
-    supported: appRewards.ready && rewardedAd.supported,
-    status: rewardAction === 'retryInk' ? rewardedAd.status : 'idle' as const,
+    supported: appRewards.ready && rewardedAd.supported && canDraw && level.ink > 0,
+    status: rewardAction === 'retryInk' ? rewardedAd.status : adNexus.rewarded === 'ready' ? 'ready' as const : 'idle' as const,
     message: rewardAction === 'retryInk' ? rewardedAd.message : undefined,
     onPress: () => requestRewardedAction('retryInk'),
   };
 
   const switchMode = (m: Mode, nextSheet: Sheet = 'none') => {
+    if (adManager.getSnapshot().fullscreen || victoryTransition.current) return;
     if (m === mode) {
       setSheet(nextSheet);
       return;
@@ -346,6 +369,16 @@ export default function GameScreen() {
     setRewardMessage(result ?? 'You need 20 free ink credits to wager.');
     if (result) playSound('release');
   };
+  const leaveVictory = async (next: () => void) => {
+    if (victoryTransition.current || adManager.getSnapshot().fullscreen) return;
+    victoryTransition.current = true;
+    try {
+      await winRecord.current;
+      await adManager.interstitialAtVictoryBreak(`${adSession.current}:${tag}`);
+      victoryTransition.current = false;
+      next();
+    } finally { victoryTransition.current = false; }
+  };
   const release = () => engineRef.current?.release();
   const undo = () => engineRef.current?.undo();
 
@@ -366,7 +399,7 @@ export default function GameScreen() {
         : rewardedAd.status === 'showing' ? 'Video playing…'
           : rewardedAd.status === 'unavailable' ? 'Try ink-refill video again'
             : 'Watch a video for +50% ink'
-    : 'Watch a video for +50% ink';
+    : 'Watch a quick video for +50% Extra Ink & Revive!';
   const currentHint = level.hint[hintView.step];
   const noun = isVoid ? 'Void' : isGenesis ? 'Challenge' : isSingularity ? 'Paradox' : hardcore ? 'Hardcore' : 'Bed';
   const modeName = isVoid ? 'The Void Protocol' : isGenesis ? 'The Genesis Gauntlet' : isSingularity ? 'Singularity Paradox' : hardcore ? 'Hardcore levels' : 'Garden beds';
@@ -381,8 +414,8 @@ export default function GameScreen() {
   // safe-area padding because browsers do not expose phone cutouts to the view.
   const contentInsets = Platform.OS === 'web' ? insets : { top: 0, bottom: 0, left: 0, right: 0 };
   const tightTools = !landscape && availW < 380;
-  const showMainBanner = Platform.OS !== 'web' && sheet === 'none' && !overlay && status === 'ready';
-  const mainBannerSpace = showMainBanner ? mainBannerHeight ?? BANNER_AD_RESERVED_HEIGHT : 0;
+  // The ready board is interactive too: banners belong only to menu/result cards.
+  const mainBannerSpace = 0;
   const unit = compact ? 48 : 56;
   const showBrand = !landscape && availW >= 430;
   const showStarsInHeader = !landscape && availW >= 400;
@@ -420,6 +453,9 @@ export default function GameScreen() {
         style={[styles.roundBtn, isVoid && styles.vBtn, isGenesis && styles.gnBtn, isSingularity && styles.singBtn]}
       >
         <Ionicons name="gift" size={20} color={isDarkScreen ? isVoid ? VD.text : SG.gold : isGenesis ? GN.gold : P.ink} />
+      </PressScale>
+      <PressScale onPress={() => setSheet('menu')} testID="open-main-menu" label="Main menu" style={[styles.roundBtn, isVoid && styles.vBtn, isGenesis && styles.gnBtn, isSingularity && styles.singBtn]}>
+        <Ionicons name="home" size={18} color={isDarkScreen ? SG.gold : P.ink} />
       </PressScale>
     </View>
   );
@@ -542,7 +578,7 @@ export default function GameScreen() {
   );
   const frame = (
     <View style={[styles.stageArea, isVoid && { backgroundColor: VD.bgDeep, borderWidth: 2, borderColor: VD.red }, isGenesis && { backgroundColor: GN.bgDeep, borderWidth: 2, borderColor: GN.amber }, isSingularity && { backgroundColor: SG.bgDeep, borderWidth: 2, borderColor: SG.cyan }]} testID="region-stage">
-      <GameBoard key={tag} modeKey={mode} engine={gameEngine} level={level} attempt={attempt} tool={tool} showHint={hint} hintStep={hintView.step} hintOverview={hintView.overview} guides={progress.settings.guides} paused={sheet !== 'none'} playSound={playSound} engineRef={engineRef} onHud={onHud} />
+      <GameBoard key={tag} modeKey={mode} engine={gameEngine} level={level} attempt={attempt} tool={tool} showHint={hint} hintStep={hintView.step} hintOverview={hintView.overview} guides={progress.settings.guides} paused={sheet !== 'none' || !!adNexus.fullscreen || (rewardAction === 'retryInk' && canUsePendingReward && (rewardedAd.status === 'loading' || rewardedAd.status === 'ready'))} playSound={playSound} engineRef={engineRef} onHud={onHud} />
     </View>
   );
 
@@ -586,11 +622,8 @@ export default function GameScreen() {
       )}
       </SafeAreaView>
 
-      {showMainBanner && (
-        <View style={[styles.bannerDock, { bottom: insets.bottom + 4 }]} pointerEvents="box-none">
-          <BannerAdComponent onHeightChange={setMainBannerHeight} />
-        </View>
-      )}
+      {sheet === 'menu' && <MainMenu mode={mode} currentLevel={idx + 1} onContinue={() => setSheet('none')}
+        onSelectMode={m => switchMode(m, 'levels')} onRewards={() => setSheet('rewards')} />}
 
        {sheet === 'levels' && <LevelPicker deaths={vProg.deaths} badges={vProg.badges} title={isVoid ? 'Hardcore: The Void Protocol' : isGenesis ? 'The Genesis Gauntlet' : isSingularity ? 'Singularity Paradox' : hardcore ? 'Hardcore' : 'Garden beds'} noun={noun} levels={levels} unlocked={progress.unlocked} fastPasses={isGenesis ? appRewards.profile.genesisFastPasses : 0} stars={progress.stars} scores={hardcore ? arcade.progress.scores : undefined} bestTimes={hardcore ? arcade.progress.bestTimes : undefined} current={idx} onPick={load} onClose={() => setSheet('none')} />}
       {sheet === 'settings' && (
@@ -624,6 +657,7 @@ export default function GameScreen() {
           inGenesis={isGenesis}
           adStatus={rewardedAd.status}
           pendingReward={rewardAction}
+          adReady={adNexus.rewarded === 'ready'}
           message={rewardMessage ?? rewardedAd.message}
           onWatch={requestRewardedAction}
           onUseBrush={useGoldenBrush}
@@ -637,7 +671,7 @@ export default function GameScreen() {
         />
       )}
       {overlay && sheet === 'none' && status === 'won' && (
-        <WinCard dark={isVoid} tone={tone} badge={badgeHere} deaths={isVoid ? deathsHere : undefined} level={level} stars={live?.stars ?? 1} score={hardcore ? live?.score : undefined} highScore={hardcore ? arcade.progress.scores[String(idx)] : undefined} bestTime={hardcore ? arcade.progress.bestTimes[String(idx)] : undefined} masterclass={isGenesis} trial={fastPassTrialRef.current} elapsed={live?.elapsed} hasNext={idx + 1 < levels.length && (!fastPassTrialRef.current || appRewards.profile.genesisFastPasses > 0)} onNext={() => load(idx + 1)} onReplay={reset} onLevels={() => setSheet('levels')} />
+        <WinCard dark={isVoid} tone={tone} badge={badgeHere} deaths={isVoid ? deathsHere : undefined} level={level} stars={live?.stars ?? 1} score={hardcore ? live?.score : undefined} highScore={hardcore ? arcade.progress.scores[String(idx)] : undefined} bestTime={hardcore ? arcade.progress.bestTimes[String(idx)] : undefined} masterclass={isGenesis} trial={fastPassTrialRef.current} elapsed={live?.elapsed} hasNext={idx + 1 < levels.length && (!fastPassTrialRef.current || appRewards.profile.genesisFastPasses > 0)} onNext={() => { void leaveVictory(() => load(idx + 1)); }} onReplay={() => { void leaveVictory(reset); }} onLevels={() => { void leaveVictory(() => setSheet('levels')); }} />
       )}
       {overlay && sheet === 'none' && status === 'lost' && (hardcore || thermalFailure) && <HardcoreFail themed={isVoid} singularity={isSingularity} title={isVoid ? 'Voided' : isSingularity ? 'Collapsed' : hardcore ? 'Wilted' : 'Overheated'} reason={live?.fail ?? ''} onRetry={reset} rewardedRetry={rewardedRetry} />}
       {overlay && sheet === 'none' && status === 'lost' && !hardcore && !(level.thermalZone && live?.fail.includes('Thermal')) && (

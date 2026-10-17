@@ -2,6 +2,7 @@ import type { AppRewardProfile } from './appRewards';
 
 export type SkinId = 'classic' | 'neon' | 'crystal' | 'lava';
 export type VaultTier = 'bronze' | 'silver' | 'gold';
+export interface DailyRewardOffer { date: string; day: number; at: number }
 export type HubRewardAction = 'dailyBrush' | 'fastPass' | 'vaultBronze' | 'vaultSilver' | 'vaultGold' | 'wheelAd';
 export interface RewardOutcome { id: string; at: number; kind: string; label: string; wheelIndex?: number }
 export interface HubInventory {
@@ -81,6 +82,11 @@ export function formatCountdown(ms: number) {
   const seconds = Math.max(0, Math.ceil(ms / 1000));
   return `${String(Math.floor(seconds / 3600)).padStart(2, '0')}:${String(Math.floor(seconds / 60) % 60).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`;
 }
+/** Freeze the advertised daily prize at Watch, not at video close/midnight. */
+export function createDailyRewardOffer(p: AppRewardProfile, now: number): DailyRewardOffer | undefined {
+  const status = dailyStatus(p, now);
+  return status.canClaim ? { date: rewardDay(now), day: status.day, at: now } : undefined;
+}
 const random = (r: number) => Math.min(.999999999, Math.max(0, Number.isFinite(r) ? r : 0));
 const credits = (n: number) => Math.min(1_000_000, Math.max(0, n));
 
@@ -91,16 +97,19 @@ function finish(p: AppRewardProfile, id: string, now: number, kind: string, labe
     history: [{ id, at: now, kind, label, ...(wheelIndex !== undefined ? { wheelIndex } : {}) }, ...p.history].slice(0, 20) };
 }
 /** Called ONLY by the SDK's earned-and-closed boundary, never by an ad button. */
-export function grantHubAdReward(p: AppRewardProfile, action: HubRewardAction, now: number, id: string, rng = Math.random()): AppRewardProfile {
+export function grantHubAdReward(p: AppRewardProfile, action: HubRewardAction, now: number, id: string, rng = Math.random(), dailyOffer?: DailyRewardOffer): AppRewardProfile {
   if (!id || p.receipts.includes(id) || !Number.isFinite(now) || now < 0) return p;
   if (action === 'dailyBrush') {
-    const status = dailyStatus(p, now);
-    if (!status.canClaim) return p;
-    const r = DAILY_REWARDS[status.day - 1];
-    return finish({ ...p, streakDay: status.day, dailyClaimDate: rewardDay(now), dailyClaimAt: now,
+    const offer = dailyOffer ?? createDailyRewardOffer(p, now);
+    if (!offer || !Number.isFinite(offer.at) || offer.at < p.dailyClaimAt || !/^\d{4}-\d{2}-\d{2}$/.test(offer.date)) return p;
+    const delta = p.dailyClaimDate ? ordinal(offer.date) - ordinal(p.dailyClaimDate) : Infinity;
+    const expectedDay = delta === 1 ? p.streakDay % 7 + 1 : 1;
+    if (!(delta > 0) || offer.day !== expectedDay) return p;
+    const r = DAILY_REWARDS[offer.day - 1];
+    return finish({ ...p, streakDay: offer.day, dailyClaimDate: offer.date, dailyClaimAt: Math.max(now, offer.at),
       inkCredits: p.inkCredits + r.credits, inkRefills: p.inkRefills + r.refill,
       goldenBrushes: p.goldenBrushes + r.brush, levelSkips: p.levelSkips + r.skip,
-      genesisSkips: p.genesisSkips + r.genesis }, id, now, 'daily', `Day ${status.day}: ${r.label} + ${r.credits} ink credits`, true);
+      genesisSkips: p.genesisSkips + r.genesis }, id, now, 'daily', `Day ${offer.day}: ${r.label} + ${r.credits} ink credits`, true);
   }
   if (action === 'fastPass') return finish({ ...p, genesisFastPasses: p.genesisFastPasses + 1 }, id, now, 'pass', 'Genesis Fast-Pass saved', true);
   if (action === 'wheelAd') return spinInkRush(p, now, id, true, rng);

@@ -11,5 +11,5 @@
     "noEmitOnError": true,
     "types": []
   },
-  "files": ["../lib/engine.ts", "../lib/objects.ts", "../lib/levels.ts", "../lib/hardcoreLevels.ts", "../lib/genesisLevels.ts", "../lib/voidLevels.ts", "../lib/infinityLevels.ts", "../lib/singularityLevels.ts", "../lib/fxColors.ts", "../lib/progress.ts", "../lib/hints.ts", "../lib/levelGrid.ts", "../lib/appRewards.ts", "../lib/viewport.ts", "../lib/levelTools.ts"]
+  "files": ["../lib/AdManagerCore.ts", "../lib/adConfig.ts", "../lib/engine.ts", "../lib/objects.ts", "../lib/levels.ts", "../lib/hardcoreLevels.ts", "../lib/genesisLevels.ts", "../lib/voidLevels.ts", "../lib/infinityLevels.ts", "../lib/singularityLevels.ts", "../lib/fxColors.ts", "../lib/progress.ts", "../lib/hints.ts", "../lib/levelGrid.ts", "../lib/appRewards.ts", "../lib/viewport.ts", "../lib/levelTools.ts"]
 }

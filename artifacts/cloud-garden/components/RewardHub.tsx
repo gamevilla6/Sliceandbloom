@@ -10,6 +10,7 @@ import { DAILY_REWARDS, SKINS, VAULT_ODDS, dailyStatus, formatCountdown, type Hu
 export type RewardHubProps = {
   profile: AppRewardProfile; now: number; ready: boolean; supported: boolean;
   adStatus: 'idle' | 'loading' | 'ready' | 'showing' | 'unavailable';
+  adReady?: boolean;
   pendingReward: HubRewardAction | 'retryInk' | 'hint' | null;
   message?: string; storageError?: string; canUseBrush: boolean; canSkip: boolean; inGenesis: boolean;
   onWatch: (action: HubRewardAction) => void; onWheelWager: () => void; onUseBrush: () => void;
@@ -154,7 +155,7 @@ export function RewardHub(p: RewardHubProps) {
 
   const adLabel = (a: HubRewardAction, idle: string) => {
     if (!p.supported) return 'Videos unavailable on web';
-    if (pendingReward !== a) return idle;
+    if (pendingReward !== a) return p.adReady ? idle.replace('Load video', 'Watch video') : idle;
     if (adStatus === 'loading') return 'Loading video…';
     if (adStatus === 'showing') return 'Video playing…';
     if (adStatus === 'ready') return 'Watch video';

@@ -36,6 +36,20 @@ test('missed days reset the cycle; a backward clock cannot claim', () => {
   assert.equal(hub.dailyStatus(p, day(3)).day, 1);
   assert.equal(grant(p, 'dailyBrush', day(3)).streakDay, 1);
 });
+test('the advertised Day 7 reward survives a video crossing midnight, without a duplicate claim', () => {
+  let p = empty;
+  for (let i = 0; i < 6; i++) p = grant(p, 'dailyBrush', day(i));
+  const beforeMidnight = new Date(2026, 9, 7, 23, 59, 55).getTime();
+  const afterMidnight = new Date(2026, 9, 8, 0, 0, 30).getTime();
+  const offer = hub.createDailyRewardOffer(p, beforeMidnight);
+  assert.equal(offer.day, 7);
+  const claimed = hub.grantHubAdReward(p, 'dailyBrush', afterMidnight, 'midnight-ad', .1, offer);
+  assert.equal(claimed.genesisSkips, 1);
+  assert.equal(claimed.streakDay, 7); assert.equal(claimed.dailyClaimDate, '2026-10-07');
+  assert.equal(claimed.dailyClaimAt, afterMidnight);
+  assert.equal(hub.grantHubAdReward(claimed, 'dailyBrush', afterMidnight, 'duplicate-offer', .1, offer), claimed);
+  assert.equal(hub.dailyStatus(claimed, afterMidnight).day, 1);
+});
 test('all vault tiers share one hourly gate; exactly at expiry is eligible', () => {
   const p = grant(empty, 'vaultBronze', day(0), 0);
   assert.equal(p.infiniteInkUntil, day(0) + 300000);

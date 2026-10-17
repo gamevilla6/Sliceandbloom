@@ -1,26 +1,18 @@
 import React, { useEffect, useState } from 'react';
-import { Platform, StyleSheet, View } from 'react-native';
+import { StyleSheet, View, useWindowDimensions } from 'react-native';
 import {
   BannerAd,
   BannerAdSize,
-  TestIds,
 } from 'react-native-google-mobile-ads';
-import { initializeRewardedAds } from '@/lib/rewardedAds';
+import { getBannerUnitId, initializeBannerSdk } from '@/lib/AdManager';
 import {
   BANNER_AD_RESERVED_HEIGHT,
   type BannerAdComponentProps,
 } from './BannerAdComponent';
 
-function getBannerUnitId(): string | undefined {
-  if (__DEV__) return TestIds.BANNER;
-  return Platform.select({
-    android: 'ca-app-pub-3691647720194867/1485150592',
-    ios: process.env.EXPO_PUBLIC_ADMOB_BANNER_IOS,
-  });
-}
-
 /** Native-only adaptive banner; debug builds always use Google's test unit. */
 export function BannerAdComponent({ onHeightChange }: BannerAdComponentProps = {}) {
+  const { width } = useWindowDimensions();
   const [sdkReady, setSdkReady] = useState(false);
   const [height, setHeight] = useState(BANNER_AD_RESERVED_HEIGHT);
   const [hidden, setHidden] = useState(false);
@@ -28,13 +20,17 @@ export function BannerAdComponent({ onHeightChange }: BannerAdComponentProps = {
 
   useEffect(() => {
     let active = true;
+    setHidden(false);
+    setSdkReady(false);
+    setHeight(BANNER_AD_RESERVED_HEIGHT);
+    onHeightChange?.(BANNER_AD_RESERVED_HEIGHT);
     if (!unitId) {
       setHidden(true);
       onHeightChange?.(0);
       return () => { active = false; };
     }
 
-    initializeRewardedAds()
+    initializeBannerSdk()
       .then(() => {
         if (active) setSdkReady(true);
       })
@@ -46,7 +42,7 @@ export function BannerAdComponent({ onHeightChange }: BannerAdComponentProps = {
       });
 
     return () => { active = false; };
-  }, [unitId, onHeightChange]);
+  }, [unitId, onHeightChange, width]);
 
   if (hidden) return null;
 
@@ -54,6 +50,7 @@ export function BannerAdComponent({ onHeightChange }: BannerAdComponentProps = {
     <View style={[styles.slot, { height }]}>
       {sdkReady && unitId && (
         <BannerAd
+          key={`${unitId}:${Math.round(width)}`}
           unitId={unitId}
           size={BannerAdSize.ANCHORED_ADAPTIVE_BANNER}
           requestOptions={{ requestNonPersonalizedAdsOnly: true }}

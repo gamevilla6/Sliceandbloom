@@ -118,7 +118,7 @@ export function HardcoreFail({ themed, singularity, reason, onRetry, title = 'Wi
         <Text style={[styles.failText, themed && { color: VD.textSoft }, singularity && { color: SG.textSoft }]} numberOfLines={2}>{reason || 'Try again, faster.'}</Text>
         {rewardedRetry?.supported && (
           <>
-            <Text style={[styles.failText, singularity && { color: SG.textSoft }, { textAlign: 'center' }]}>Watch a quick video to get +50% Extra Ink &amp; Retry instantly!</Text>
+            <Text style={[styles.failText, singularity && { color: SG.textSoft }, { textAlign: 'center' }]}>Watch a quick video for +50% Extra Ink &amp; Revive!</Text>
             <PressScale
               onPress={rewardedRetry.onPress}
               disabled={rewardedRetry.status === 'loading' || rewardedRetry.status === 'showing'}

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AppState } from 'react-native';
-import { clearSkipEntitlement, consumeHubItem, consumeSkip, equipRewardSkin, grantHubAdReward, spinInkRush, type HubRewardAction, type SkinId } from '@/lib/rewardHub';
+import { clearSkipEntitlement, consumeHubItem, consumeSkip, equipRewardSkin, grantHubAdReward, spinInkRush, type DailyRewardOffer, type HubRewardAction, type SkinId } from '@/lib/rewardHub';
 import {
   claimDailyGoldenBrush,
   consumeGoldenBrush,
@@ -79,8 +79,8 @@ export function useAppRewards() {
   const recordInkRetry = useCallback(() => update(recordRewardedInkRetry), [update]);
   const recordHint = useCallback(() => update(recordRewardedHint), [update]);
   const recordFastPassClear = useCallback(() => update(recordFastPassTrialClear), [update]);
-  const grantHubAd = useCallback((action: HubRewardAction, receipt: string) => {
-    const changed = update(p => grantHubAdReward(p, action, Date.now(), receipt));
+  const grantHubAd = useCallback((action: HubRewardAction, receipt: string, offer?: DailyRewardOffer) => {
+    const changed = update(p => grantHubAdReward(p, action, Date.now(), receipt, undefined, offer));
     return changed ? profileRef.current.history[0]?.label : null;
   }, [update]);
   const spinWheel = useCallback(() => {
