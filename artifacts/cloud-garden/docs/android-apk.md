@@ -52,7 +52,32 @@ This APK is not a production security/signing deliverable. Do not upload it
 to Google Play or use its public debug key for production. Keep the separate
 store release process and a privately managed upload key for the AAB.
 
-## If Agent cannot start the build
+## Native AdMob configuration
+
+The installed Android SDK reads the top-level
+`react-native-google-mobile-ads` section in `app.json` as well as the Expo
+plugin's manifest configuration. Keep their Android App IDs identical and
+preserve the explicit classic SDK backend. The release preflight now checks
+this: Expo manifest introspection or a JavaScript export alone does not
+exercise the library's Gradle configuration.
+
+## Alternative: user-approved Expo cloud machine
+
+An existing Expo project can also host a temporary Linux sandbox without a
+GitHub checkout. This uses billable compute and requires explicit approval.
+Upload only the game, required shared library, workspace manifests and lockfile;
+never upload secrets, personal files, Git history or unrelated artifacts.
+
+`scripts/build-expo-sandbox-apk.sh` is restricted to the disposable
+`/tmp/slice-bloom-apk` checkout with its approval marker. Invoke it under a
+45-minute timeout. It installs the pinned toolchain, prepares a separate test-ad
+preview, runs native Gradle compilation and verifies the resulting APK before
+reporting success. Export a successful APK as an Expo sandbox artifact before
+stopping the machine; unfinished uploads are lost. Always stop the sandbox
+after the approved attempt, including on failure, and confirm it is stopped.
+A failed attempt needs a fresh approval before another paid session.
+
+## If Agent cannot start the GitHub build
 
 An integration marked connected/healthy does not guarantee that the current
 workspace's GitHub CLI has received authorization. If the CLI says it is not

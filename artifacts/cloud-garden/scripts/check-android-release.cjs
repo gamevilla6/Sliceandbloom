@@ -7,10 +7,22 @@ const { spawnSync } = require('node:child_process');
 const appDir = path.resolve(__dirname, '..');
 const json = file => JSON.parse(fs.readFileSync(path.join(appDir, file), 'utf8'));
 
+function verifyAndroidAdConfig(config, expectedAppId) {
+  // SDK 17.2's Gradle script also reads this top-level app.json section.
+  // Its Expo plugin sets manifest metadata but does not create that section.
+  // Without it, googleMobileAdsJson is never initialized during configuration.
+  const native = config['react-native-google-mobile-ads'];
+  assert.ok(native, 'Missing native AdMob app.json section required by the installed Android SDK.');
+  assert.equal(native.android_app_id, expectedAppId, 'Native AdMob App ID must match the Expo plugin.');
+  assert.equal(native.android_sdk, 'classic', 'Preserve the tested classic Android AdMob backend.');
+}
+
 async function main() {
-  const app = json('app.json').expo;
+  const config = json('app.json');
+  const app = config.expo;
   const eas = json('eas.json');
   const ads = await import('../lib/adConfig.ts');
+  verifyAndroidAdConfig(config, ads.ANDROID_ADMOB_APP_ID);
   assert.equal(app.android.package, 'com.gogoldatta.sliceandbloom');
   assert.match(app.version, /^\d+\.\d+\.\d+$/);
   assert.ok(Number.isSafeInteger(app.android.versionCode) && app.android.versionCode >= 1);
@@ -82,4 +94,6 @@ async function main() {
     console.log('Gradle/library manifest merge and native compilation still require the actual EAS build.');
   }
 }
-main().catch(error => { console.error(error.message); process.exitCode = 1; });
+module.exports = { verifyAndroidAdConfig };
+if (require.main === module)
+  main().catch(error => { console.error(error.message); process.exitCode = 1; });

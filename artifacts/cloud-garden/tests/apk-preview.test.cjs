@@ -3,6 +3,22 @@ const assert = require('node:assert/strict');
 const {
   previewConfig, requirePreviewEnvironment, verifySigning, sdkPackages, PREVIEW_PACKAGE,
 } = require('../scripts/prepare-preview-apk.cjs');
+const { verifyAndroidAdConfig } = require('../scripts/check-android-release.cjs');
+
+test('native AdMob Gradle configuration is present and matches the Expo plugin', () => {
+  const source = require('../app.json');
+  const plugin = source.expo.plugins.find(p => Array.isArray(p) && p[0] === 'react-native-google-mobile-ads')[1];
+  assert.doesNotThrow(() => verifyAndroidAdConfig(source, plugin.androidAppId));
+  const missing = structuredClone(source);
+  delete missing['react-native-google-mobile-ads'];
+  assert.throws(() => verifyAndroidAdConfig(missing, plugin.androidAppId), /Missing native AdMob/);
+  const wrong = structuredClone(source);
+  wrong['react-native-google-mobile-ads'].android_app_id = 'wrong-app-id';
+  assert.throws(() => verifyAndroidAdConfig(wrong, plugin.androidAppId), /must match/);
+  const otherBackend = structuredClone(source);
+  otherBackend['react-native-google-mobile-ads'].android_sdk = 'nextgen';
+  assert.throws(() => verifyAndroidAdConfig(otherBackend, plugin.androidAppId), /classic/);
+});
 
 test('APK preview isolates identity without changing store configuration or records version', () => {
   const source = require('../app.json');
