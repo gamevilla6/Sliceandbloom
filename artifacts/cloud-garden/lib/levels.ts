@@ -26,6 +26,7 @@ export interface HintStep {
 export interface Level {
   id: number;
   name: string;
+  visualMode?: 'campaign' | 'genesis' | 'hardcore' | 'void' | 'singularity';
   lesson: string;
   hintText: string;
   ink: number;

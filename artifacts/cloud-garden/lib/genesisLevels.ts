@@ -18,7 +18,7 @@ export const GENESIS_LEVELS: Level[] = Array.from({ length: 45 }, (_, index) => 
   const inkFraction = [0, 1, 2, 3, 4, 6, 8].includes(family) ? .05 : .10;
   const scale = .65 - tier * .04;
   const l: Level = {
-    id, name: `${TIERS[tier]} ${FAMILIES[family]}`,
+    id, name: `${TIERS[tier]} ${FAMILIES[family]}`, visualMode: 'genesis',
     lesson: '', hintText: '', ink: 400 * inkFraction, maxInkLength: 400 * inkFraction,
     strictInkLength: inkFraction, inkLimitPercent: inkFraction * 100,
     hyperSensitiveScale: scale, invisibleObstacles: hidden,

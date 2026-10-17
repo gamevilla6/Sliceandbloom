@@ -64,3 +64,49 @@ export const VD = {
   gold: '#FFC857',
   ok: '#3DF5C0',
 };
+
+/** The Genesis Gauntlet's amber arcade palette. */
+export const GN = {
+  bg: '#211308',
+  bgDeep: '#120A04',
+  skyBottom: '#3A2109',
+  panel: '#2B1A0A',
+  panelHi: '#442909',
+  line: '#8F5212',
+  text: '#FFF3D6',
+  textSoft: '#E4B96E',
+  amber: '#FFB21C',
+  gold: '#FFD34E',
+  orange: '#FF6B1B',
+  glow: '#FFE08A',
+  ink: '#241405',
+};
+
+/** Holographic cyan and gold palette for Singularity Paradox. */
+export const SG = {
+  bg: '#06121F',
+  bgDeep: '#030912',
+  skyBottom: '#102A43',
+  panel: '#0B1D30',
+  panelHi: '#12324A',
+  line: '#22536E',
+  text: '#E7FBFF',
+  textSoft: '#95C8D8',
+  cyan: '#4CEBFF',
+  cyanDeep: '#10A8D0',
+  gold: '#FFC857',
+  violet: '#8A76FF',
+  glow: '#A5F7FF',
+};
+
+/** Gold vault styling used by the persistent ad-reward hub. */
+export const REWARD_GOLD = {
+  bg: '#18110A',
+  panel: '#2A1C0B',
+  panelHi: '#3B290E',
+  line: '#A97923',
+  text: '#FFF2C2',
+  textSoft: '#E4C37A',
+  gold: '#FFD35A',
+  glow: '#FFF0A8',
+};

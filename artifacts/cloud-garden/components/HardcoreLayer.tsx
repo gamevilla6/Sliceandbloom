@@ -7,37 +7,45 @@ import { useSafeInsets } from '@/components/layout';
 import { BannerAdComponent, BANNER_AD_RESERVED_HEIGHT } from '@/components/BannerAdComponent';
 import { HARDCORE_LEVELS } from '@/lib/hardcoreLevels';
 
-export type Mode = 'classic' | 'hardcore' | 'genesis' | 'void';
+export type Mode = 'classic' | 'hardcore' | 'genesis' | 'void' | 'singularity';
 
 // Hot signal red reserved for Hardcore: lasers, timer pressure, failure.
 export const HOT = '#FF2A3D';
 
 export function ModeSwitch({ themed, mode, onChange, tight }: { themed?: boolean; mode: Mode; onChange: (m: Mode) => void; tight?: boolean }) {
-  const opt = (m: Mode, label: string, icon: keyof typeof Ionicons.glyphMap) => {
+  const dark = themed || mode === 'singularity';
+  const options: { mode: Mode; label: string; compact: string; icon: keyof typeof Ionicons.glyphMap; fullName: string }[] = [
+    { mode: 'classic', label: 'Campaign', compact: 'Camp', icon: 'leaf', fullName: 'Campaign Mode, 100 levels' },
+    { mode: 'hardcore', label: 'Hardcore', compact: 'Hard', icon: 'flame', fullName: `Hardcore Mode, ${HARDCORE_LEVELS.length} timed levels` },
+    { mode: 'genesis', label: 'Genesis Gauntlet', compact: 'Genesis', icon: 'planet', fullName: 'The Genesis Gauntlet, 45 Masterclass challenges' },
+    { mode: 'void', label: 'The Void Protocol', compact: 'Void', icon: 'skull', fullName: 'Hardcore: The Void Protocol, 110 levels' },
+    { mode: 'singularity', label: 'Singularity Paradox', compact: 'Sing', icon: 'aperture', fullName: 'Singularity Paradox, 55 holographic challenges' },
+  ];
+  const opt = ({ mode: m, label, compact, icon, fullName }: typeof options[number]) => {
     const on = mode === m;
     return (
       <PressScale
         key={m}
         onPress={() => onChange(m)}
         testID={`mode-${m}`}
-        label={m === 'classic' ? 'Campaign Mode, Levels 1 to 100'
-          : m === 'genesis' ? 'The Genesis Gauntlet, 45 Masterclass challenges'
-          : m === 'void' ? 'Hardcore: The Void Protocol' : `Hardcore mode, ${HARDCORE_LEVELS.length} timed levels`}
+        label={fullName}
         selected={on}
         containerStyle={{ flexGrow: 1, flexBasis: 0, minWidth: 0 }}
-        style={[styles.seg, tight && { gap: 3, paddingHorizontal: 3 }, on && (m === 'classic' ? styles.segClassic : m === 'genesis' ? styles.segGen : m === 'void' ? styles.segVoid : styles.segHard)]}
+        style={[styles.seg, tight && { gap: 2, paddingHorizontal: 2 }, on && (
+          m === 'classic' ? styles.segClassic
+            : m === 'genesis' ? styles.segGen
+              : m === 'void' ? styles.segVoid
+                : m === 'singularity' ? styles.segSing : styles.segHard
+        )]}
       >
-        <Ionicons name={icon} size={tight ? 13 : 16} color={on ? P.white : themed ? VD.textSoft : P.ink} />
-        <Text numberOfLines={1} style={[styles.segText, themed && { color: VD.textSoft }, on && { color: P.white }, tight && { fontSize: 10 }]}>{label}</Text>
+        <Ionicons name={icon} size={tight ? 12 : 16} color={on ? P.white : dark ? VD.textSoft : P.ink} />
+        <Text numberOfLines={1} style={[styles.segText, dark && { color: VD.textSoft }, on && { color: P.white }, tight && { fontSize: 9.5 }]}>{tight ? compact : label}</Text>
       </PressScale>
     );
   };
   return (
-    <View style={[styles.switchRow, themed && { backgroundColor: VD.panel, borderColor: VD.purple }]} testID="region-mode" accessibilityRole="tablist">
-      {opt('classic', tight ? 'Camp' : 'Campaign', 'leaf')}
-      {opt('hardcore', tight ? 'Hard' : 'Hardcore', 'flame')}
-      {opt('genesis', tight ? 'Genesis' : 'Genesis Gauntlet', 'planet')}
-      {opt('void', tight ? 'Void' : 'The Void Protocol', 'skull')}
+    <View style={[styles.switchRow, dark && { backgroundColor: VD.panel, borderColor: VD.purple }]} testID="region-mode" accessibilityRole="tablist">
+      {options.map((o) => opt(o))}
     </View>
   );
 }
@@ -174,6 +182,7 @@ const styles = StyleSheet.create({
   segClassic: { backgroundColor: P.drop },
   segGen: { backgroundColor: P.dropDeep },
   segHard: { backgroundColor: P.coralDeep },
+  segSing: { backgroundColor: '#117A96', borderWidth: 1.5, borderColor: '#4CEBFF' },
   segText: { fontFamily: F.bold, fontSize: 14, color: P.ink },
   hud: { marginBottom: 8, gap: 6, position: 'relative' },
   gravityCue: { position: 'absolute', right: 0, top: 0, flexDirection: 'row', alignItems: 'center', gap: 3, borderWidth: 2, borderColor: P.ink, borderRadius: 6, paddingHorizontal: 4, backgroundColor: P.petal },
