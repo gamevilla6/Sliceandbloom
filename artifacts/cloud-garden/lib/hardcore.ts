@@ -116,17 +116,18 @@ export class HardcoreMechanics {
     return newFlip;
   }
 
-  afterStep(cloud: Matter.Body, running: boolean): V | null {
+  afterStep(cloud: Matter.Body | Matter.Body[], running: boolean): V | null {
     if (!running) return null;
     // Each visible zone fires once per attempt: no invisible repeat-trigger trap.
-    const zone = this.zones.find(z => !z.used && Matter.Query.collides(cloud, [z.body]).length > 0);
+    const clouds = Array.isArray(cloud) ? cloud : [cloud];
+    const zone = this.zones.find(z => !z.used && clouds.some(c => Matter.Query.collides(c, [z.body]).length > 0));
     if (!zone) return null;
     zone.used = true;
     this.zoneGravityRemaining = Math.max(this.zoneGravityRemaining, zone.spec.duration);
     this.gravityRemaining = Math.max(this.gravityRemaining, this.zoneGravityRemaining);
     this.engine.gravity.y = -this.normalGravity;
     this.gravityActivations++;
-    return { ...cloud.position };
+    return { ...(clouds.find(c => Matter.Query.collides(c, [zone.body]).length)?.position ?? zone.body.position) };
   }
 
   resetGravity() {

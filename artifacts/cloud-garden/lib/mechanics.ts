@@ -37,8 +37,7 @@ export class AdvancedMechanics {
   switches: { spec: BlockSwitch; button: Matter.Body; gate: Matter.Body; active: boolean }[] = [];
   weights: Matter.Body[] = [];
   teleports = 0;
-  private portalCooldown = 0;
-  private portalLocked = false;
+  private portalStates = new Map<number, { cooldown: number; locked: boolean }>();
 
   constructor(private world: Matter.World, private level: Level) {
     for (const spec of level.movers ?? []) {
@@ -74,8 +73,8 @@ export class AdvancedMechanics {
     }
   }
 
-  beforeStep(time: number, dt: number, cloud: Matter.Body, running: boolean) {
-    this.portalCooldown = Math.max(0, this.portalCooldown - dt);
+  beforeStep(time: number, dt: number, cloud: Matter.Body | Matter.Body[], running: boolean) {
+    for (const state of this.portalStates.values()) state.cooldown = Math.max(0, state.cooldown - dt);
     for (const { spec, body } of this.movers) {
       const offset = Math.sin(time * Math.PI * 2 / spec.period + (spec.phase ?? 0)) * spec.amplitude;
       Body.setPosition(body, {
@@ -84,20 +83,24 @@ export class AdvancedMechanics {
       });
     }
     if (!running) return;
-    for (const zone of this.level.winds ?? []) {
-      const { x, y } = cloud.position;
-      if (Math.abs(x - zone.x) <= zone.w / 2 && Math.abs(y - zone.y) <= zone.h / 2) {
-        Body.applyForce(cloud, cloud.position, { x: cloud.mass * zone.force.x, y: cloud.mass * zone.force.y });
+    const clouds = Array.isArray(cloud) ? cloud : [cloud];
+    for (const cloud of clouds) {
+      for (const zone of this.level.winds ?? []) {
+        const { x, y } = cloud.position;
+        if (Math.abs(x - zone.x) <= zone.w / 2 && Math.abs(y - zone.y) <= zone.h / 2) {
+          Body.applyForce(cloud, cloud.position, { x: cloud.mass * zone.force.x, y: cloud.mass * zone.force.y });
+        }
       }
     }
   }
 
-  afterStep(cloud: Matter.Body, running: boolean): MechanicEffect[] {
+  afterStep(cloud: Matter.Body | Matter.Body[], running: boolean): MechanicEffect[] {
+    const clouds = Array.isArray(cloud) ? cloud : [cloud];
     const effects: MechanicEffect[] = [];
     const bodies = Composite.allBodies(this.world);
     for (const item of this.switches) {
       if (item.active) continue;
-      const heavy = bodies.filter((b) => !b.isStatic && b !== cloud
+      const heavy = bodies.filter((b) => !b.isStatic && !clouds.includes(b)
         && ['weight', 'stone', 'cut'].includes(b.label) && b.mass >= (item.spec.minMass ?? 1.5));
       if (Query.collides(item.button, heavy).length) {
         item.active = true; // Latched: bouncing away never closes a gate on Cloud.
@@ -106,30 +109,36 @@ export class AdvancedMechanics {
       }
     }
     if (!running) return effects;
-    const touches = this.portals.flatMap(({ spec, a, b }) => {
-      const found: { destination: V; r: number; rotation?: number }[] = [];
-      if (Query.collides(cloud, [a]).length) found.push({ destination: spec.exit, r: spec.r, rotation: spec.rotation });
-      if (Query.collides(cloud, [b]).length) found.push({ destination: spec.entry, r: spec.r, rotation: spec.rotation === undefined ? undefined : -spec.rotation });
-      return found;
-    });
-    if (!touches.length) this.portalLocked = false;
-    if (this.portalCooldown > 0 || this.portalLocked || !touches.length) return effects;
-    const { destination, r, rotation } = touches[0];
-    const rotated = rotation !== undefined;
-    const c = Math.cos(rotation ?? 0), s = Math.sin(rotation ?? 0);
-    const velocity = rotated
-      ? { x: cloud.velocity.x * c - cloud.velocity.y * s, y: cloud.velocity.x * s + cloud.velocity.y * c }
-      : { x: cloud.velocity.x, y: Math.max(2, cloud.velocity.y) };
-    // Emerge just below the destination sensor, not inside it (no ping-pong).
-    const speed = Math.hypot(velocity.x, velocity.y);
-    const offset = r + (cloud.circleRadius ?? 11) + 3;
-    const direction = rotated && speed > 0.001 ? { x: velocity.x / speed, y: velocity.y / speed } : { x: 0, y: 1 };
-    Body.setPosition(cloud, { x: destination.x + direction.x * offset, y: destination.y + direction.y * offset });
-    Body.setVelocity(cloud, velocity);
-    this.portalCooldown = this.level.portalCooldown ?? 0.55;
-    this.portalLocked = true;
-    this.teleports++;
-    effects.push({ type: 'portal', at: { ...cloud.position } });
+    for (const cloud of clouds) {
+      const state = this.portalStates.get(cloud.id) ?? { cooldown: 0, locked: false };
+      this.portalStates.set(cloud.id, state);
+      const touches = this.portals.flatMap(({ spec, a, b }) => {
+        const found: { destination: V; r: number; rotation?: number }[] = [];
+        if (Query.collides(cloud, [a]).length) found.push({ destination: spec.exit, r: spec.r, rotation: spec.rotation });
+        if (Query.collides(cloud, [b]).length) found.push({ destination: spec.entry, r: spec.r, rotation: spec.rotation === undefined ? undefined : -spec.rotation });
+        return found;
+      });
+      if (!touches.length) state.locked = false;
+      if (state.cooldown > 0 || state.locked || !touches.length) continue;
+      const { destination, r, rotation } = touches[0];
+      const rotated = rotation !== undefined;
+      const c = Math.cos(rotation ?? 0), s = Math.sin(rotation ?? 0);
+      const velocity = rotated
+        ? { x: cloud.velocity.x * c - cloud.velocity.y * s, y: cloud.velocity.x * s + cloud.velocity.y * c }
+        : { x: cloud.velocity.x, y: Math.max(2, cloud.velocity.y) };
+      // Emerge just below the destination sensor, not inside it (no ping-pong).
+      const speed = Math.hypot(velocity.x, velocity.y);
+      const offset = r + (cloud.circleRadius ?? 11) + 3;
+      const direction = rotated && speed > 0.001 ? { x: velocity.x / speed, y: velocity.y / speed } : { x: 0, y: 1 };
+      Body.setPosition(cloud, { x: destination.x + direction.x * offset, y: destination.y + direction.y * offset });
+      Body.setVelocity(cloud, velocity);
+      state.cooldown = this.level.portalCooldown ?? 0.55;
+      state.locked = true;
+      this.teleports++;
+      effects.push({ type: 'portal', at: { ...cloud.position } });
+    }
+    const activeIds = new Set(clouds.map(c => c.id));
+    for (const id of this.portalStates.keys()) if (!activeIds.has(id)) this.portalStates.delete(id);
     return effects;
   }
 
@@ -138,8 +147,7 @@ export class AdvancedMechanics {
     this.portals = [];
     this.switches = [];
     this.weights = [];
-    this.portalCooldown = 0;
-    this.portalLocked = false;
+    this.portalStates.clear();
     this.teleports = 0;
   }
 }

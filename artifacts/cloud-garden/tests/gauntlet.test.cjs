@@ -2,7 +2,10 @@ const assert = require('node:assert/strict');
 const { test } = require('node:test');
 const Matter = require('matter-js');
 const { GardenEngine, DROP_R } = require('../.physics-test-build/engine.js');
-const { GENESIS_LEVELS } = require('../.physics-test-build/genesisLevels.js');
+const { GENESIS_LEVELS: ALL_GENESIS_LEVELS } = require('../.physics-test-build/genesisLevels.js');
+// Retain the original 45-stage assertions unchanged; the expansion has its
+// own mechanism-aware solver (paired buds cannot use the old single sensor).
+const GENESIS_LEVELS = ALL_GENESIS_LEVELS.slice(0, 45);
 const { HARDCORE_LEVELS } = require('../.physics-test-build/hardcoreLevels.js');
 const { LEVELS } = require('../.physics-test-build/levels.js');
 const { readProgress, completeProgress } = require('../.physics-test-build/progress.js');

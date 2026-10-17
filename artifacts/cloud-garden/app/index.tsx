@@ -10,6 +10,7 @@ import { GardenEngine } from '@/lib/engine';
 import { LEVELS } from '@/lib/levels';
 import { HARDCORE_LEVELS } from '@/lib/hardcoreLevels';
 import { GENESIS_LEVELS } from '@/lib/genesisLevels';
+import { levelTools } from '@/lib/levelTools';
 import { VOID_LEVELS } from '@/lib/voidLevels';
 import { useSound } from '@/lib/audio';
 import { setHapticsEnabled } from '@/lib/haptics';
@@ -87,8 +88,7 @@ export default function GameScreen() {
   const thermalFailure = !!level.thermalZone && status === 'lost' && !!live?.fail.startsWith('Thermal');
   const inkMax = gameEngine.inkMax;
   const inkLeft = live ? live.inkLeft : inkMax;
-  const canDraw = inkMax > 0;
-  const canSlice = level.wood.length > 0 || !!level.ropes?.length || level.stones.length > 0 || !!level.weights?.length;
+  const { canDraw, canSlice, initialTool } = levelTools(level, inkMax);
 
   useEffect(() => {
     if (ready && !loaded.current) {
@@ -101,8 +101,8 @@ export default function GameScreen() {
   useEffect(() => setHapticsEnabled(progress.settings.haptics), [progress.settings.haptics]);
 
   useEffect(() => {
-    setTool(canDraw ? 'draw' : 'slice');
-  }, [idx, canDraw]);
+    setTool(initialTool);
+  }, [idx, initialTool]);
 
   useEffect(() => {
     if (status === 'won' && live && savedKey.current !== tag) {
@@ -377,6 +377,9 @@ export default function GameScreen() {
     if (level.countdownTimer) mods.push(`${level.countdownTimer}s countdown`);
     if (level.invisibleObstacles) mods.push('Hidden: touch to reveal');
     if (level.hyperSensitiveScale) mods.push(`Drop ${Math.round(level.hyperSensitiveScale * 100)}% size`);
+    if (level.laserReflection) mods.push(`Reflect ${level.reflectionPuzzle?.mirrors.length} lasers`);
+    if (level.multiStagePulley) mods.push(`${level.pulleyPuzzle?.stages.length}-stage pulley`);
+    if (level.splitDropletRequired) mods.push('Both buds');
     const cap = level.strictInkLength ?? level.inkLimitPercent;
     if (cap) mods.push(`Ink ${Math.round(cap <= 1 ? cap * 100 : cap)}%`);
   }

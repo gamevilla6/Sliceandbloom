@@ -1,7 +1,7 @@
 kind = "mobile"
 previewPath = "/"
 title = "Slice & Bloom"
-description = "A one-touch Matter.js physics puzzle with 355 stages across four independent modes: 100 Campaign beds (including Infinity Cascade 46–100), 100 Hardcore levels, 45 Genesis Gauntlet challenges, and 110 Void Protocol masterclasses. Void has a dark neon red/purple theme, temporary shadow reveals, physically shrinking 1.5-second ink/platform decay, surging hyper-gravity, speed limits, personal leaderboards, death counts and earned badges. Category navigation, independent local records and instant tap/R retry preserve progress across every mode."
+description = "A one-touch Matter.js physics puzzle with 465 stages across five independent modes: 100 Campaign beds including Infinity Cascade, 100 Hardcore levels, 100 Genesis Gauntlet masterclass challenges, 110 Void Protocol levels, and 55 Singularity Paradox puzzles. Genesis features angle-correct reflected lasers, physical counterweight chains, and split-droplet challenges requiring both buds to bloom. Responsive chapter browsing, separate personal stars/scores/best times, preserved progress, and instant tap/R retry support every mode."
 version = "1.0.0"
 id = "artifacts/cloud-garden"
 router = "expo-domain"

@@ -15,9 +15,9 @@ Hardcore is a separate, optional 100-level mode. Levels 46–100 extend the orig
 
 **How to apply:** Keep mode progression and ratings independent. Append new levels without changing the original 45 Hardcore levels or their earned stars.
 
-The Genesis Gauntlet is a third, completely separate arcade mode with 45 unique Masterclass Challenges, not another name for Campaign or Hardcore.
+The Genesis Gauntlet is a third, completely separate arcade mode with 100 unique Masterclass Challenges, not another name for Campaign or Hardcore. Preserve its original 45 when extending it.
 
-**Why:** The user explicitly requested a separate Genesis challenge set, its own scores, best times and stars, and countdown, invisible-obstacle, tiny-drop and strict-ink modifiers.
+**Why:** The user explicitly requested a separate Genesis challenge set and then 55 new stages with reflected lasers, pulley chains and two-droplet puzzles. Its scores, best times and stars must remain independent.
 
 **How to apply:** Preserve all three modes and keep their records independent. Genesis modifiers must affect the actual physics and budgets, not just visual presentation. The local leaderboard shows personal device records, not invented global rankings.
 
@@ -25,7 +25,7 @@ Infinity Cascade extends the main Campaign with Levels 46–100; it is not anoth
 
 **Why:** The user explicitly requested Infinity Cascade as a campaign expansion covering Levels 46–100, alongside the separate Genesis Gauntlet.
 
-**How to apply:** Keep the opening 45 campaign levels and their saves intact. Campaign has 100 levels; Genesis has 45 and Hardcore has 100 independent stages. Category navigation distinguishes each mode and its ranges.
+**How to apply:** Keep the opening 45 campaign levels and their saves intact. Campaign, Genesis and Hardcore each have 100 independent stages. Category navigation distinguishes each mode and its ranges.
 
 The Void Protocol is a fourth, dedicated 110-level mode, not a replacement for the existing Hardcore mode.
 

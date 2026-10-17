@@ -1,4 +1,5 @@
 import type { Level } from './levels';
+import { GENESIS_EXPANSION } from './genesisExpansion';
 
 const TIERS = ['Dawn', 'Echo', 'Prism', 'Nova', 'Genesis'];
 const FAMILIES = ['Ghost Seal', 'Micro Current', 'Glass Passage', 'Pressure Key',
@@ -12,7 +13,7 @@ const draw = (x: number, y: number, dx = 16, dy = 10) =>
  * Five authored variations of nine arcade disciplines. These are independent
  * layouts, not campaign aliases, and have their own persistent namespace.
  */
-export const GENESIS_LEVELS: Level[] = Array.from({ length: 45 }, (_, index) => {
+const ORIGINAL_GENESIS_LEVELS: Level[] = Array.from({ length: 45 }, (_, index) => {
   const tier = Math.floor(index / 9), family = index % 9, id = index + 1;
   const hidden = family === 0 || family === 7 || family === 8 || (tier > 1 && family === 3);
   const inkFraction = [0, 1, 2, 3, 4, 6, 8].includes(family) ? .05 : .10;
@@ -116,3 +117,6 @@ export const GENESIS_LEVELS: Level[] = Array.from({ length: 45 }, (_, index) => 
   l.hintText = l.lesson;
   return l;
 });
+
+export const GENESIS_LEVELS: Level[] = [...ORIGINAL_GENESIS_LEVELS, ...GENESIS_EXPANSION];
+export const genesisLevelsData = GENESIS_LEVELS;

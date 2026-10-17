@@ -9,6 +9,7 @@ import { useGameLoop } from '@/hooks/useGameLoop';
 import { Sfx } from '@/lib/audio';
 import { GN, mix, P, SG, VD } from '@/constants/theme';
 import { AdvancedLayer } from '@/components/AdvancedLayer';
+import { GenesisLayer } from '@/components/GenesisLayer';
 import { HOT } from '@/components/HardcoreLayer';
 import { fitLogicalViewport, screenPointToWorld } from '@/lib/viewport';
 
@@ -498,7 +499,7 @@ export function GameBoard({ engine, level, attempt, modeKey = 'classic', tool, s
             </G>
           ))}
 
-          <G>
+          {!level.splitDropletRequired && <G>
             <Path
               d={`M${f.x} ${f.base} Q${f.x - (1 - bloom) * 4} ${(hy + f.base) / 2 + 6} ${hx} ${hy}`}
               stroke={mix(P.wilt, isVoid ? VD.ok : isGenesis ? GN.amber : isSingularity ? SG.cyan : P.leafDeep, bloom)}
@@ -526,7 +527,7 @@ export function GameBoard({ engine, level, attempt, modeKey = 'classic', tool, s
                 <Path d={DROP_PATH} fill="none" stroke={art.glow} strokeWidth={3} strokeDasharray="4 3" />
               </G>
             )}
-          </G>
+          </G>}
 
           {ropeList.map((r, i) => {
             const ep = engine.endpoints(r);
@@ -584,6 +585,7 @@ export function GameBoard({ engine, level, attempt, modeKey = 'classic', tool, s
           )}
 
           <AdvancedLayer engine={engine} level={level} />
+          <GenesisLayer engine={engine} level={level} />
 
           {bodies
             .filter((b) => b.label === 'stone' && engine.isObstacleVisible(b))
@@ -621,7 +623,7 @@ export function GameBoard({ engine, level, attempt, modeKey = 'classic', tool, s
             );
           })}
 
-          <G opacity={engine.status === 'won' ? Math.max(0, 1 - Math.max(0, engine.winT - 0.25) / 0.25) : 1}>
+          <G opacity={engine.genesis.split ? 0 : engine.status === 'won' ? Math.max(0, 1 - Math.max(0, engine.winT - 0.25) / 0.25) : 1}>
             <G transform={`translate(${dx} ${dy}) scale(${(dScale / stretch).toFixed(3)} ${(dScale * stretch).toFixed(3)})`}>
               <Circle r={21} fill={art.glow} opacity={isDarkScreen ? 0.26 : 0.18} />
               <Circle r={15} fill={art.glow} opacity={isDarkScreen ? 0.18 : 0.12} />

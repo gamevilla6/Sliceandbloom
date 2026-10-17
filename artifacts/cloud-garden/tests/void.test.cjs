@@ -41,10 +41,10 @@ function solve(level, wait, pause = 15, reading = 0) {
   return result;
 }
 
-test('Void owns 110 distinct layouts and leaves the other 190 stages intact', () => {
+test('Void owns 110 distinct layouts independently of the expanded modes', () => {
   assert.equal(VOID_LEVELS.length, 110);
   assert.equal(LEVELS.length, 100);
-  assert.equal(GENESIS_LEVELS.length, 45);
+  assert.equal(GENESIS_LEVELS.length, 100);
   assert.equal(HARDCORE_LEVELS.length, 100);
   const geometry = l => JSON.stringify([l.drop, l.flower, l.wood, l.soil, l.hint, l.portals, l.weights, l.switches]);
   assert.equal(new Set(VOID_LEVELS.map(geometry)).size, 110);

@@ -20,8 +20,9 @@ export class InfinityMechanics {
   }
 
   /** Returns the overheated body; the owning engine handles failure and retry. */
-  beforeStep(dt: number, cloud: Matter.Body, bodies: Matter.Body[], active: boolean): Matter.Body | null {
-    if (!cloud.isStatic) {
+  beforeStep(dt: number, cloud: Matter.Body | Matter.Body[], bodies: Matter.Body[], active: boolean): Matter.Body | null {
+    const clouds = Array.isArray(cloud) ? cloud : [cloud];
+    for (const cloud of clouds) if (!cloud.isStatic) {
       for (const { spec, bounds } of this.magnetic) {
         if (!Matter.Bounds.contains(bounds, cloud.position)) continue;
         const field = spec.field ?? this.level.magneticField;
@@ -33,8 +34,8 @@ export class InfinityMechanics {
     const touched = new Set<string>();
     let melted: Matter.Body | null = null;
     for (const body of bodies) {
-      if (body.isSensor || (body.isStatic && body !== cloud)) continue;
-      if (body !== cloud && !['cut', 'weight', 'stone'].includes(body.label)) continue;
+      if (body.isSensor || (body.isStatic && !clouds.includes(body))) continue;
+      if (!clouds.includes(body) && !['cut', 'weight', 'stone', 'pulley-weight'].includes(body.label)) continue;
       for (const [index, zone] of this.thermal.entries()) {
         if (!Matter.Bounds.overlaps(body.bounds, zone)) continue;
         const key = `${body.id}:${index}`;

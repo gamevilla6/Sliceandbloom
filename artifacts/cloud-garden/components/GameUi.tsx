@@ -395,7 +395,12 @@ export function LevelPicker({ deaths, badges, scores, bestTimes, levels, unlocke
   const genesis = levels[0]?.visualMode === 'genesis';
   const pickerTone: UiTone | undefined = vd ? 'void' : sg ? 'singularity' : genesis ? 'genesis' : undefined;
   const [records, setRecords] = useState(false);
-  const pages: { n: string; a: number; b: number }[] | null = vd
+  const genesisPages: { n: string; a: number; b: number; note?: string }[] = [
+    ...['Precision', 'Pressure', 'Gauntlet'].map((n, i) => ({ n, a: i * 15, b: i * 15 + 14 })),
+    ...([['Refraction', 'Bounce the laser off mirrors to light the bloom.'], ['Counterweight', 'Chain pulley stages so each weight lifts the next.'], ['Twin Bloom', 'Split the droplet and water both flowers.'], ['Resonance', 'Mix lasers, pulleys and splits under the clock.'], ['Master Circuit', 'Every mechanic, countdown running.']] as const)
+      .map(([n, note], i) => ({ n, note, a: 45 + i * 11, b: 55 + i * 11 })),
+  ].filter((p) => p.a < levels.length).map((p) => ({ ...p, b: Math.min(p.b, levels.length - 1) }));
+  const pages: { n: string; a: number; b: number; note?: string }[] | null = genesis && levels.length > 45 ? genesisPages : vd
     ? [
       { n: 'Shadow', a: 0, b: 13 }, { n: 'Decay', a: 14, b: 27 },
       { n: 'Gravity', a: 28, b: 41 }, { n: 'Protocol', a: 42, b: Math.min(54, levels.length - 1) },
@@ -480,6 +485,9 @@ export function LevelPicker({ deaths, badges, scores, bestTimes, levels, unlocke
             </PressScale>
           ))}
         </View>
+      )}
+      {genesis && !records && pg?.note && (
+        <Text style={[styles.tileRec, { color: GN.textSoft, textAlign: 'left', marginBottom: 8, fontSize: 13 }]} testID="chapter-note" accessibilityLiveRegion="polite">{pg.n}: {pg.note}</Text>
       )}
       {!(hc && records) && <View key={layoutKey} style={[styles.grid, { gap }]} onLayout={(e) => {
         setMeasuredWidth(e.nativeEvent.layout.width);

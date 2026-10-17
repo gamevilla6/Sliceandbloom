@@ -6,6 +6,7 @@ import { PressScale } from '@/components/GameUi';
 import { useSafeInsets } from '@/components/layout';
 import { BannerAdComponent, BANNER_AD_RESERVED_HEIGHT } from '@/components/BannerAdComponent';
 import { HARDCORE_LEVELS } from '@/lib/hardcoreLevels';
+import { GENESIS_LEVELS } from '@/lib/genesisLevels';
 
 export type Mode = 'classic' | 'hardcore' | 'genesis' | 'void' | 'singularity';
 
@@ -17,7 +18,7 @@ export function ModeSwitch({ themed, mode, onChange, tight }: { themed?: boolean
   const options: { mode: Mode; label: string; compact: string; icon: keyof typeof Ionicons.glyphMap; fullName: string }[] = [
     { mode: 'classic', label: 'Campaign', compact: 'Camp', icon: 'leaf', fullName: 'Campaign Mode, 100 levels' },
     { mode: 'hardcore', label: 'Hardcore', compact: 'Hard', icon: 'flame', fullName: `Hardcore Mode, ${HARDCORE_LEVELS.length} timed levels` },
-    { mode: 'genesis', label: 'Genesis Gauntlet', compact: 'Genesis', icon: 'planet', fullName: 'The Genesis Gauntlet, 45 Masterclass challenges' },
+    { mode: 'genesis', label: 'Genesis Gauntlet', compact: 'Genesis', icon: 'planet', fullName: `The Genesis Gauntlet, ${GENESIS_LEVELS.length} Masterclass challenges` },
     { mode: 'void', label: 'The Void Protocol', compact: 'Void', icon: 'skull', fullName: 'Hardcore: The Void Protocol, 110 levels' },
     { mode: 'singularity', label: 'Singularity Paradox', compact: 'Sing', icon: 'aperture', fullName: 'Singularity Paradox, 55 holographic challenges' },
   ];

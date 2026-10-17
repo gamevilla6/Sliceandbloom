@@ -6,6 +6,7 @@ import { HardcoreMechanics } from './hardcore';
 import { InfinityMechanics } from './infinity';
 import { VoidMechanics } from './void';
 import { FX } from './fxColors';
+import { GenesisMechanics } from './genesis';
 
 const { Engine, Bodies, Body, Composite, Events, Query, Vertices } = Matter;
 
@@ -102,6 +103,7 @@ export class GardenEngine {
   hardcore: HardcoreMechanics;
   infinity: InfinityMechanics;
   voidProtocol: VoidMechanics;
+  genesis: GenesisMechanics;
   ropes: Matter.Constraint[] = [];
   sliceTrails: { a: V; b: V; life: number }[] = [];
   private blades: Matter.Body[] = [];
@@ -162,6 +164,7 @@ export class GardenEngine {
     this.hardcore = new HardcoreMechanics(this.engine, level);
     this.infinity = new InfinityMechanics(level);
     this.voidProtocol = new VoidMechanics(this.engine, level, this.drop, this.soilBodies);
+    this.genesis = new GenesisMechanics(world, level, this.plant);
     for (const rope of level.ropes ?? []) {
       const a = rope.fromWeight ? this.advanced.weights[rope.from] : woods[rope.from];
       const b = rope.toWeight ? this.advanced.weights[rope.to] : woods[rope.to];
@@ -175,40 +178,48 @@ export class GardenEngine {
   }
 
   private onCollide = (e: Matter.IEventCollision<Matter.Engine>) => {
+    const drops = this.activeDrops;
     if (this.level.invisibleObstacles) {
       for (const { bodyA, bodyB } of e.pairs) {
-        if (bodyA === this.drop) this.revealedBodies.add(bodyB.id);
-        if (bodyB === this.drop) this.revealedBodies.add(bodyA.id);
+        if (drops.includes(bodyA)) this.revealedBodies.add(bodyB.id);
+        if (drops.includes(bodyB)) this.revealedBodies.add(bodyA.id);
       }
     }
     // Lethal contacts take precedence over a simultaneous target contact.
     if (this.level.hardcore && this.status === 'running') {
-      const fatal = e.pairs.find(p => (p.bodyA === this.drop && this.isHazard(p.bodyB))
-        || (p.bodyB === this.drop && this.isHazard(p.bodyA)));
+      const beamHit = drops.find(cloud => this.genesis.hitByBeam(cloud));
+      if (beamHit) {
+        this.finish('lost', 'Reflected laser hit. Align the glass before Drop.', beamHit.position);
+        return;
+      }
+      const fatal = e.pairs.find(p => (drops.includes(p.bodyA) && this.isHazard(p.bodyB))
+        || (drops.includes(p.bodyB) && this.isHazard(p.bodyA)));
       if (fatal) {
-        const other = fatal.bodyA === this.drop ? fatal.bodyB : fatal.bodyA;
-        this.finish('lost', this.hazardReason(other));
+        const other = drops.includes(fatal.bodyA) ? fatal.bodyB : fatal.bodyA;
+        this.finish('lost', this.hazardReason(other), (drops.includes(fatal.bodyA) ? fatal.bodyA : fatal.bodyB).position);
         return;
       }
     }
     for (const pair of e.pairs) {
-      if (pair.bodyA === this.drop || pair.bodyB === this.drop) {
-        const other = pair.bodyA === this.drop ? pair.bodyB : pair.bodyA;
+      if (drops.includes(pair.bodyA) || drops.includes(pair.bodyB)) {
+        const cloud = drops.includes(pair.bodyA) ? pair.bodyA : pair.bodyB;
+        const other = cloud === pair.bodyA ? pair.bodyB : pair.bodyA;
+        if (cloud === this.drop) this.genesis.noteContact(other);
         this.voidProtocol.reveal(other);
-        if (other === this.plant && this.status === 'running') {
+        if (other === this.plant && !this.level.splitDropletRequired && this.genesis.objectivesComplete && this.status === 'running') {
           this.finish('won');
           continue;
         }
         if (this.isHazard(other) && this.status === 'running') {
-          this.finish('lost', this.hazardReason(other));
+          this.finish('lost', this.hazardReason(other), cloud.position);
           continue;
         }
-        const power = this.drop.speed;
+        const power = cloud.speed;
         if (power > 4 && this.time - this.lastImpactTime > 0.14) {
           this.lastImpactTime = this.time;
           if (!other.isSensor) {
             this.shakeIntensity = Math.max(this.shakeIntensity, Math.min(6, power * 0.3));
-            if (power > 7) this.shatter(this.drop.position, this.level.hardcore ? 7 : 4);
+            if (power > 7) this.shatter(cloud.position, this.level.hardcore ? 7 : 4);
           }
           this.onEvent?.({ type: 'impact', power });
         }
@@ -231,6 +242,7 @@ export class GardenEngine {
     this.hardcore.clear();
     this.infinity.clear();
     this.voidProtocol.clear();
+    this.genesis.clear();
     this.ropes = [];
     this.blades = [];
     this.pushed.clear();
@@ -262,12 +274,13 @@ export class GardenEngine {
     return Math.min(moves, speed);
   }
   get timeLeft() {
-    const limit = this.level.countdownTimer ?? this.level.hardcore?.timeLimit;
+    const limit = this.level.hardcoreCountdown ?? this.level.countdownTimer ?? this.level.hardcore?.timeLimit;
     return limit === undefined ? Infinity : Math.max(0, limit - this.elapsed);
   }
   get gravityRemaining() { return this.hardcore.gravityRemaining; }
   get gravityActivations() { return this.hardcore.gravityActivations; }
   get lasers() { return this.hardcore.lasers; }
+  get activeDrops() { return this.genesis.activeDrops(this.drop); }
 
   isObstacleVisible(body: Matter.Body) {
     if (this.level.voidProtocol) return this.voidProtocol.opacity(body) > 0;
@@ -427,7 +440,11 @@ export class GardenEngine {
     if (![a.x, a.y, b.x, b.y].every(Number.isFinite)) return 0;
     if (this.level.hardcore && !this.slicePending && !this.beginInput()) return 0;
     this.slicePending = true;
-    let cuts = 0;
+    let cuts = this.genesis.slice(a, b);
+    if (cuts) {
+      this.burst((a.x + b.x) / 2, (a.y + b.y) / 2, 10, [FX.genesis.gold, FX.genesis.amber], 2);
+      this.onEvent?.({ type: 'rope' });
+    }
     this.started = true;
     this.sliceTrails.push({ a: { ...a }, b: { ...b }, life: 0 });
     if (this.sliceTrails.length > 24) this.sliceTrails.shift();
@@ -548,12 +565,13 @@ export class GardenEngine {
     return true;
   }
 
-  private finish(status: 'won' | 'lost', reason = '') {
+  private finish(status: 'won' | 'lost', reason = '', at: V = this.drop.position) {
     if (this.status === 'won' || this.status === 'lost') return;
     // Score the in-flight gesture before UI saves a win; releasing the finger
     // later must not change an already-earned rating.
     if (this.level.hardcore && this.slicePending) this.endSlice();
     this.status = status;
+    for (const cloud of this.genesis.children) Body.setStatic(cloud, true);
     this.hardcore.resetGravity();
     this.failReason = reason;
     if (status === 'won') {
@@ -564,12 +582,12 @@ export class GardenEngine {
       this.onEvent?.({ type: 'win' });
     } else {
       this.shakeIntensity = Math.max(this.shakeIntensity, this.level.hardcore ? 10 : 7);
-      this.shatter(this.drop.position, this.level.hardcore ? 30 : 18);
+      this.shatter(at, this.level.hardcore ? 30 : 18);
       const splash = this.level.voidProtocol || this.level.visualMode === 'void' ? [FX.void.ok, FX.void.purple, FX.void.text]
         : this.level.visualMode === 'genesis' ? [FX.genesis.glow, FX.genesis.amber, '#FFFFFF']
           : this.level.visualMode === 'singularity' ? [FX.singularity.cyan, FX.singularity.gold, FX.singularity.glow]
             : [FX.campaign.water, FX.campaign.mint, FX.campaign.white];
-      this.burst(this.drop.position.x, this.drop.position.y, 10, splash, 2.4, 'droplet');
+      this.burst(at.x, at.y, 10, splash, 2.4, 'droplet');
       Body.setStatic(this.drop, true);
       this.onEvent?.({ type: 'lose' });
     }
@@ -584,15 +602,17 @@ export class GardenEngine {
       if (this.timeLeft <= 0) this.finish('lost', 'Time up. Retry and commit faster.');
     }
     if (this.status === 'ready' || this.status === 'running') {
-      const melted = this.infinity.beforeStep(STEP / 1000, this.drop, this.bodies, this.started);
+      const melted = this.infinity.beforeStep(STEP / 1000, this.activeDrops, this.bodies, this.started);
       if (melted) {
-        this.finish('lost', `Thermal overload: ${melted === this.drop ? 'Cloud melted' : 'a dynamic block shattered'} after 2 seconds.`);
+        this.finish('lost', `Thermal overload: ${melted.label === 'drop' ? 'Cloud melted' : 'a dynamic block shattered'} after 2 seconds.`);
         this.shatter(melted.position, 24);
         return;
       }
-      if (this.status === 'running' && this.drop.speed > MAX_SPEED) {
-        const k = MAX_SPEED / this.drop.speed;
-        Body.setVelocity(this.drop, { x: this.drop.velocity.x * k, y: this.drop.velocity.y * k });
+      for (const cloud of this.activeDrops) {
+        if (this.status === 'running' && cloud.speed > MAX_SPEED) {
+          const k = MAX_SPEED / cloud.speed;
+          Body.setVelocity(cloud, { x: cloud.velocity.x * k, y: cloud.velocity.y * k });
+        }
       }
       const intervalFlipped = this.hardcore.beforeStep(STEP / 1000, this.status === 'running');
       this.voidProtocol.beforeStep(STEP / 1000, this.started, this.status === 'running');
@@ -601,9 +621,14 @@ export class GardenEngine {
         this.burst(this.drop.position.x, this.drop.position.y, 12, ['#BD8CFF', '#FFFFFF'], 2);
         this.onEvent?.({ type: 'gravity' });
       }
-      this.advanced.beforeStep(this.time, STEP / 1000, this.drop, this.status === 'running');
+      this.genesis.beforeStep(this.drop);
+      this.advanced.beforeStep(this.time, STEP / 1000, this.activeDrops, this.status === 'running');
       Engine.update(this.engine, STEP);
-      for (const effect of this.advanced.afterStep(this.drop, this.status === 'running')) {
+      if (this.genesis.afterStep(this.drop, this.status === 'running')) {
+        this.burst(this.drop.position.x, this.drop.position.y, 18, [FX.genesis.gold, FX.campaign.water], 2.5, 'droplet');
+        this.onEvent?.({ type: 'switch' });
+      }
+      for (const effect of this.advanced.afterStep(this.activeDrops, this.status === 'running')) {
         const eventColors = this.level.visualMode === 'singularity' ? [FX.singularity.cyan, FX.singularity.gold, FX.singularity.violet]
           : this.level.visualMode === 'genesis' ? [FX.genesis.amber, FX.genesis.gold, FX.genesis.orange]
             : this.level.voidProtocol || this.level.visualMode === 'void' ? [FX.void.purple, FX.void.magenta, FX.void.red]
@@ -611,7 +636,7 @@ export class GardenEngine {
         this.burst(effect.at.x, effect.at.y, 14, eventColors, 2.5, effect.type === 'portal' ? 'spark' : 'circle');
         this.onEvent?.({ type: effect.type });
       }
-      const flipped = this.hardcore.afterStep(this.drop, this.status === 'running');
+      const flipped = this.hardcore.afterStep(this.activeDrops, this.status === 'running');
       this.voidProtocol.clampVelocity();
       if (flipped) {
         this.burst(flipped.x, flipped.y, 12, ['#BD8CFF', '#FFFFFF'], 2);
@@ -627,21 +652,22 @@ export class GardenEngine {
     }
     if (this.status === 'running') {
       this.runTime += STEP / 1000;
-      const p = this.drop.position;
-      if (p.y > H + 80 || p.x < -40 || p.x > 400) this.finish('lost', 'Cloud slipped off the garden.');
-      else if (Query.collides(this.drop, [
-        ...this.thorns.filter(b => this.isHazard(b)),
-        ...this.hardcore.crushers.flatMap(c => [c.left, c.right]),
-      ]).length > 0) {
-        const hit = Query.collides(this.drop, [
-          ...this.thorns.filter(b => this.isHazard(b)),
-          ...this.hardcore.crushers.flatMap(c => [c.left, c.right]),
-        ])[0];
-        this.finish('lost', this.hazardReason(hit.bodyA === this.drop ? hit.bodyB : hit.bodyA));
+      const hazards = [...this.thorns.filter(b => this.isHazard(b)),
+        ...this.hardcore.crushers.flatMap(c => [c.left, c.right])];
+      for (const cloud of this.activeDrops) {
+        const p = cloud.position;
+        const hit = Query.collides(cloud, hazards)[0];
+        if (![p.x, p.y].every(Number.isFinite) || p.y > H + 80 || p.y < -200 || p.x < -40 || p.x > 400)
+          this.finish('lost', 'A required droplet slipped off the garden.', p);
+        else if (hit) this.finish('lost', this.hazardReason(hit.bodyA === cloud ? hit.bodyB : hit.bodyA), p);
+        else if (this.genesis.hitByBeam(cloud)) this.finish('lost', 'Reflected laser hit. Align the glass before Drop.', p);
+        else if (this.genesis.isStuck(cloud, STEP / 1000)) this.finish('lost', 'Cloud is stuck and cannot reach the flower.', p);
+        if (this.status !== 'running') break;
       }
-      else {
-        this.stillTime = this.drop.speed < 0.12 ? this.stillTime + STEP / 1000 : 0;
-        if (this.stillTime > 2) this.finish('lost', 'Cloud is stuck and cannot reach the flower.');
+      this.stillTime = this.drop.speed < .12 ? this.stillTime + STEP / 1000 : 0;
+      if (this.status === 'running') {
+        for (const bud of this.genesis.collectBuds()) this.bloomFountain(bud.x, bud.y);
+        if (this.level.splitDropletRequired && this.genesis.bothBudsComplete) this.finish('won');
         else if (this.runTime > 40) this.finish('lost', 'Too slow. The flower wilted.');
       }
     }

@@ -44,3 +44,9 @@ When deriving or mirroring challenge layouts, transform complete collider bounds
 **Why:** Transforming only an extended hazard's anchor can shift its collision shape enough to make an otherwise valid hint lethal.
 
 **How to apply:** Keep solver-based regression coverage for each generated variant, including hazards, and do not rely on visual inspection of transformed coordinates.
+
+Preserve collision-event victory for existing single-droplet routes; a post-step overlap is not interchangeable with a target collision callback.
+
+**Why:** An added overlap shortcut froze droplets before the real target event and invalidated previously verified solutions across several modes, even though the UI reported a win.
+
+**How to apply:** Assert genuine sensor events in solver regressions. When adding paired targets, require separate child-to-bud contacts and all mechanism objectives, rather than treating a generic overlap or win status as proof.

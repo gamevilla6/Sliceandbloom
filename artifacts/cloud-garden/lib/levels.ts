@@ -6,6 +6,7 @@ import type { MagneticZone } from './infinity';
 import type { VoidRules } from './void';
 import type { BlockSwitch, PortalPair, Slider, WindZone } from './mechanics';
 import type { CrushingWalls, GravityZone, HardcoreRules, Laser } from './hardcore';
+import type { PulleyPuzzle, ReflectionPuzzle, SplitPuzzle } from './genesis';
 
 export interface V {
   x: number;
@@ -66,6 +67,14 @@ export interface Level {
   hyperSensitiveScale?: number;
   /** Fraction of the 400-unit full drawing budget: .05 or .10. */
   strictInkLength?: number;
+  /** Genesis masterclass expansion. Geometry is required when a flag is true. */
+  laserReflection?: boolean;
+  reflectionPuzzle?: ReflectionPuzzle;
+  multiStagePulley?: boolean;
+  pulleyPuzzle?: PulleyPuzzle;
+  splitDropletRequired?: boolean;
+  splitPuzzle?: SplitPuzzle;
+  hardcoreCountdown?: number;
   magneticField?: V;
   magneticZones?: MagneticZone[];
   thermalZone?: boolean;
