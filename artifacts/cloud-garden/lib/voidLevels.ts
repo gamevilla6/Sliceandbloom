@@ -145,5 +145,4 @@ const ORIGINAL_VOID_LEVELS: Level[] = Array.from({ length: 55 }, (_, index) => {
   return l;
 });
 
-export const VOID_LEVELS: Level[] = [...ORIGINAL_VOID_LEVELS, ...VOID_EXPANSION]
-  .map((level) => ({ ...level, visualMode: 'void' }));
+export const VOID_LEVELS: Level[] = [...ORIGINAL_VOID_LEVELS, ...VOID_EXPANSION];

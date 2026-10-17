@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Platform, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { F, P, R, VD } from '@/constants/theme';
+import { F, GN, P, R, SG, VD } from '@/constants/theme';
 import { PressScale } from '@/components/GameUi';
 import { useSafeInsets } from '@/components/layout';
 import { BannerAdComponent, BANNER_AD_RESERVED_HEIGHT } from '@/components/BannerAdComponent';
@@ -13,7 +13,7 @@ export type Mode = 'classic' | 'hardcore' | 'genesis' | 'void' | 'singularity';
 export const HOT = '#FF2A3D';
 
 export function ModeSwitch({ themed, mode, onChange, tight }: { themed?: boolean; mode: Mode; onChange: (m: Mode) => void; tight?: boolean }) {
-  const dark = themed || mode === 'singularity';
+  const singularity = mode === 'singularity';
   const options: { mode: Mode; label: string; compact: string; icon: keyof typeof Ionicons.glyphMap; fullName: string }[] = [
     { mode: 'classic', label: 'Campaign', compact: 'Camp', icon: 'leaf', fullName: 'Campaign Mode, 100 levels' },
     { mode: 'hardcore', label: 'Hardcore', compact: 'Hard', icon: 'flame', fullName: `Hardcore Mode, ${HARDCORE_LEVELS.length} timed levels` },
@@ -38,13 +38,13 @@ export function ModeSwitch({ themed, mode, onChange, tight }: { themed?: boolean
                 : m === 'singularity' ? styles.segSing : styles.segHard
         )]}
       >
-        <Ionicons name={icon} size={tight ? 12 : 16} color={on ? P.white : dark ? VD.textSoft : P.ink} />
-        <Text numberOfLines={1} style={[styles.segText, dark && { color: VD.textSoft }, on && { color: P.white }, tight && { fontSize: 9.5 }]}>{tight ? compact : label}</Text>
+        <Ionicons name={icon} size={tight ? 12 : 16} color={on ? P.white : singularity ? SG.textSoft : themed ? VD.textSoft : P.ink} />
+        <Text numberOfLines={1} style={[styles.segText, themed && { color: VD.textSoft }, singularity && { color: SG.textSoft }, on && { color: P.white }, tight && { fontSize: 9.5 }]}>{tight ? compact : label}</Text>
       </PressScale>
     );
   };
   return (
-    <View style={[styles.switchRow, dark && { backgroundColor: VD.panel, borderColor: VD.purple }]} testID="region-mode" accessibilityRole="tablist">
+    <View style={[styles.switchRow, themed && { backgroundColor: VD.panel, borderColor: VD.purple }, singularity && { backgroundColor: SG.bg, borderColor: SG.cyan }]} testID="region-mode" accessibilityRole="tablist">
       {options.map((o) => opt(o))}
     </View>
   );
@@ -52,47 +52,50 @@ export function ModeSwitch({ themed, mode, onChange, tight }: { themed?: boolean
 
 const fmt = (s: number) => `${Math.max(0, s).toFixed(1)}s`;
 
-export function HardcoreHud({ themed, started, timeLeft, limit, elapsed, gold, par, moves, maxMoves, gravity, nextFlip }: { themed?: boolean; nextFlip?: number; started: boolean; timeLeft: number; limit: number; elapsed: number; gold: number; par: number; moves: number; maxMoves: number; gravity: number }) {
+export function HardcoreHud({ themed, singularity, genesis, started, timeLeft, limit, elapsed, gold, par, moves, maxMoves, gravity, nextFlip }: { themed?: boolean; singularity?: boolean; genesis?: boolean; nextFlip?: number; started: boolean; timeLeft: number; limit: number; elapsed: number; gold: number; par: number; moves: number; maxMoves: number; gravity: number }) {
   const left = started && Number.isFinite(timeLeft) ? timeLeft : limit;
   const pct = limit > 0 ? Math.max(0, Math.min(1, left / limit)) : 0;
   const urgent = started && left <= Math.min(5, limit * 0.25);
   const goldOk = elapsed <= gold && moves <= par;
   const movesLeft = Math.max(0, maxMoves - moves);
+  const challengeChip = themed ? styles.vChip : singularity ? styles.singChip : genesis ? styles.genChip : undefined;
+  const challengeText = themed ? { color: VD.text } : singularity ? { color: SG.text } : genesis ? { color: GN.text } : undefined;
   return (
     <View style={[styles.hud, themed && { marginBottom: 0 }]} testID="region-hardcore-hud">
       <View style={styles.hudRow}>
-        <View style={[styles.chip, themed && styles.vChip, urgent && { backgroundColor: HOT }]} testID="hc-timer" accessibilityLabel={`${left.toFixed(1)} seconds remaining of ${limit}${gravity > 0 ? `, gravity reversed for ${gravity.toFixed(1)} seconds` : ''}`} accessibilityLiveRegion="none">
+        <View style={[styles.chip, challengeChip, urgent && { backgroundColor: themed ? HOT : singularity ? SG.cyanDeep : genesis ? GN.orange : HOT }]} testID="hc-timer" accessibilityLabel={`${left.toFixed(1)} seconds remaining of ${limit}${gravity > 0 ? `, gravity reversed for ${gravity.toFixed(1)} seconds` : ''}`} accessibilityLiveRegion="none">
           <Ionicons name={gravity > 0 ? 'arrow-up' : 'timer'} size={16} color={urgent ? P.white : P.ink} />
-          <Text style={[styles.chipText, themed && { color: VD.text }, urgent && { color: P.white }]}>{started ? fmt(left) : `${limit}s`}</Text>
+          <Text style={[styles.chipText, challengeText, urgent && { color: P.white }]}>{started ? fmt(left) : `${limit}s`}</Text>
         </View>
-        <View style={[styles.chip, themed && styles.vChip, movesLeft === 0 && { backgroundColor: themed ? VD.redDeep : P.coral }]} testID="hc-moves" accessibilityLabel={`${moves} of ${maxMoves} moves used`}>
+        <View style={[styles.chip, challengeChip, movesLeft === 0 && { backgroundColor: themed ? VD.redDeep : singularity ? SG.panelHi : genesis ? GN.panelHi : P.coral }]} testID="hc-moves" accessibilityLabel={`${moves} of ${maxMoves} moves used`}>
           <Ionicons name="hand-left" size={15} color={P.ink} />
-          <Text style={[styles.chipText, themed && { color: VD.text }]}>{moves}/{maxMoves}</Text>
+          <Text style={[styles.chipText, challengeText]}>{moves}/{maxMoves}</Text>
         </View>
-        <View style={[styles.chip, themed && styles.vChip, { backgroundColor: goldOk ? (themed ? VD.panelHi : P.marigold) : themed ? VD.panel : P.paperDeep, opacity: goldOk ? 1 : 0.7 }]} testID="hc-gold" accessibilityLabel={`Gold goal, finish within ${gold} seconds using at most ${par} moves${goldOk ? '' : ', missed'}`}>
+        <View style={[styles.chip, challengeChip, { backgroundColor: goldOk ? (themed ? VD.panelHi : singularity ? SG.panelHi : genesis ? GN.panelHi : P.marigold) : themed ? VD.panel : singularity ? SG.panel : genesis ? GN.panel : P.paperDeep, opacity: goldOk ? 1 : 0.7 }]} testID="hc-gold" accessibilityLabel={`Gold goal, finish within ${gold} seconds using at most ${par} moves${goldOk ? '' : ', missed'}`}>
           <Ionicons name="star" size={15} color={P.ink} />
-          <Text style={[styles.chipText, themed && { color: VD.text }]}>{goldOk ? `${gold}s · ${par} ${par === 1 ? 'move' : 'moves'}` : 'Gold missed'}</Text>
+          <Text style={[styles.chipText, challengeText, singularity && { color: SG.gold }, genesis && { color: GN.gold }]}>{goldOk ? `${gold}s · ${par} ${par === 1 ? 'move' : 'moves'}` : 'Gold missed'}</Text>
         </View>
           {nextFlip !== undefined && gravity <= 0 && (
-            <View style={[styles.chip, { backgroundColor: P.petal }]} testID="hc-cycle" accessibilityLabel={`Gravity flips in ${nextFlip.toFixed(1)} seconds`}>
+            <View style={[styles.chip, challengeChip, { backgroundColor: singularity ? SG.panelHi : genesis ? GN.panelHi : P.petal }]} testID="hc-cycle" accessibilityLabel={`Gravity flips in ${nextFlip.toFixed(1)} seconds`}>
               <Ionicons name="swap-vertical" size={15} color={P.ink} />
-              <Text style={[styles.chipText, themed && { color: VD.text }]}>FLIP {fmt(nextFlip)}</Text>
+              <Text style={[styles.chipText, challengeText]}>FLIP {fmt(nextFlip)}</Text>
             </View>
           )}
-          <View style={[styles.gravityCue, { opacity: gravity > 0 ? 1 : 0 }]} testID="hc-gravity" accessible={gravity > 0} accessibilityElementsHidden={gravity <= 0} accessibilityLabel={`Gravity inverted for ${gravity.toFixed(1)} seconds`}>
+          <View style={[styles.gravityCue, singularity && { backgroundColor: SG.cyan, borderColor: SG.cyan }, genesis && { backgroundColor: GN.amber, borderColor: GN.orange }, { opacity: gravity > 0 ? 1 : 0 }]} testID="hc-gravity" accessible={gravity > 0} accessibilityElementsHidden={gravity <= 0} accessibilityLabel={`Gravity inverted for ${gravity.toFixed(1)} seconds`}>
             <Ionicons name="arrow-up" size={15} color={P.ink} />
-            <Text style={[styles.chipText, themed && { color: VD.text }]}>{fmt(gravity)}</Text>
+            <Text style={[styles.chipText, challengeText]}>{fmt(gravity)}</Text>
           </View>
       </View>
-      <View style={[styles.bar, themed && { backgroundColor: VD.bgDeep, borderColor: VD.line }]}>
-        <View style={[styles.barFill, { width: `${pct * 100}%`, backgroundColor: urgent ? HOT : themed ? VD.purple : P.mint }]} />
+      <View style={[styles.bar, themed && { backgroundColor: VD.bgDeep, borderColor: VD.line }, singularity && { backgroundColor: SG.bgDeep, borderColor: SG.line }, genesis && { backgroundColor: GN.bgDeep, borderColor: GN.line }]}>
+        <View style={[styles.barFill, { width: `${pct * 100}%`, backgroundColor: urgent ? HOT : themed ? VD.purple : singularity ? SG.cyan : genesis ? GN.amber : P.mint }]} />
       </View>
     </View>
   );
 }
 
-export function HardcoreFail({ themed, reason, onRetry, title = 'Wilted', rewardedRetry }: {
+export function HardcoreFail({ themed, singularity, reason, onRetry, title = 'Wilted', rewardedRetry }: {
   themed?: boolean;
+  singularity?: boolean;
   reason: string;
   onRetry: () => void;
   title?: string;
@@ -109,21 +112,21 @@ export function HardcoreFail({ themed, reason, onRetry, title = 'Wilted', reward
   const bannerHeight = showBanner ? loadedBannerHeight ?? BANNER_AD_RESERVED_HEIGHT : 0;
   return (
     <View style={[styles.failWrap, showBanner && { paddingBottom: 16 + bannerHeight }]} pointerEvents="box-none" testID="hc-fail">
-      <View style={[styles.fail, themed && { backgroundColor: VD.bg, borderColor: VD.red, shadowColor: VD.red }]} accessibilityLiveRegion="assertive">
-        <Text style={[styles.failKicker, themed && { color: VD.red }]}>{title}</Text>
-        <Text style={[styles.failText, themed && { color: VD.textSoft }]} numberOfLines={2}>{reason || 'Try again, faster.'}</Text>
+      <View style={[styles.fail, themed && { backgroundColor: VD.bg, borderColor: VD.red, shadowColor: VD.red }, singularity && { backgroundColor: SG.bg, borderColor: SG.cyan, shadowColor: SG.violet }]} accessibilityLiveRegion="assertive">
+        <Text style={[styles.failKicker, themed && { color: VD.red }, singularity && { color: SG.cyan }]}>{title}</Text>
+        <Text style={[styles.failText, themed && { color: VD.textSoft }, singularity && { color: SG.textSoft }]} numberOfLines={2}>{reason || 'Try again, faster.'}</Text>
         {rewardedRetry?.supported && (
           <>
-            <Text style={[styles.failText, { textAlign: 'center' }]}>Watch a quick video to get +50% Extra Ink &amp; Retry instantly!</Text>
+            <Text style={[styles.failText, singularity && { color: SG.textSoft }, { textAlign: 'center' }]}>Watch a quick video to get +50% Extra Ink &amp; Retry instantly!</Text>
             <PressScale
               onPress={rewardedRetry.onPress}
               disabled={rewardedRetry.status === 'loading' || rewardedRetry.status === 'showing'}
               testID="rewarded-retry"
               label="Watch a rewarded video for fifty percent extra ink and retry"
-              style={[styles.failBtn, themed && { backgroundColor: VD.purpleDeep, borderColor: VD.purple }]}
+              style={[styles.failBtn, themed && { backgroundColor: VD.purpleDeep, borderColor: VD.purple }, singularity && { backgroundColor: SG.panelHi, borderColor: SG.cyan }]}
             >
-              <Ionicons name="play-circle" size={18} color={P.ink} />
-              <Text style={styles.failBtnText}>
+              <Ionicons name="play-circle" size={18} color={singularity ? SG.cyan : P.ink} />
+              <Text style={[styles.failBtnText, singularity && { color: SG.text }]}>
                 {rewardedRetry.status === 'loading' ? 'Loading video…'
                   : rewardedRetry.status === 'showing' ? 'Video playing…'
                     : rewardedRetry.status === 'ready' ? 'Watch · +50% ink'
@@ -132,15 +135,15 @@ export function HardcoreFail({ themed, reason, onRetry, title = 'Wilted', reward
               </Text>
             </PressScale>
             {!!rewardedRetry.message && (
-              <Text style={[styles.failText, { textAlign: 'center' }]} testID="rewarded-retry-status">
+              <Text style={[styles.failText, singularity && { color: SG.textSoft }, { textAlign: 'center' }]} testID="rewarded-retry-status">
                 {rewardedRetry.message}
               </Text>
             )}
           </>
         )}
-        <PressScale onPress={onRetry} testID="retry" label="Retry now" style={[styles.failBtn, themed && { backgroundColor: VD.redDeep, borderColor: VD.red }]}>
-          <Ionicons name="refresh" size={18} color={P.ink} />
-          <Text style={styles.failBtnText}>Retry now</Text>
+        <PressScale onPress={onRetry} testID="retry" label="Retry now" style={[styles.failBtn, themed && { backgroundColor: VD.redDeep, borderColor: VD.red }, singularity && { backgroundColor: SG.cyanDeep, borderColor: SG.cyan }]}>
+          <Ionicons name="refresh" size={18} color={singularity ? SG.cyan : P.ink} />
+          <Text style={[styles.failBtnText, singularity && { color: SG.text }]}>Retry now</Text>
         </PressScale>
       </View>
       {showBanner && (
@@ -177,6 +180,8 @@ const styles = StyleSheet.create({
   voidHud: { gap: 6, marginBottom: 6 },
   vChip: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: VD.panel, borderWidth: 1.5, borderColor: VD.line, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3, minHeight: 28 },
   vChipText: { fontFamily: F.bold, fontSize: 12, color: VD.text },
+  singChip: { backgroundColor: SG.panel, borderColor: SG.line },
+  genChip: { backgroundColor: GN.panel, borderColor: GN.line },
   switchRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, padding: 3, backgroundColor: P.paperDeep, borderWidth: 3, borderColor: P.ink, borderRadius: R.btn, marginTop: 8 },
   seg: { minHeight: 40, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, borderRadius: 10, paddingHorizontal: 6 },
   segClassic: { backgroundColor: P.drop },

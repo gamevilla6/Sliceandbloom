@@ -7,7 +7,7 @@ import { GROUND, H, Level, V, W } from '@/lib/levels';
 import { haptic } from '@/lib/haptics';
 import { useGameLoop } from '@/hooks/useGameLoop';
 import { Sfx } from '@/lib/audio';
-import { mix, P, VD } from '@/constants/theme';
+import { GN, mix, P, SG, VD } from '@/constants/theme';
 import { AdvancedLayer } from '@/components/AdvancedLayer';
 import { HOT } from '@/components/HardcoreLayer';
 import { fitLogicalViewport, screenPointToWorld } from '@/lib/viewport';
@@ -50,6 +50,17 @@ const polyPath = (v: { x: number; y: number }[]) => 'M' + v.map((p) => `${p.x.to
 const dist = (a: V, b: V) => Math.hypot(a.x - b.x, a.y - b.y);
 const pts2 = (p: V[]) => p.map((q) => `${q.x.toFixed(1)},${q.y.toFixed(1)}`).join(' ');
 const DROP_PATH = 'M0 -17 C5 -9 11 -3 11 3 A11 11 0 0 1 -11 3 C-11 -3 -5 -9 0 -17 Z';
+const smoothStrokePath = (points: V[]) => {
+  if (!points.length) return '';
+  if (points.length === 1) return `M${points[0].x} ${points[0].y}`;
+  let d = `M${points[0].x} ${points[0].y}`;
+  for (let i = 1; i < points.length - 1; i++) {
+    const next = points[i + 1];
+    d += ` Q${points[i].x} ${points[i].y} ${(points[i].x + next.x) / 2} ${(points[i].y + next.y) / 2}`;
+  }
+  const last = points[points.length - 1];
+  return `${d} L${last.x} ${last.y}`;
+};
 
 export function GameBoard({ engine, level, attempt, modeKey = 'classic', tool, showHint, hintStep, hintOverview, guides, paused, playSound, engineRef, onHud }: Props) {
   'use no memo';
@@ -82,7 +93,17 @@ export function GameBoard({ engine, level, attempt, modeKey = 'classic', tool, s
   const revealing = useRef(false);
   const reduceMotion = useRef(false);
   const hardcore = !!level.hardcore;
-  const isVoid = !!level.voidProtocol;
+  const isVoid = !!level.voidProtocol || modeKey === 'void';
+  const isGenesis = modeKey === 'genesis' || level.visualMode === 'genesis';
+  const isSingularity = modeKey === 'singularity' || level.visualMode === 'singularity';
+  const isDarkScreen = isVoid || isSingularity;
+  const art = isVoid
+    ? { top: VD.bgDeep, bottom: VD.skyBottom, soil: VD.bg, grass: VD.red, wood: VD.purpleDeep, woodEdge: VD.magenta, draw: VD.ok, glow: VD.purple, drop: '#A7E9FF' }
+    : isGenesis
+      ? { top: GN.bgDeep, bottom: '#452604', soil: GN.bgDeep, grass: GN.amber, wood: GN.panelHi, woodEdge: GN.orange, draw: GN.amber, glow: GN.glow, drop: '#62BFFF' }
+      : isSingularity
+        ? { top: SG.bgDeep, bottom: SG.skyBottom, soil: SG.bgDeep, grass: SG.cyan, wood: SG.panelHi, woodEdge: SG.cyan, draw: SG.cyan, glow: SG.gold, drop: SG.cyan }
+        : { top: P.skyTop, bottom: P.skyBottom, soil: P.soil, grass: P.leaf, wood: P.wood, woodEdge: P.ink, draw: P.mint, glow: P.drop, drop: P.drop };
   useEffect(() => {
     AccessibilityInfo.isReduceMotionEnabled?.().then((v) => { reduceMotion.current = !!v; }).catch(() => {});
   }, []);
@@ -316,7 +337,8 @@ export function GameBoard({ engine, level, attempt, modeKey = 'classic', tool, s
 
   const hx = f.x + (1 - bloom) * 9 + Math.sin(t * 1.5) * 1.2;
   const hy = f.y + (1 - bloom) * 7;
-  const petalC = mix(P.wilt, P.petal, bloom);
+  const petalTone = isVoid ? VD.magenta : isGenesis ? GN.gold : isSingularity ? SG.cyan : P.petal;
+  const petalC = mix(isVoid ? VD.purpleDeep : isGenesis ? GN.orange : isSingularity ? SG.violet : P.wilt, petalTone, bloom);
   const petalS = 0.62 + 0.38 * bloom;
   const clouds = [0, 1, 2].map((i) => ({ x: ((i * 190 + t * (4 + i * 2)) % 520) - 80, y: 70 + i * 85, s: 0.8 + i * 0.25 }));
 
@@ -325,8 +347,13 @@ export function GameBoard({ engine, level, attempt, modeKey = 'classic', tool, s
       <Svg width={size.w} height={size.h} pointerEvents="none">
         <Defs>
           <LinearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
-            <Stop offset="0" stopColor={isVoid ? VD.bgDeep : P.skyTop} />
-            <Stop offset="1" stopColor={isVoid ? VD.skyBottom : P.skyBottom} />
+            <Stop offset="0" stopColor={art.top} />
+            <Stop offset="1" stopColor={art.bottom} />
+          </LinearGradient>
+          <LinearGradient id="sliceTrail" x1="0" y1="1" x2="1" y2="0">
+            <Stop offset="0" stopColor={isGenesis ? GN.amber : isSingularity ? SG.cyan : isVoid ? VD.red : P.drop} stopOpacity="0.45" />
+            <Stop offset="0.55" stopColor={isSingularity ? SG.gold : isGenesis ? GN.glow : isVoid ? VD.magenta : P.white} />
+            <Stop offset="1" stopColor={isGenesis ? GN.glow : isSingularity ? SG.glow : isVoid ? VD.purple : P.mint} stopOpacity="0.9" />
           </LinearGradient>
         </Defs>
         <Rect x={0} y={0} width={size.w} height={size.h} fill="url(#sky)" />
@@ -346,10 +373,46 @@ export function GameBoard({ engine, level, attempt, modeKey = 'classic', tool, s
               <Rect x={sceneryLeft} y={GROUND} width={sceneryRight - sceneryLeft} height={3} fill={VD.red} />
             </G>
           )}
-          {!isVoid && [0, 1, 2, 3, 4, 5].map((i) => (
+          {isGenesis && (
+            <G>
+              <Circle cx={292} cy={88} r={53} fill={GN.amber} opacity={0.14} />
+              <Circle cx={292} cy={88} r={32} fill={GN.gold} opacity={0.82} />
+              {Array.from({ length: 16 }).map((_, i) => (
+                <Path key={`gs${i}`} d={`M${sceneryLeft + i * 48 - 12} 0 l24 24 M${sceneryLeft + i * 48 - 12} ${GROUND - 18} l24 18`} stroke={i % 2 ? GN.orange : GN.gold} strokeWidth={7} opacity={0.7} />
+              ))}
+              <Rect x={sceneryLeft} y={GROUND} width={sceneryRight - sceneryLeft} height={sceneryBottom - GROUND} fill={GN.bgDeep} />
+              <Rect x={sceneryLeft} y={GROUND} width={sceneryRight - sceneryLeft} height={8} fill={GN.amber} />
+              <Path d={`M${sceneryLeft} ${GROUND + 8} H${sceneryRight}`} stroke={GN.glow} strokeWidth={2} strokeDasharray="4 8" />
+            </G>
+          )}
+          {isSingularity && (
+            <G>
+              {Array.from({ length: 10 }).map((_, i) => (
+                <Path key={`sgv${i}`} d={`M${sceneryLeft + i * 44} 0 V${GROUND}`} stroke={i % 3 === 0 ? SG.gold : SG.cyan} strokeWidth={1} opacity={0.12 + 0.04 * Math.sin(t * 1.7 + i)} />
+              ))}
+              {Array.from({ length: 13 }).map((_, i) => (
+                <Path key={`sgh${i}`} d={`M${sceneryLeft} ${i * 44} H${sceneryRight}`} stroke={SG.cyan} strokeWidth={1} opacity={0.09 + 0.03 * Math.sin(t * 1.2 + i)} />
+              ))}
+              <Circle cx={180} cy={205} r={66 + Math.sin(t * 1.4) * 3} fill="none" stroke={SG.cyan} strokeWidth={2} strokeDasharray="4 10" strokeDashoffset={-t * 14} opacity={0.35} />
+              <Circle cx={180} cy={205} r={48} fill="none" stroke={SG.gold} strokeWidth={2} strokeDasharray="2 12" strokeDashoffset={t * 18} opacity={0.4} />
+              <Rect x={sceneryLeft} y={GROUND} width={sceneryRight - sceneryLeft} height={sceneryBottom - GROUND} fill={SG.bgDeep} />
+              <Rect x={sceneryLeft} y={GROUND} width={sceneryRight - sceneryLeft} height={7} fill={SG.cyan} opacity={0.85} />
+              <Path d={`M${sceneryLeft} ${GROUND + 8} H${sceneryRight}`} stroke={SG.gold} strokeWidth={2} strokeDasharray="3 10" opacity={0.65} />
+            </G>
+          )}
+          {isVoid && (
+            <G pointerEvents="none">
+              <Rect x={sceneryLeft} y={0} width={sceneryRight - sceneryLeft} height={24} fill={VD.bgDeep} opacity={0.75} />
+              <Rect x={sceneryLeft} y={GROUND - 22} width={sceneryRight - sceneryLeft} height={22} fill={VD.bgDeep} opacity={0.75} />
+              <Rect x={sceneryLeft} y={0} width={18} height={GROUND} fill={VD.bgDeep} opacity={0.45} />
+              <Rect x={sceneryRight - 18} y={0} width={18} height={GROUND} fill={VD.bgDeep} opacity={0.45} />
+              {[0, 1, 2, 3].map((i) => <Path key={`glitch${i}`} d={`M${sceneryLeft + ((i * 83 + t * 24) % Math.max(1, sceneryRight - sceneryLeft - 60))} ${90 + i * 72} h${28 + (i % 2) * 34}`} stroke={i % 2 ? VD.red : VD.magenta} strokeWidth={2 + i % 2} opacity={0.22 + 0.18 * Math.abs(Math.sin(t * 9 + i))} />)}
+            </G>
+          )}
+          {!isVoid && !isGenesis && !isSingularity && [0, 1, 2, 3, 4, 5].map((i) => (
             <Rect key={`ray${i}`} x={-300 + i * 150} y={0} width={60} height={GROUND} fill={P.white} opacity={0.12} />
           ))}
-          {!isVoid && (<G>
+          {!isVoid && !isGenesis && !isSingularity && (<G>
           {[[40, 150], [250, 230], [90, 330], [330, 380]].map(([x, y], i) => (
             <Path key={`sp${i}`} d={`M${x} ${y - 8} L${x + 2.5} ${y - 2.5} L${x + 8} ${y} L${x + 2.5} ${y + 2.5} L${x} ${y + 8} L${x - 2.5} ${y + 2.5} L${x - 8} ${y} L${x - 2.5} ${y - 2.5} Z`} fill={P.white} opacity={0.5 + 0.4 * Math.sin(t * 2 + i)} />
           ))}
@@ -389,8 +452,8 @@ export function GameBoard({ engine, level, attempt, modeKey = 'classic', tool, s
                   <Path
                     key={j}
                     d={`M${th.x + j * w} ${th.y + 22} L${th.x + j * w + w / 2} ${th.y - 2} L${th.x + (j + 1) * w} ${th.y + 22} Z`}
-                    fill={hardcore ? HOT : P.thorn}
-                    stroke={isVoid ? '#FFC2D1' : P.ink}
+                    fill={hardcore ? (isGenesis ? GN.orange : isSingularity ? SG.violet : HOT) : isGenesis ? GN.orange : isSingularity ? SG.violet : P.thorn}
+                    stroke={isVoid ? '#FFC2D1' : isGenesis ? GN.glow : isSingularity ? SG.glow : P.ink}
                     strokeWidth={2.5}
                     strokeLinejoin="round"
                   />
@@ -410,8 +473,8 @@ export function GameBoard({ engine, level, attempt, modeKey = 'classic', tool, s
               </G>
             ) : (
             <G key={i} opacity={op(sb)} transform={`translate(${px} ${py}) rotate(${(pa * 180) / Math.PI})`}>
-              <Rect x={-b.w / 2} y={-b.h / 2} width={b.w} height={b.h} rx={7} fill={isVoid ? VD.panelHi : P.soil} stroke={isVoid ? VD.purple : P.ink} strokeWidth={3} />
-              <Rect x={-b.w / 2 + 1.5} y={-b.h / 2 + 1.5} width={b.w - 3} height={Math.min(8, b.h / 2)} rx={4} fill={isVoid ? VD.magenta : P.leaf} />
+              <Rect x={-b.w / 2} y={-b.h / 2} width={b.w} height={b.h} rx={7} fill={art.soil} stroke={isVoid ? VD.purple : isGenesis ? GN.orange : isSingularity ? SG.cyan : P.ink} strokeWidth={3} />
+              <Rect x={-b.w / 2 + 1.5} y={-b.h / 2 + 1.5} width={b.w - 3} height={Math.min(8, b.h / 2)} rx={4} fill={art.grass} />
               <Rect x={-b.w / 2 + 8} y={b.h / 2 - 7} width={Math.max(8, b.w * 0.18)} height={3} rx={1.5} fill={P.soilDeep} opacity={0.6} />
             </G>
             )
@@ -420,7 +483,7 @@ export function GameBoard({ engine, level, attempt, modeKey = 'classic', tool, s
 
           {woods.map((b) => (
             <G key={b.id} opacity={op(b)}>
-              <Path d={polyPath(b.vertices)} fill={isVoid ? VD.purpleDeep : P.wood} stroke={isVoid ? VD.magenta : P.ink} strokeWidth={3} strokeLinejoin="round" />
+              <Path d={polyPath(b.vertices)} fill={art.wood} stroke={art.woodEdge} strokeWidth={3} strokeLinejoin="round" />
               {guides && b.isStatic && (
                 <Path
                   d={polyPath(b.vertices)}
@@ -438,29 +501,29 @@ export function GameBoard({ engine, level, attempt, modeKey = 'classic', tool, s
           <G>
             <Path
               d={`M${f.x} ${f.base} Q${f.x - (1 - bloom) * 4} ${(hy + f.base) / 2 + 6} ${hx} ${hy}`}
-              stroke={mix(P.wilt, P.leafDeep, bloom)}
+              stroke={mix(P.wilt, isVoid ? VD.ok : isGenesis ? GN.amber : isSingularity ? SG.cyan : P.leafDeep, bloom)}
               strokeWidth={5}
               fill="none"
               strokeLinecap="round"
             />
-            <Ellipse cx={f.x - 13} cy={f.base - 12} rx={11} ry={5} fill={mix(P.wilt, P.leaf, bloom)} stroke={P.ink} strokeWidth={2} transform={`rotate(${-25 + (1 - bloom) * 30} ${f.x - 13} ${f.base - 12})`} />
-            <Ellipse cx={f.x + 13} cy={f.base - 16} rx={11} ry={5} fill={mix(P.wilt, P.leaf, bloom)} stroke={P.ink} strokeWidth={2} transform={`rotate(${25 - (1 - bloom) * 30} ${f.x + 13} ${f.base - 16})`} />
+            <Ellipse cx={f.x - 13} cy={f.base - 12} rx={11} ry={5} fill={mix(P.wilt, art.grass, bloom)} stroke={isDarkScreen ? SG.line : P.ink} strokeWidth={2} transform={`rotate(${-25 + (1 - bloom) * 30} ${f.x - 13} ${f.base - 12})`} />
+            <Ellipse cx={f.x + 13} cy={f.base - 16} rx={11} ry={5} fill={mix(P.wilt, art.grass, bloom)} stroke={isDarkScreen ? SG.line : P.ink} strokeWidth={2} transform={`rotate(${25 - (1 - bloom) * 30} ${f.x + 13} ${f.base - 16})`} />
             <G transform={`translate(${hx} ${hy}) rotate(${(1 - bloom) * 22})`}>
               {Array.from({ length: 8 }).map((_, i) => (
-                <Ellipse key={i} cx={0} cy={-13 * petalS} rx={7 * petalS} ry={12 * petalS} fill={petalC} stroke={P.ink} strokeWidth={2} transform={`rotate(${i * 45})`} />
+                <Ellipse key={i} cx={0} cy={-13 * petalS} rx={7 * petalS} ry={12 * petalS} fill={petalC} stroke={isDarkScreen ? SG.line : P.ink} strokeWidth={2} transform={`rotate(${i * 45})`} />
               ))}
-              <Circle r={10} fill={P.marigold} stroke={P.ink} strokeWidth={2.5} />
-              <Circle cx={-3.5} cy={-1} r={1.5} fill={P.ink} />
-              <Circle cx={3.5} cy={-1} r={1.5} fill={P.ink} />
+              <Circle r={10} fill={isSingularity ? SG.gold : isGenesis ? GN.glow : isVoid ? VD.gold : P.marigold} stroke={isDarkScreen ? SG.bgDeep : P.ink} strokeWidth={2.5} />
+              <Circle cx={-3.5} cy={-1} r={1.5} fill={isDarkScreen ? SG.bgDeep : P.ink} />
+              <Circle cx={3.5} cy={-1} r={1.5} fill={isDarkScreen ? SG.bgDeep : P.ink} />
               {bloom > 0.5 ? (
-                <Path d="M-3.5 3 Q0 7 3.5 3" stroke={P.ink} strokeWidth={1.6} fill="none" strokeLinecap="round" />
+                <Path d="M-3.5 3 Q0 7 3.5 3" stroke={isDarkScreen ? SG.bgDeep : P.ink} strokeWidth={1.6} fill="none" strokeLinecap="round" />
               ) : (
-                <Path d="M-3.5 5 Q0 2 3.5 5" stroke={P.ink} strokeWidth={1.6} fill="none" strokeLinecap="round" />
+                <Path d="M-3.5 5 Q0 2 3.5 5" stroke={isDarkScreen ? SG.bgDeep : P.ink} strokeWidth={1.6} fill="none" strokeLinecap="round" />
               )}
             </G>
             {bloom < 0.5 && (
               <G transform={`translate(${f.x} ${f.y - 44 - Math.sin(t * 3) * 3}) scale(0.7)`} opacity={0.9}>
-                <Path d={DROP_PATH} fill="none" stroke={P.dropDeep} strokeWidth={3} strokeDasharray="4 3" />
+                <Path d={DROP_PATH} fill="none" stroke={art.glow} strokeWidth={3} strokeDasharray="4 3" />
               </G>
             )}
           </G>
@@ -473,10 +536,10 @@ export function GameBoard({ engine, level, attempt, modeKey = 'classic', tool, s
             const d = `M${ep.a.x.toFixed(1)} ${ep.a.y.toFixed(1)} Q${mx.toFixed(1)} ${my.toFixed(1)} ${ep.b.x.toFixed(1)} ${ep.b.y.toFixed(1)}`;
             return (
               <G key={i}>
-                <Path d={d} stroke={P.ink} strokeWidth={7} fill="none" strokeLinecap="round" />
-                <Path d={d} stroke={P.paper} strokeWidth={4} fill="none" strokeLinecap="round" />
-                <Path d={d} stroke={P.coral} strokeWidth={4} fill="none" strokeLinecap="round" strokeDasharray="3 5" />
-                <Circle cx={ep.a.x} cy={ep.a.y} r={4} fill={P.marigold} stroke={P.ink} strokeWidth={2} />
+                <Path d={d} stroke={isDarkScreen ? SG.bgDeep : P.ink} strokeWidth={7} fill="none" strokeLinecap="round" />
+                <Path d={d} stroke={isVoid ? VD.text : isGenesis ? GN.glow : isSingularity ? SG.glow : P.paper} strokeWidth={4} fill="none" strokeLinecap="round" />
+                <Path d={d} stroke={isVoid ? VD.red : isGenesis ? GN.amber : isSingularity ? SG.gold : P.coral} strokeWidth={4} fill="none" strokeLinecap="round" strokeDasharray="3 5" />
+                <Circle cx={ep.a.x} cy={ep.a.y} r={4} fill={isSingularity ? SG.gold : isGenesis ? GN.gold : P.marigold} stroke={isDarkScreen ? SG.bgDeep : P.ink} strokeWidth={2} />
               </G>
             );
           })}
@@ -494,29 +557,29 @@ export function GameBoard({ engine, level, attempt, modeKey = 'classic', tool, s
             </G>
           ) : (
             <G key={i}>
-              <Polyline points={pts2(s.pts)} fill="none" stroke={P.ink} strokeWidth={9} strokeLinecap="round" strokeLinejoin="round" />
-              <Polyline points={pts2(s.pts)} fill="none" stroke={P.mint} strokeWidth={3.5} strokeLinecap="round" strokeLinejoin="round" />
+              <Path d={smoothStrokePath(s.pts)} fill="none" stroke={isDarkScreen ? SG.bgDeep : isGenesis ? GN.bgDeep : P.ink} strokeWidth={10} strokeLinecap="round" strokeLinejoin="round" opacity={0.65} />
+              <Path d={smoothStrokePath(s.pts)} fill="none" stroke="url(#sliceTrail)" strokeWidth={4} strokeLinecap="round" strokeLinejoin="round" />
             </G>
           ))}
           {preview.length > 1 && (
             <G>
-              <Polyline points={pts2(preview)} fill="none" stroke={P.ink} strokeWidth={9} strokeLinecap="round" strokeLinejoin="round" opacity={0.45} />
-              <Polyline points={pts2(preview)} fill="none" stroke={exhausted.current ? P.coral : P.white} strokeWidth={3.5} strokeLinecap="round" strokeLinejoin="round" strokeDasharray="1 7" />
+              <Path d={smoothStrokePath(preview)} fill="none" stroke={isSingularity ? SG.cyan : isGenesis ? GN.amber : isVoid ? VD.red : P.drop} strokeWidth={15} strokeLinecap="round" strokeLinejoin="round" opacity={0.3} />
+              <Path d={smoothStrokePath(preview)} fill="none" stroke={exhausted.current ? P.coral : 'url(#sliceTrail)'} strokeWidth={4} strokeLinecap="round" strokeLinejoin="round" strokeDasharray="1 2" />
             </G>
           )}
           {trailList.map((tr, i) => {
             const k = Math.max(0, 1 - tr.life / 12);
             return (
               <G key={`st${i}`} opacity={k}>
-                <Path d={`M${tr.a.x} ${tr.a.y} L${tr.b.x} ${tr.b.y}`} stroke={P.ink} strokeWidth={7 * k + 1} strokeLinecap="round" opacity={0.5} />
-                <Path d={`M${tr.a.x} ${tr.a.y} L${tr.b.x} ${tr.b.y}`} stroke={P.white} strokeWidth={3.5 * k + 0.5} strokeLinecap="round" />
+                <Path d={`M${tr.a.x} ${tr.a.y} L${tr.b.x} ${tr.b.y}`} stroke={isSingularity ? SG.cyan : isGenesis ? GN.amber : isVoid ? VD.red : P.drop} strokeWidth={11 * k + 2} strokeLinecap="round" opacity={0.26} />
+                <Path d={`M${tr.a.x} ${tr.a.y} L${tr.b.x} ${tr.b.y}`} stroke="url(#sliceTrail)" strokeWidth={4 * k + 0.5} strokeLinecap="round" />
               </G>
             );
           })}
           {swipeTrail.current.length > 1 && (
             <G>
-              <Polyline points={pts2(swipeTrail.current)} fill="none" stroke={P.ink} strokeWidth={7} strokeLinecap="round" strokeLinejoin="round" opacity={0.5} />
-              <Polyline points={pts2(swipeTrail.current)} fill="none" stroke={P.white} strokeWidth={3.5} strokeLinecap="round" strokeLinejoin="round" />
+              <Path d={smoothStrokePath(swipeTrail.current)} fill="none" stroke={isSingularity ? SG.cyan : isGenesis ? GN.amber : isVoid ? VD.red : P.drop} strokeWidth={15} strokeLinecap="round" strokeLinejoin="round" opacity={0.32} />
+              <Path d={smoothStrokePath(swipeTrail.current)} fill="none" stroke="url(#sliceTrail)" strokeWidth={4.5} strokeLinecap="round" strokeLinejoin="round" />
             </G>
           )}
 
@@ -525,7 +588,7 @@ export function GameBoard({ engine, level, attempt, modeKey = 'classic', tool, s
           {bodies
             .filter((b) => b.label === 'stone' && engine.isObstacleVisible(b))
             .map((b) => (
-              <Circle key={b.id} opacity={op(b)} cx={b.position.x} cy={b.position.y} r={b.circleRadius ?? 20} fill={isVoid ? VD.panelHi : P.stone} stroke={isVoid ? VD.purple : P.ink} strokeWidth={3} />
+              <Circle key={b.id} opacity={op(b)} cx={b.position.x} cy={b.position.y} r={b.circleRadius ?? 20} fill={isVoid ? VD.panelHi : isSingularity ? SG.panelHi : isGenesis ? GN.panelHi : P.stone} stroke={isVoid ? VD.purple : isSingularity ? SG.cyan : isGenesis ? GN.amber : P.ink} strokeWidth={3} />
             ))}
 
           {showHint && [
@@ -537,11 +600,11 @@ export function GameBoard({ engine, level, attempt, modeKey = 'classic', tool, s
             const start = h.pts[0];
             return (
               <G key={i} opacity={active ? 1 : 0.3} testID={`hint-path-${i + 1}`}>
-                {active && <Polyline points={pts2(h.pts)} fill="none" stroke={P.white} strokeWidth={8} strokeLinecap="round" strokeLinejoin="round" />}
-                <Polyline
-                  points={pts2(h.pts)}
+                {active && <Path d={smoothStrokePath(h.pts)} fill="none" stroke={isSingularity ? SG.cyan : isGenesis ? GN.amber : P.white} strokeWidth={8} strokeLinecap="round" strokeLinejoin="round" opacity={0.55} />}
+                <Path
+                  d={smoothStrokePath(h.pts)}
                   fill="none"
-                  stroke={h.kind === 'draw' ? P.dropDeep : P.coralDeep}
+                  stroke={isSingularity ? (h.kind === 'draw' ? SG.cyan : SG.gold) : isGenesis ? (h.kind === 'draw' ? GN.glow : GN.amber) : h.kind === 'draw' ? P.dropDeep : P.coralDeep}
                   strokeWidth={active ? 4 : 3}
                   strokeLinecap="round"
                   strokeLinejoin="round"
@@ -560,7 +623,9 @@ export function GameBoard({ engine, level, attempt, modeKey = 'classic', tool, s
 
           <G opacity={engine.status === 'won' ? Math.max(0, 1 - Math.max(0, engine.winT - 0.25) / 0.25) : 1}>
             <G transform={`translate(${dx} ${dy}) scale(${(dScale / stretch).toFixed(3)} ${(dScale * stretch).toFixed(3)})`}>
-              <Path d={DROP_PATH} fill={lost ? mix(P.drop, P.wilt, 0.6) : P.drop} stroke={P.ink} strokeWidth={2.5} strokeLinejoin="round" />
+              <Circle r={21} fill={art.glow} opacity={isDarkScreen ? 0.26 : 0.18} />
+              <Circle r={15} fill={art.glow} opacity={isDarkScreen ? 0.18 : 0.12} />
+              <Path d={DROP_PATH} fill={lost ? mix(art.drop, P.wilt, 0.6) : art.drop} stroke={isDarkScreen ? SG.glow : P.ink} strokeWidth={2.5} strokeLinejoin="round" />
               <Ellipse cx={-5} cy={-2} rx={2.4} ry={4} fill={P.white} opacity={0.75} transform="rotate(20 -5 -2)" />
               {blink || lost ? (
                 <G stroke={P.ink} strokeWidth={1.6} strokeLinecap="round">
@@ -583,11 +648,25 @@ export function GameBoard({ engine, level, attempt, modeKey = 'classic', tool, s
             </G>
           </G>
 
-          {engine.particles.map((q, i) => q.shard ? (
-            <Path key={i} d={`M0 ${-q.r * 1.6} L${q.r * 1.1} ${q.r} L${-q.r * 1.2} ${q.r * 0.6} Z`} fill={q.color} opacity={1 - q.life / q.max} transform={`translate(${q.x} ${q.y}) rotate(${(i * 67 + q.life * 40) % 360})`} />
-          ) : (
-            <Circle key={i} cx={q.x} cy={q.y} r={q.r * (1 - q.life / q.max * 0.5)} fill={q.color} opacity={1 - q.life / q.max} />
-          ))}
+          {engine.particles.map((q, i) => {
+            const opacity = 1 - q.life / q.max;
+            const rotation = (q.rotation ?? i * 67) + q.life * (q.spin ?? 2);
+            const transform = `translate(${q.x} ${q.y}) rotate(${rotation})`;
+            if (q.shape === 'petal') {
+              return <Ellipse key={i} cx={q.x} cy={q.y} rx={q.r * 1.5} ry={q.r * 0.65} fill={q.color} opacity={opacity} transform={`rotate(${rotation} ${q.x} ${q.y})`} />;
+            }
+            if (q.shape === 'droplet') {
+              const s = Math.max(0.08, q.r / 12);
+              return <Path key={i} d={DROP_PATH} fill={q.color} opacity={opacity} transform={`${transform} scale(${s})`} />;
+            }
+            if (q.shard) {
+              return <Path key={i} d={`M0 ${-q.r * 1.6} L${q.r * 1.1} ${q.r} L${-q.r * 1.2} ${q.r * 0.6} Z`} fill={q.color} opacity={opacity} transform={transform} />;
+            }
+            if (q.shape === 'spark') {
+              return <Path key={i} d={`M0 ${-q.r * 1.6} L${q.r * 0.45} ${-q.r * 0.4} L${q.r * 1.6} 0 L${q.r * 0.45} ${q.r * 0.4} L0 ${q.r * 1.6} L${-q.r * 0.45} ${q.r * 0.4} L${-q.r * 1.6} 0 L${-q.r * 0.45} ${-q.r * 0.4} Z`} fill={q.color} opacity={opacity} transform={transform} />;
+            }
+            return <Circle key={i} cx={q.x} cy={q.y} r={q.r * (1 - q.life / q.max * 0.5)} fill={q.color} opacity={opacity} />;
+          })}
           <Circle cx={-100} cy={-100} r={DROP_R} fill="none" />
         </G>
       </Svg>

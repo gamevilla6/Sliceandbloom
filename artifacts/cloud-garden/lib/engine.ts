@@ -5,6 +5,7 @@ import { AdvancedMechanics } from './mechanics';
 import { HardcoreMechanics } from './hardcore';
 import { InfinityMechanics } from './infinity';
 import { VoidMechanics } from './void';
+import { FX } from './fxColors';
 
 const { Engine, Bodies, Body, Composite, Events, Query, Vertices } = Matter;
 
@@ -32,6 +33,9 @@ export interface Particle {
   r: number;
   color: string;
   shard?: boolean;
+  shape?: 'circle' | 'petal' | 'spark' | 'droplet' | 'shard';
+  rotation?: number;
+  spin?: number;
 }
 export interface Stroke {
   pts: V[];
@@ -42,6 +46,7 @@ export interface Stroke {
 export const STEP = 1000 / 60;
 export const DROP_R = 11;
 const MAX_SPEED = 15;
+const MAX_PARTICLES = 180;
 
 function dist(a: V, b: V) {
   return Math.hypot(a.x - b.x, a.y - b.y);
@@ -201,9 +206,9 @@ export class GardenEngine {
         const power = this.drop.speed;
         if (power > 4 && this.time - this.lastImpactTime > 0.14) {
           this.lastImpactTime = this.time;
-          if (this.level.hardcore && !other.isSensor) {
-            this.shakeIntensity = Math.min(7, power * 0.45);
-            this.shatter(this.drop.position, 7);
+          if (!other.isSensor) {
+            this.shakeIntensity = Math.max(this.shakeIntensity, Math.min(6, power * 0.3));
+            if (power > 7) this.shatter(this.drop.position, this.level.hardcore ? 7 : 4);
           }
           this.onEvent?.({ type: 'impact', power });
         }
@@ -229,6 +234,8 @@ export class GardenEngine {
     this.ropes = [];
     this.blades = [];
     this.pushed.clear();
+    this.particles = [];
+    this.sliceTrails = [];
     this.onEvent = undefined;
     this.slicePending = false;
     this.soilBodies = [];
@@ -299,16 +306,22 @@ export class GardenEngine {
   }
 
   private shatter(at: V, count: number) {
-    const start = this.particles.length;
-    this.burst(at.x, at.y, count, ['#FFFFFF', '#83DFFF', '#59DDB8'], 3.8);
-    for (let i = start; i < this.particles.length; i++) this.particles[i].shard = true;
+    const palette = this.level.voidProtocol || this.level.visualMode === 'void'
+      ? [FX.void.red, FX.void.magenta, FX.void.purple, '#FFFFFF']
+      : this.level.visualMode === 'genesis'
+        ? [FX.genesis.amber, FX.genesis.orange, FX.genesis.gold, '#FFFFFF']
+        : this.level.visualMode === 'singularity'
+          ? [FX.singularity.cyan, FX.singularity.gold, FX.singularity.violet, '#FFFFFF']
+          : [FX.campaign.water, FX.campaign.mint, '#FFFFFF'];
+    this.burst(at.x, at.y, count, palette, 3.8, 'shard');
   }
   get bodies() {
     return Composite.allBodies(this.engine.world);
   }
 
-  burst(x: number, y: number, n: number, colors: string[], speed: number) {
-    for (let i = 0; i < n; i++) {
+  burst(x: number, y: number, n: number, colors: string[], speed: number, shape: Particle['shape'] = 'spark') {
+    const count = Math.min(Math.max(0, Math.floor(n)), MAX_PARTICLES - this.particles.length);
+    for (let i = 0; i < count; i++) {
       const a = Math.random() * Math.PI * 2;
       const s = speed * (0.4 + Math.random() * 0.8);
       this.particles.push({
@@ -320,6 +333,37 @@ export class GardenEngine {
         max: 28 + Math.random() * 28,
         r: 2 + Math.random() * 3,
         color: colors[i % colors.length],
+        shape,
+        rotation: Math.random() * 360,
+        spin: (Math.random() - 0.5) * 14,
+        shard: shape === 'shard',
+      });
+    }
+  }
+
+  private bloomFountain(x: number, y: number) {
+    const palette = this.level.voidProtocol || this.level.visualMode === 'void'
+      ? [FX.void.ok, FX.void.purple, FX.void.magenta, FX.void.gold]
+      : this.level.visualMode === 'genesis'
+        ? [FX.genesis.gold, FX.genesis.amber, FX.genesis.glow, '#FFF3D6']
+        : this.level.visualMode === 'singularity'
+          ? [FX.singularity.cyan, FX.singularity.gold, FX.singularity.violet, FX.singularity.glow]
+          : [FX.campaign.petal, FX.campaign.gold, FX.campaign.leaf, FX.campaign.mint, FX.campaign.water];
+    const count = Math.min(34, MAX_PARTICLES - this.particles.length);
+    for (let i = 0; i < count; i++) {
+      const angle = -Math.PI / 2 + (Math.random() - 0.5) * 1.7;
+      const speed = 2.1 + Math.random() * 3.4;
+      this.particles.push({
+        x, y,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed,
+        life: 0,
+        max: 42 + Math.random() * 24,
+        r: 2.4 + Math.random() * 3.2,
+        color: palette[i % palette.length],
+        shape: 'petal',
+        rotation: Math.random() * 360,
+        spin: (Math.random() - 0.5) * 9,
       });
     }
   }
@@ -400,7 +444,11 @@ export class GardenEngine {
       const ends = this.endpoints(rope);
       if (segCross(a, b, ends.a, ends.b)) {
         this.removeRope(rope);
-        this.burst((ends.a.x + ends.b.x) / 2, (ends.a.y + ends.b.y) / 2, 12, ['#EBAE50', '#A8691F'], 2.5);
+        const ropeColors = this.level.voidProtocol || this.level.visualMode === 'void' ? [FX.void.red, FX.void.magenta, FX.void.purple]
+          : this.level.visualMode === 'genesis' ? [FX.genesis.amber, FX.genesis.gold, FX.genesis.orange]
+            : this.level.visualMode === 'singularity' ? [FX.singularity.cyan, FX.singularity.gold, FX.singularity.violet]
+              : [FX.campaign.wood, FX.campaign.woodDeep, FX.campaign.white];
+        this.burst((ends.a.x + ends.b.x) / 2, (ends.a.y + ends.b.y) / 2, 14, ropeColors, 2.8, 'spark');
         this.onEvent?.({ type: 'rope' });
         if (this.level.hardcore) this.shatter({ x: (ends.a.x + ends.b.x) / 2, y: (ends.a.y + ends.b.y) / 2 }, 14);
         cuts++;
@@ -431,7 +479,11 @@ export class GardenEngine {
       }
     }
     if (woodCuts) {
-      this.burst((a.x + b.x) / 2, (a.y + b.y) / 2, 10, ['#EBAE50', '#A8691F', '#FFF3DC'], 3);
+      const cutColors = this.level.voidProtocol || this.level.visualMode === 'void' ? [FX.void.red, FX.void.magenta, FX.void.text]
+        : this.level.visualMode === 'genesis' ? [FX.genesis.amber, FX.genesis.orange, FX.genesis.glow]
+          : this.level.visualMode === 'singularity' ? [FX.singularity.cyan, FX.singularity.gold, FX.singularity.glow]
+            : [FX.campaign.wood, FX.campaign.woodDeep, FX.campaign.white];
+      this.burst((a.x + b.x) / 2, (a.y + b.y) / 2, 12, cutColors, 3, 'spark');
       this.onEvent?.({ type: 'cut' });
     }
     return cuts + pushes;
@@ -508,14 +560,17 @@ export class GardenEngine {
       this.winFrom = { x: this.drop.position.x, y: this.drop.position.y };
       Body.setStatic(this.drop, true);
       const f = this.level.flower;
-      this.burst(f.x, f.y, 26, ['#FF7BA5', '#FFC233', '#3EA6FF', '#7FD9C4'], 4.5);
+      this.bloomFountain(f.x, f.y);
       this.onEvent?.({ type: 'win' });
     } else {
-      if (this.level.hardcore || reason.startsWith('Thermal')) {
-        this.shakeIntensity = 10;
-        this.shatter(this.drop.position, 30);
-        Body.setStatic(this.drop, true);
-      }
+      this.shakeIntensity = Math.max(this.shakeIntensity, this.level.hardcore ? 10 : 7);
+      this.shatter(this.drop.position, this.level.hardcore ? 30 : 18);
+      const splash = this.level.voidProtocol || this.level.visualMode === 'void' ? [FX.void.ok, FX.void.purple, FX.void.text]
+        : this.level.visualMode === 'genesis' ? [FX.genesis.glow, FX.genesis.amber, '#FFFFFF']
+          : this.level.visualMode === 'singularity' ? [FX.singularity.cyan, FX.singularity.gold, FX.singularity.glow]
+            : [FX.campaign.water, FX.campaign.mint, FX.campaign.white];
+      this.burst(this.drop.position.x, this.drop.position.y, 10, splash, 2.4, 'droplet');
+      Body.setStatic(this.drop, true);
       this.onEvent?.({ type: 'lose' });
     }
   }
@@ -549,7 +604,11 @@ export class GardenEngine {
       this.advanced.beforeStep(this.time, STEP / 1000, this.drop, this.status === 'running');
       Engine.update(this.engine, STEP);
       for (const effect of this.advanced.afterStep(this.drop, this.status === 'running')) {
-        this.burst(effect.at.x, effect.at.y, 14, effect.type === 'portal' ? ['#247BEB', '#5FE0C0'] : ['#FFD348', '#4FB36B'], 2.5);
+        const eventColors = this.level.visualMode === 'singularity' ? [FX.singularity.cyan, FX.singularity.gold, FX.singularity.violet]
+          : this.level.visualMode === 'genesis' ? [FX.genesis.amber, FX.genesis.gold, FX.genesis.orange]
+            : this.level.voidProtocol || this.level.visualMode === 'void' ? [FX.void.purple, FX.void.magenta, FX.void.red]
+              : effect.type === 'portal' ? [FX.campaign.water, FX.campaign.mint] : [FX.campaign.gold, FX.campaign.leaf];
+        this.burst(effect.at.x, effect.at.y, 14, eventColors, 2.5, effect.type === 'portal' ? 'spark' : 'circle');
         this.onEvent?.({ type: effect.type });
       }
       const flipped = this.hardcore.afterStep(this.drop, this.status === 'running');
@@ -597,6 +656,7 @@ export class GardenEngine {
       q.vy += 0.12;
       q.x += q.vx;
       q.y += q.vy;
+      if (q.rotation !== undefined) q.rotation += q.spin ?? 0;
       if (q.life > q.max) this.particles.splice(i, 1);
     }
   }

@@ -13,12 +13,13 @@ import { GENESIS_LEVELS } from '@/lib/genesisLevels';
 import { VOID_LEVELS } from '@/lib/voidLevels';
 import { useSound } from '@/lib/audio';
 import { setHapticsEnabled } from '@/lib/haptics';
-import { F, P, R, VD } from '@/constants/theme';
+import { F, GN, P, R, SG, VD } from '@/constants/theme';
 import { hintReducer, INITIAL_HINT_VIEW } from '@/lib/hints';
 import { useRewardedAd } from '@/lib/rewardedAds';
 import { BannerAdComponent, BANNER_AD_RESERVED_HEIGHT } from '@/components/BannerAdComponent';
 import { useAppRewards } from '@/hooks/useAppRewards';
 import { localRewardDay } from '@/lib/appRewards';
+import { SINGULARITY_LEVELS } from '@/lib/singularityLevels';
 import type { RewardedAdReward } from 'react-native-google-mobile-ads';
 import { SafeAreaView, type Edge } from 'react-native-safe-area-context';
 
@@ -32,21 +33,26 @@ export default function GameScreen() {
   const hard = useProgress(HARDCORE_LEVELS.length, 'cloud-garden:hardcore:v1');
   const gen = useProgress(GENESIS_LEVELS.length, 'cloud-garden:genesis:v1');
   const vd = useProgress(VOID_LEVELS.length, 'cloud-garden:void:v1');
+  const sing = useProgress(SINGULARITY_LEVELS.length, 'cloud-garden:singularity:v1');
   const appRewards = useAppRewards();
   const [mode, setMode] = useState<Mode>('classic');
   const hardcore = mode !== 'classic';
   const isGenesis = mode === 'genesis';
   const isVoid = mode === 'void';
-  const arcade = isVoid ? vd : isGenesis ? gen : hard;
+  const isSingularity = mode === 'singularity';
+  const isDarkScreen = isVoid || isSingularity;
+  const screenBg = isVoid ? VD.bg : isSingularity ? SG.bg : isGenesis ? GN.bg : P.paper;
+  const tone = isVoid ? 'void' : isSingularity ? 'singularity' : isGenesis ? 'genesis' : 'campaign';
+  const arcade = isVoid ? vd : isGenesis ? gen : isSingularity ? sing : hard;
   const active = hardcore ? arcade : classic;
-  const ready = classic.ready && hard.ready && gen.ready && vd.ready;
+  const ready = classic.ready && hard.ready && gen.ready && vd.ready && sing.ready;
   const { setLast } = active;
   const hardComplete = arcade.complete;
   const classicComplete = classic.complete;
   const { setSetting } = classic;
   // Settings are shared and always live on the classic record.
   const progress = { ...active.progress, settings: classic.progress.settings };
-  const levels = isVoid ? VOID_LEVELS : isGenesis ? GENESIS_LEVELS : hardcore ? HARDCORE_LEVELS : LEVELS;
+  const levels = isVoid ? VOID_LEVELS : isGenesis ? GENESIS_LEVELS : isSingularity ? SINGULARITY_LEVELS : hardcore ? HARDCORE_LEVELS : LEVELS;
 
   const [idx, setIdx] = useState(0);
   const [attempt, setAttempt] = useState(0);
@@ -252,8 +258,8 @@ export default function GameScreen() {
       setSheet(nextSheet);
       return;
     }
-    const p = m === 'void' ? vd.progress : m === 'genesis' ? gen.progress : m === 'hardcore' ? hard.progress : classic.progress;
-    const n = m === 'void' ? VOID_LEVELS.length : m === 'genesis' ? GENESIS_LEVELS.length : m === 'hardcore' ? HARDCORE_LEVELS.length : LEVELS.length;
+    const p = m === 'void' ? vd.progress : m === 'genesis' ? gen.progress : m === 'singularity' ? sing.progress : m === 'hardcore' ? hard.progress : classic.progress;
+    const n = m === 'void' ? VOID_LEVELS.length : m === 'genesis' ? GENESIS_LEVELS.length : m === 'singularity' ? SINGULARITY_LEVELS.length : m === 'hardcore' ? HARDCORE_LEVELS.length : LEVELS.length;
     fastPassTrialRef.current = false;
     setMode(m);
     setIdx(Math.min(p.last, p.unlocked, n - 1));
@@ -310,8 +316,8 @@ export default function GameScreen() {
             : 'Watch a video for +50% ink'
     : 'Watch a video for +50% ink';
   const currentHint = level.hint[hintView.step];
-  const noun = isVoid ? 'Void' : isGenesis ? 'Challenge' : hardcore ? 'Hardcore' : 'Bed';
-  const modeName = isVoid ? 'The Void Protocol' : isGenesis ? 'The Genesis Gauntlet' : hardcore ? 'Hardcore levels' : 'Garden beds';
+  const noun = isVoid ? 'Void' : isGenesis ? 'Challenge' : isSingularity ? 'Paradox' : hardcore ? 'Hardcore' : 'Bed';
+  const modeName = isVoid ? 'The Void Protocol' : isGenesis ? 'The Genesis Gauntlet' : isSingularity ? 'Singularity Paradox' : hardcore ? 'Hardcore levels' : 'Garden beds';
   const vr = level.voidProtocol;
   const vProg = vd.progress;
   const deathsHere = vProg.deaths[String(idx)] ?? 0;
@@ -328,27 +334,27 @@ export default function GameScreen() {
   const unit = compact ? 48 : 56;
   const showBrand = !landscape && availW >= 430;
   const showStarsInHeader = !landscape && availW >= 400;
-  const compactModeSwitch = landscape ? panelW < 520 : availW < 520;
+  const compactModeSwitch = landscape ? panelW < 640 : availW < 650;
 
   if (!ready) return <View style={[styles.root, { backgroundColor: P.skyTop }]} />;
 
   const header = (
     <View style={styles.topBar} testID="region-header">
-      <PressScale onPress={() => setSheet('levels')} testID="open-levels" label={`${modeName}. ${noun} ${level.id} of ${levels.length}, ${level.name}`} containerStyle={styles.pillSlot} style={[styles.levelPill, isVoid && styles.vBtn, isVoid && { backgroundColor: VD.panelHi }]}>
-        <Ionicons name="grid" size={18} color={isVoid ? VD.text : P.ink} />
+      <PressScale onPress={() => setSheet('levels')} testID="open-levels" label={`${modeName}. ${noun} ${level.id} of ${levels.length}, ${level.name}`} containerStyle={styles.pillSlot} style={[styles.levelPill, isVoid && styles.vBtn, isVoid && { backgroundColor: VD.panelHi }, isGenesis && styles.gnBtn, isSingularity && styles.singBtn]}>
+        <Ionicons name="grid" size={18} color={isDarkScreen ? isVoid ? VD.text : SG.cyan : P.ink} />
         <View style={{ flexShrink: 1, minWidth: 0 }}>
-          <Text style={[styles.pillSmall, isVoid && { color: VD.red }]} numberOfLines={1}>{noun} {level.id} of {levels.length}</Text>
-          <Text style={[styles.pillName, isVoid && { color: VD.text }]} numberOfLines={1}>{level.name}</Text>
+          <Text style={[styles.pillSmall, isVoid && { color: VD.red }, isGenesis && { color: GN.gold }, isSingularity && { color: SG.cyan }]} numberOfLines={1}>{noun} {level.id} of {levels.length}</Text>
+          <Text style={[styles.pillName, isVoid && { color: VD.text }, isGenesis && { color: GN.text }, isSingularity && { color: SG.text }]} numberOfLines={1}>{level.name}</Text>
         </View>
       </PressScale>
       {showStarsInHeader && (
-        <View style={[styles.brandBox, isVoid && styles.vBtn]}>
+        <View style={[styles.brandBox, isVoid && styles.vBtn, isGenesis && styles.gnBtn, isSingularity && styles.singBtn]}>
           {showBrand && <Text style={[styles.brandText, { color: P.white }]} numberOfLines={1}>Slice & Bloom</Text>}
           <Stars count={progress.stars[idx] ?? 0} size={14} />
         </View>
       )}
-      <PressScale onPress={() => setSheet('settings')} testID="open-settings" label="Settings" style={[styles.roundBtn, isVoid && styles.vBtn]}>
-        <Ionicons name="settings-sharp" size={20} color={isVoid ? VD.text : P.ink} />
+      <PressScale onPress={() => setSheet('settings')} testID="open-settings" label="Settings" style={[styles.roundBtn, isVoid && styles.vBtn, isGenesis && styles.gnBtn, isSingularity && styles.singBtn]}>
+        <Ionicons name="settings-sharp" size={20} color={isDarkScreen ? isVoid ? VD.text : SG.cyan : isGenesis ? GN.gold : P.ink} />
       </PressScale>
       <PressScale
         onPress={() => {
@@ -359,13 +365,13 @@ export default function GameScreen() {
         }}
         testID="open-reward-hub"
         label="App Reward Hub"
-        style={[styles.roundBtn, isVoid && styles.vBtn]}
+        style={[styles.roundBtn, isVoid && styles.vBtn, isGenesis && styles.gnBtn, isSingularity && styles.singBtn]}
       >
-        <Ionicons name="gift" size={20} color={isVoid ? VD.text : P.ink} />
+        <Ionicons name="gift" size={20} color={isDarkScreen ? isVoid ? VD.text : SG.gold : isGenesis ? GN.gold : P.ink} />
       </PressScale>
     </View>
   );
-  const modeBar = <ModeSwitch mode={mode} onChange={switchMode} tight={compactModeSwitch} themed={isVoid} />;
+  const modeBar = <ModeSwitch mode={mode} onChange={switchMode} tight={compactModeSwitch} themed={isDarkScreen} />;
   const mods: string[] = [];
   if (isGenesis) {
     if (level.countdownTimer) mods.push(`${level.countdownTimer}s countdown`);
@@ -387,21 +393,21 @@ export default function GameScreen() {
     if (level.rubeGoldbergChain) mods.push('Linked chain');
   }
   const modBadges = mods.length > 0 ? (
-    <View style={styles.modRow} testID={isGenesis ? 'genesis-modifiers' : 'level-modifiers'} accessibilityLabel={`Challenge modifiers: ${mods.join(', ')}`}>
-      {mods.map((m) => <Text key={m} style={styles.modChip}>{m}</Text>)}
+      <View style={styles.modRow} testID={isGenesis ? 'genesis-modifiers' : 'level-modifiers'} accessibilityLabel={`Challenge modifiers: ${mods.join(', ')}`}>
+      {mods.map((m) => <Text key={m} style={[styles.modChip, isGenesis && styles.gnChip, isSingularity && styles.singChip]}>{m}</Text>)}
     </View>
   ) : null;
   const hudCore = hc ? (
-    <HardcoreHud started={live?.started ?? false} timeLeft={live?.timeLeft ?? hc.timeLimit} limit={hc.timeLimit} elapsed={live?.elapsed ?? 0} gold={hc.goldTime} par={level.par} moves={live?.actions ?? 0} maxMoves={maxMoves} gravity={live?.gravityRemaining ?? 0} nextFlip={level.gravityFlipInterval ? level.gravityFlipInterval - ((live?.cycleTime ?? 0) % level.gravityFlipInterval) : undefined} themed={isVoid} />
+    <HardcoreHud started={live?.started ?? false} timeLeft={live?.timeLeft ?? hc.timeLimit} limit={hc.timeLimit} elapsed={live?.elapsed ?? 0} gold={hc.goldTime} par={level.par} moves={live?.actions ?? 0} maxMoves={maxMoves} gravity={live?.gravityRemaining ?? 0} nextFlip={level.gravityFlipInterval ? level.gravityFlipInterval - ((live?.cycleTime ?? 0) % level.gravityFlipInterval) : undefined} themed={isVoid} singularity={isSingularity} genesis={isGenesis} />
   ) : null;
   const hudBar = hc ? (isVoid ? <VoidHud deaths={deathsHere} badge={badgeHere} mods={vmods} timer={hudCore} /> : <View>{hudCore}{modBadges}</View>) : null;
   const ink = (
-    <View style={[styles.inkRow, isVoid && styles.vBtn]} testID="region-ink">
-      <Ionicons name="water" size={16} color={isVoid ? VD.purple : P.ink} />
-      <View style={[styles.inkTrack, isVoid && { backgroundColor: VD.bgDeep, borderColor: VD.line }]}>
-        <View style={[styles.inkFill, { width: `${Math.max(0, Math.min(1, inkPct)) * 100}%`, backgroundColor: inkPct < 0.2 ? (isVoid ? VD.red : P.coral) : isVoid ? VD.purple : P.mint }]} />
+    <View style={[styles.inkRow, isVoid && styles.vBtn, isGenesis && styles.gnBtn, isSingularity && styles.singBtn]} testID="region-ink">
+      <Ionicons name="water" size={16} color={isVoid ? VD.purple : isGenesis ? GN.amber : isSingularity ? SG.cyan : P.ink} />
+      <View style={[styles.inkTrack, isVoid && { backgroundColor: VD.bgDeep, borderColor: VD.line }, isGenesis && { backgroundColor: GN.bgDeep, borderColor: GN.line }, isSingularity && { backgroundColor: SG.bgDeep, borderColor: SG.line }]}>
+        <View style={[styles.inkFill, { width: `${Math.max(0, Math.min(1, inkPct)) * 100}%`, backgroundColor: inkPct < 0.2 ? (isVoid ? VD.red : isGenesis ? GN.orange : isSingularity ? SG.gold : P.coral) : isVoid ? VD.purple : isGenesis ? GN.amber : isSingularity ? SG.cyan : P.mint }]} />
       </View>
-      <Text style={[styles.inkText, isVoid && { color: VD.text }]}>{inkMax > 0 ? `${Math.round(inkLeft)} ink` : 'no ink'}</Text>
+      <Text style={[styles.inkText, isVoid && { color: VD.text }, isGenesis && { color: GN.text }, isSingularity && { color: SG.text }]}>{inkMax > 0 ? `${Math.round(inkLeft)} ink` : 'no ink'}</Text>
       {!!level.inkLimitPercent && (
         <Text style={styles.capText} testID="ink-cap" accessibilityLabel={`Ink capped at ${level.inkLimitPercent} percent`}>CAP {level.inkLimitPercent}%</Text>
       )}
@@ -413,35 +419,35 @@ export default function GameScreen() {
     </View>
   );
   const outOfInkOffer = showOutOfInkOffer ? (
-    <PressScale
+      <PressScale
       onPress={() => requestRewardedAction('retryInk')}
       disabled={!appRewards.ready || rewardedAd.status === 'loading' || rewardedAd.status === 'showing'}
       testID="out-of-ink-reward"
       label="Watch a rewarded video for fifty percent extra ink and instant retry"
-      style={[styles.inkOffer, isVoid && { backgroundColor: VD.panel, borderColor: VD.red }]}
+      style={[styles.inkOffer, isVoid && { backgroundColor: VD.panel, borderColor: VD.red }, isGenesis && { backgroundColor: GN.panel, borderColor: GN.amber }, isSingularity && { backgroundColor: SG.panel, borderColor: SG.cyan }]}
     >
-      <Ionicons name="play-circle" size={18} color={isVoid ? VD.red : P.dropDeep} />
-      <Text style={[styles.inkOfferText, isVoid && { color: VD.text }]} numberOfLines={2}>{outOfInkLabel}</Text>
+      <Ionicons name="play-circle" size={18} color={isVoid ? VD.red : isGenesis ? GN.gold : isSingularity ? SG.cyan : P.dropDeep} />
+      <Text style={[styles.inkOfferText, isVoid && { color: VD.text }, isGenesis && { color: GN.text }, isSingularity && { color: SG.text }]} numberOfLines={2}>{outOfInkLabel}</Text>
     </PressScale>
   ) : null;
   const captionEl = (!!caption || !landscape) && (
-    <View style={[styles.caption, isVoid && { backgroundColor: VD.panel, borderColor: VD.purple }, !caption && { opacity: 0 }, !landscape && { minHeight: compact ? 44 : 52 }]} testID="region-caption" accessibilityLiveRegion="polite">
+    <View style={[styles.caption, isVoid && { backgroundColor: VD.panel, borderColor: VD.purple }, isGenesis && { backgroundColor: GN.panel, borderColor: GN.amber }, isSingularity && { backgroundColor: SG.panel, borderColor: SG.cyan }, !caption && { opacity: 0 }, !landscape && { minHeight: compact ? 44 : 52 }]} testID="region-caption" accessibilityLiveRegion="polite">
       {hint && currentHint && (
         <View style={styles.hintHeading}>
-          <Ionicons name={currentHint.kind === 'draw' ? 'brush' : 'cut'} size={17} color={P.marigold} />
-          <Text style={styles.hintTitle} testID="hint-step">
+          <Ionicons name={currentHint.kind === 'draw' ? 'brush' : 'cut'} size={17} color={isGenesis ? GN.gold : isSingularity ? SG.gold : P.marigold} />
+          <Text style={[styles.hintTitle, isGenesis && { color: GN.text }, isSingularity && { color: SG.text }, isVoid && { color: VD.text }]} testID="hint-step">
             Step {hintView.step + 1} of {level.hint.length} · {currentHint.kind === 'draw' ? 'Draw' : 'Slice'}
           </Text>
         </View>
       )}
-      <Text style={[styles.captionText, compact && { fontSize: 12.5 }]} numberOfLines={landscape ? undefined : 3}>{caption || ' '}</Text>
+      <Text style={[styles.captionText, isGenesis && { color: GN.text }, isSingularity && { color: SG.text }, isVoid && { color: VD.text }, compact && { fontSize: 12.5 }]} numberOfLines={landscape ? undefined : 3}>{caption || ' '}</Text>
       {hint && level.hint.length > 1 && (
         <View style={styles.hintControls} testID="hint-controls">
-          <MiniBtn dark={isVoid} name="Previous hint step" icon="chevron-back" disabled={hintView.step === 0} onPress={() => dispatchHint({ type: 'previous', count: level.hint.length })} id="hint-previous" />
+          <MiniBtn dark={isVoid} tone={tone} name="Previous hint step" icon="chevron-back" disabled={hintView.step === 0} onPress={() => dispatchHint({ type: 'previous', count: level.hint.length })} id="hint-previous" />
           <PressScale onPress={() => dispatchHint({ type: 'overview' })} testID="hint-overview" label={hintView.overview ? 'Show only the current hint path' : 'Show all hint paths'} selected={hintView.overview} style={styles.hintOverview}>
             <Text style={styles.hintOverviewText}>{hintView.overview ? 'Current path' : 'All paths'}</Text>
           </PressScale>
-          <MiniBtn dark={isVoid} name="Next hint step" icon="chevron-forward" disabled={hintView.step === level.hint.length - 1} onPress={() => dispatchHint({ type: 'next', count: level.hint.length })} id="hint-next" />
+          <MiniBtn dark={isVoid} tone={tone} name="Next hint step" icon="chevron-forward" disabled={hintView.step === level.hint.length - 1} onPress={() => dispatchHint({ type: 'next', count: level.hint.length })} id="hint-next" />
         </View>
       )}
     </View>
@@ -449,14 +455,15 @@ export default function GameScreen() {
   const tools = (
     <View style={[styles.toolbar, landscape && { justifyContent: 'center' }]} testID="region-tools">
       <View style={[styles.toolGroup, tightTools && { gap: 4 }]}>
-        <ToolBtn dark={isVoid} size={tightTools ? 44 : unit} icon="brush" label="Draw" active={tool === 'draw'} disabled={!canDraw} onPress={() => setTool('draw')} id="tool-draw" />
-        <ToolBtn dark={isVoid} size={tightTools ? 44 : unit} icon="cut" label="Slice" active={tool === 'slice'} disabled={!canSlice} onPress={() => setTool('slice')} id="tool-slice" />
+        <ToolBtn dark={isVoid} tone={tone} size={tightTools ? 44 : unit} icon="brush" label="Draw" active={tool === 'draw'} disabled={!canDraw} onPress={() => setTool('draw')} id="tool-draw" />
+        <ToolBtn dark={isVoid} tone={tone} size={tightTools ? 44 : unit} icon="cut" label="Slice" active={tool === 'slice'} disabled={!canSlice} onPress={() => setTool('slice')} id="tool-slice" />
       </View>
       <View style={[styles.toolGroup, tightTools && { gap: 4 }]}>
-        <MiniBtn dark={isVoid} name="Undo" icon="arrow-undo" disabled={!live || live.strokes === 0 || (status !== 'ready' && status !== 'running')} onPress={undo} id="undo" />
-        <MiniBtn dark={isVoid} name={Platform.OS === 'web' ? 'Retry level (R)' : 'Retry level'} icon="refresh" onPress={reset} id="reset" />
+        <MiniBtn dark={isVoid} tone={tone} name="Undo" icon="arrow-undo" disabled={!live || live.strokes === 0 || (status !== 'ready' && status !== 'running')} onPress={undo} id="undo" />
+        <MiniBtn dark={isVoid} tone={tone} name={Platform.OS === 'web' ? 'Retry level (R)' : 'Retry level'} icon="refresh" onPress={reset} id="reset" />
         <MiniBtn
           dark={isVoid}
+          tone={tone}
           name={hint ? 'Hide hint' : (hardcore || isGenesis) && !rewardedHintUnlocked ? 'Watch video for ghost-line hint' : 'Show hint'}
           icon="bulb"
           active={hint}
@@ -472,23 +479,23 @@ export default function GameScreen() {
           id="hint"
         />
       </View>
-      <PressScale onPress={release} disabled={status !== 'ready'} testID="release" label="Drop water" containerStyle={[styles.releaseSlot, tightTools && { flexGrow: 0, flexBasis: 44, minWidth: 44 }]} style={[styles.release, isVoid && { backgroundColor: VD.redDeep, borderColor: VD.red, shadowColor: VD.red }, { height: tightTools ? 44 : unit }, tightTools && { paddingHorizontal: 0 }]}>
+      <PressScale onPress={release} disabled={status !== 'ready'} testID="release" label="Drop water" containerStyle={[styles.releaseSlot, tightTools && { flexGrow: 0, flexBasis: 44, minWidth: 44 }]} style={[styles.release, isVoid && { backgroundColor: VD.redDeep, borderColor: VD.red, shadowColor: VD.red }, isGenesis && { backgroundColor: GN.amber, borderColor: GN.glow, shadowColor: GN.orange }, isSingularity && { backgroundColor: SG.cyanDeep, borderColor: SG.cyan, shadowColor: SG.cyan }, { height: tightTools ? 44 : unit }, tightTools && { paddingHorizontal: 0 }]}>
         <Ionicons name="water" size={24} color={P.white} />
         {!tightTools && <Text style={styles.releaseText}>Drop</Text>}
       </PressScale>
     </View>
   );
   const frame = (
-    <View style={[styles.stageArea, isVoid && { backgroundColor: VD.bgDeep, borderWidth: 2, borderColor: VD.red }]} testID="region-stage">
+    <View style={[styles.stageArea, isVoid && { backgroundColor: VD.bgDeep, borderWidth: 2, borderColor: VD.red }, isGenesis && { backgroundColor: GN.bgDeep, borderWidth: 2, borderColor: GN.amber }, isSingularity && { backgroundColor: SG.bgDeep, borderWidth: 2, borderColor: SG.cyan }]} testID="region-stage">
       <GameBoard key={tag} modeKey={mode} engine={gameEngine} level={level} attempt={attempt} tool={tool} showHint={hint} hintStep={hintView.step} hintOverview={hintView.overview} guides={progress.settings.guides} paused={sheet !== 'none'} playSound={playSound} engineRef={engineRef} onHud={onHud} />
     </View>
   );
 
   return (
-    <View style={[styles.outer, isVoid && { backgroundColor: VD.bg }]}>
-      <SafeAreaView edges={safeAreaEdges} style={styles.safeRoot} testID="safe-area-game">
+    <View style={[styles.outer, { backgroundColor: screenBg }]}>
+      <SafeAreaView edges={safeAreaEdges} style={[styles.safeRoot, { backgroundColor: screenBg }]} testID="safe-area-game">
       {landscape ? (
-        <View style={[styles.root, isVoid && { backgroundColor: VD.bg }, styles.rootRow, { paddingTop: contentInsets.top + 6, paddingBottom: contentInsets.bottom + 6 + mainBannerSpace, paddingLeft: contentInsets.left + 12, paddingRight: contentInsets.right + 12 }]} testID="layout-landscape">
+        <View style={[styles.root, { backgroundColor: screenBg }, styles.rootRow, { paddingTop: contentInsets.top + 6, paddingBottom: contentInsets.bottom + 6 + mainBannerSpace, paddingLeft: contentInsets.left + 12, paddingRight: contentInsets.right + 12 }]} testID="layout-landscape">
           <View style={styles.landGroup}>
              <View style={{ width: panelW, minHeight: 0, flexShrink: 0 }} testID="region-panel">
               <ScrollView style={{ flex: 1, minHeight: 0 }} contentContainerStyle={[styles.panelContent, compact && { gap: 4, paddingVertical: 0 }]} showsVerticalScrollIndicator testID="panel-scroll">
@@ -508,7 +515,7 @@ export default function GameScreen() {
           </View>
         </View>
       ) : (
-        <View style={[styles.root, isVoid && { backgroundColor: VD.bg }, { paddingTop: contentInsets.top + 6, paddingBottom: contentInsets.bottom + 8 + mainBannerSpace, paddingLeft: contentInsets.left + 12, paddingRight: contentInsets.right + 12 }]} testID="layout-portrait">
+        <View style={[styles.root, { backgroundColor: screenBg }, { paddingTop: contentInsets.top + 6, paddingBottom: contentInsets.bottom + 8 + mainBannerSpace, paddingLeft: contentInsets.left + 12, paddingRight: contentInsets.right + 12 }]} testID="layout-portrait">
           <View style={styles.column}>
             {header}
             {modeBar}
@@ -530,17 +537,18 @@ export default function GameScreen() {
         </View>
       )}
 
-      {sheet === 'levels' && <LevelPicker deaths={vProg.deaths} badges={vProg.badges} title={isVoid ? 'Hardcore: The Void Protocol' : isGenesis ? 'The Genesis Gauntlet' : hardcore ? 'Hardcore' : 'Garden beds'} noun={noun} levels={levels} unlocked={progress.unlocked} fastPasses={isGenesis ? appRewards.profile.genesisFastPasses : 0} stars={progress.stars} scores={hardcore ? arcade.progress.scores : undefined} bestTimes={hardcore ? arcade.progress.bestTimes : undefined} current={idx} onPick={load} onClose={() => setSheet('none')} />}
+       {sheet === 'levels' && <LevelPicker deaths={vProg.deaths} badges={vProg.badges} title={isVoid ? 'Hardcore: The Void Protocol' : isGenesis ? 'The Genesis Gauntlet' : isSingularity ? 'Singularity Paradox' : hardcore ? 'Hardcore' : 'Garden beds'} noun={noun} levels={levels} unlocked={progress.unlocked} fastPasses={isGenesis ? appRewards.profile.genesisFastPasses : 0} stars={progress.stars} scores={hardcore ? arcade.progress.scores : undefined} bestTimes={hardcore ? arcade.progress.bestTimes : undefined} current={idx} onPick={load} onClose={() => setSheet('none')} />}
       {sheet === 'settings' && (
         <SettingsSheet
           dark={isVoid}
+          tone={tone}
           haptics={progress.settings.haptics}
           guides={progress.settings.guides}
           sound={progress.settings.sound}
           onSound={(v) => setSetting('sound', v)}
           onHaptics={(v) => setSetting('haptics', v)}
           onGuides={(v) => setSetting('guides', v)}
-          resetLabel={isVoid ? 'Reset Void progress' : isGenesis ? 'Reset Genesis progress' : hardcore ? 'Reset Hardcore progress' : 'Reset progress'}
+          resetLabel={isVoid ? 'Reset Void progress' : isGenesis ? 'Reset Genesis progress' : isSingularity ? 'Reset Singularity progress' : hardcore ? 'Reset Hardcore progress' : 'Reset progress'}
           onReset={() => {
             active.resetAll();
             load(0);
@@ -567,12 +575,13 @@ export default function GameScreen() {
         />
       )}
       {overlay && sheet === 'none' && status === 'won' && (
-        <WinCard dark={isVoid} badge={badgeHere} deaths={isVoid ? deathsHere : undefined} level={level} stars={live?.stars ?? 1} score={hardcore ? live?.score : undefined} highScore={hardcore ? arcade.progress.scores[String(idx)] : undefined} bestTime={hardcore ? arcade.progress.bestTimes[String(idx)] : undefined} masterclass={isGenesis} trial={fastPassTrialRef.current} elapsed={live?.elapsed} hasNext={idx + 1 < levels.length && (!fastPassTrialRef.current || appRewards.profile.genesisFastPasses > 0)} onNext={() => load(idx + 1)} onReplay={reset} onLevels={() => setSheet('levels')} />
+        <WinCard dark={isVoid} tone={tone} badge={badgeHere} deaths={isVoid ? deathsHere : undefined} level={level} stars={live?.stars ?? 1} score={hardcore ? live?.score : undefined} highScore={hardcore ? arcade.progress.scores[String(idx)] : undefined} bestTime={hardcore ? arcade.progress.bestTimes[String(idx)] : undefined} masterclass={isGenesis} trial={fastPassTrialRef.current} elapsed={live?.elapsed} hasNext={idx + 1 < levels.length && (!fastPassTrialRef.current || appRewards.profile.genesisFastPasses > 0)} onNext={() => load(idx + 1)} onReplay={reset} onLevels={() => setSheet('levels')} />
       )}
-      {overlay && sheet === 'none' && status === 'lost' && (hardcore || thermalFailure) && <HardcoreFail themed={isVoid} title={isVoid ? 'Voided' : hardcore ? 'Wilted' : 'Overheated'} reason={live?.fail ?? ''} onRetry={reset} rewardedRetry={rewardedRetry} />}
+      {overlay && sheet === 'none' && status === 'lost' && (hardcore || thermalFailure) && <HardcoreFail themed={isVoid} singularity={isSingularity} title={isVoid ? 'Voided' : isSingularity ? 'Collapsed' : hardcore ? 'Wilted' : 'Overheated'} reason={live?.fail ?? ''} onRetry={reset} rewardedRetry={rewardedRetry} />}
       {overlay && sheet === 'none' && status === 'lost' && !hardcore && !(level.thermalZone && live?.fail.includes('Thermal')) && (
         <LoseCard
           reason={live?.fail ?? ''}
+          tone={tone}
           onRetry={reset}
           rewardedRetry={rewardedRetry}
           onHint={() => {
@@ -586,18 +595,27 @@ export default function GameScreen() {
   );
 }
 
-function ToolBtn({ dark, icon, label, active, disabled, onPress, id, size }: { dark?: boolean; icon: keyof typeof Ionicons.glyphMap; label: string; active: boolean; disabled?: boolean; onPress: () => void; id: string; size: number }) {
+function ToolBtn({ dark, tone, icon, label, active, disabled, onPress, id, size }: { dark?: boolean; tone?: string; icon: keyof typeof Ionicons.glyphMap; label: string; active: boolean; disabled?: boolean; onPress: () => void; id: string; size: number }) {
+  const sing = tone === 'singularity';
+  const genesis = tone === 'genesis';
+  const themeStyle = sing ? styles.singBtn : genesis ? styles.gnBtn : undefined;
+  const activeStyle = sing ? { backgroundColor: SG.panelHi, borderColor: SG.cyan } : genesis ? { backgroundColor: GN.panelHi, borderColor: GN.gold } : dark ? { backgroundColor: VD.purpleDeep, borderColor: VD.magenta } : styles.toolBtnOn;
+  const iconColor = active ? P.white : sing ? SG.cyan : genesis ? GN.gold : dark ? VD.text : P.ink;
+  const labelColor = sing ? SG.text : genesis ? GN.text : dark ? VD.text : P.ink;
   return (
-    <PressScale onPress={onPress} disabled={disabled} testID={id} label={`${label} tool`} selected={active} style={[styles.toolBtn, dark && styles.vBtn, { width: size, height: size }, active && (dark ? { backgroundColor: VD.purpleDeep, borderColor: VD.magenta } : styles.toolBtnOn)]}>
-      <Ionicons name={icon} size={22} color={active || dark ? P.white : P.ink} />
-      <Text style={[styles.toolLabel, dark && { color: VD.text }, active && { color: P.white }]}>{label}</Text>
+    <PressScale onPress={onPress} disabled={disabled} testID={id} label={`${label} tool`} selected={active} style={[styles.toolBtn, dark && styles.vBtn, themeStyle, { width: size, height: size }, active && activeStyle]}>
+      <Ionicons name={icon} size={22} color={iconColor} />
+      <Text style={[styles.toolLabel, { color: labelColor }, active && { color: P.white }]}>{label}</Text>
     </PressScale>
   );
 }
-function MiniBtn({ dark, icon, onPress, disabled, active, id, name }: { dark?: boolean; icon: keyof typeof Ionicons.glyphMap; onPress: () => void; disabled?: boolean; active?: boolean; id: string; name: string }) {
+function MiniBtn({ dark, tone, icon, onPress, disabled, active, id, name }: { dark?: boolean; tone?: string; icon: keyof typeof Ionicons.glyphMap; onPress: () => void; disabled?: boolean; active?: boolean; id: string; name: string }) {
+  const sing = tone === 'singularity';
+  const genesis = tone === 'genesis';
+  const themeStyle = sing ? styles.singBtn : genesis ? styles.gnBtn : undefined;
   return (
-    <PressScale onPress={onPress} disabled={disabled} testID={id} label={name} selected={active} style={[styles.roundBtn, dark && styles.vBtn, active && { backgroundColor: dark ? VD.purpleDeep : P.marigold }]}>
-      <Ionicons name={icon} size={20} color={dark ? VD.text : P.ink} />
+    <PressScale onPress={onPress} disabled={disabled} testID={id} label={name} selected={active} style={[styles.roundBtn, dark && styles.vBtn, themeStyle, active && { backgroundColor: sing ? SG.panelHi : genesis ? GN.panelHi : dark ? VD.purpleDeep : P.marigold }]}>
+      <Ionicons name={icon} size={20} color={sing ? SG.cyan : genesis ? GN.gold : dark ? VD.text : P.ink} />
     </PressScale>
   );
 }
@@ -623,6 +641,10 @@ const styles = StyleSheet.create({
   pillSmall: { fontFamily: F.semi, fontSize: 10.5, color: P.ink, textTransform: 'uppercase', letterSpacing: 1 },
   pillName: { fontFamily: F.bold, fontSize: 17, color: P.ink },
   vBtn: { backgroundColor: VD.panel, borderColor: VD.line, shadowColor: VD.purple },
+  gnBtn: { backgroundColor: GN.panel, borderColor: GN.amber, shadowColor: GN.orange },
+  singBtn: { backgroundColor: SG.panel, borderColor: SG.cyan, shadowColor: SG.violet },
+  gnChip: { color: GN.text, backgroundColor: GN.panelHi, borderColor: GN.amber },
+  singChip: { color: SG.text, backgroundColor: SG.cyanDeep, borderColor: SG.cyan },
   roundBtn: { width: 44, height: 44, borderRadius: R.btn, backgroundColor: P.white, borderWidth: 3, borderColor: P.ink, alignItems: 'center', justifyContent: 'center', ...lift },
   inkRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 10, marginBottom: 8, paddingHorizontal: 8, paddingVertical: 4, backgroundColor: P.white, borderRadius: R.btn, borderWidth: 3, borderColor: P.ink },
   inkTrack: { flex: 1, height: 16, borderRadius: 8, backgroundColor: P.paperDeep, borderWidth: 2.5, borderColor: P.ink, overflow: 'hidden' },

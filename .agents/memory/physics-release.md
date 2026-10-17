@@ -38,3 +38,9 @@ Validate required mechanisms as well as a genuine flower collision.
 **Why:** A bidirectional portal exit near the launch column let Cloud bypass an unopened counterweight gate. Separately, a flower pedestal intercepted the key before it reached its switch.
 
 **How to apply:** Keep both portal ends clear of pre-unlock routes and target furniture out of falling-key columns. Assert that every required switch activates and each required portal is used before accepting a solution.
+
+When deriving or mirroring challenge layouts, transform complete collider bounds and replay the supplied route in Matter.js.
+
+**Why:** Transforming only an extended hazard's anchor can shift its collision shape enough to make an otherwise valid hint lethal.
+
+**How to apply:** Keep solver-based regression coverage for each generated variant, including hazards, and do not rely on visual inspection of transformed coordinates.

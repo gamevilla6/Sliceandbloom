@@ -1,12 +1,14 @@
 import React, { ReactNode, useEffect, useRef, useState } from 'react';
 import { Animated, Platform, Pressable, ScrollView, ScrollViewProps, StyleProp, StyleSheet, Text, View, ViewStyle, useWindowDimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { F, P, R, VD } from '@/constants/theme';
+import { F, GN, P, R, REWARD_GOLD, SG, VD } from '@/constants/theme';
 import { useSafeInsets } from '@/components/layout';
 import { BannerAdComponent, BANNER_AD_RESERVED_HEIGHT } from '@/components/BannerAdComponent';
 import { Level } from '@/lib/levels';
 import { haptic } from '@/lib/haptics';
 import { levelGrid, levelScrollOffset } from '@/lib/levelGrid';
+
+type UiTone = 'campaign' | 'genesis' | 'hardcore' | 'void' | 'singularity' | 'reward';
 
 export function PressScale({
   children,
@@ -71,8 +73,9 @@ export function Stars({ count, size = 30, pop = false }: { count: number; size?:
   );
 }
 
-function Card({ children, onClose, title, scrollID, expanded = false, scrollRef, onScrollLayout, onContentSizeChange, footer, dark, showBanner = false }: {
+function Card({ children, onClose, title, scrollID, expanded = false, scrollRef, onScrollLayout, onContentSizeChange, footer, dark, tone, showBanner = false }: {
   dark?: boolean;
+  tone?: UiTone;
   showBanner?: boolean;
   children: ReactNode;
   onClose?: () => void;
@@ -95,12 +98,24 @@ function Card({ children, onClose, title, scrollID, expanded = false, scrollRef,
   const bannerHeight = showBanner ? loadedBannerHeight ?? BANNER_AD_RESERVED_HEIGHT : 0;
   const availableHeight = Math.max(0, height - ins.top - ins.bottom - pad * 2 - bannerHeight);
   const short = expanded && availableHeight < 400;
+  const toneStyle = tone === 'void' ? styles.cardDark
+    : tone === 'singularity' ? styles.cardSingularity
+      : tone === 'genesis' ? styles.cardGenesis
+        : tone === 'reward' ? styles.cardReward : undefined;
+  const toneScrim = tone === 'void' ? { backgroundColor: 'rgba(5,3,10,0.82)' }
+    : tone === 'singularity' ? { backgroundColor: 'rgba(3,9,18,0.82)' }
+      : tone === 'genesis' ? { backgroundColor: 'rgba(30,17,5,0.72)' }
+        : tone === 'reward' ? { backgroundColor: 'rgba(18,12,4,0.78)' } : undefined;
+  const toneTitle = tone === 'void' ? { color: VD.text }
+    : tone === 'singularity' ? { color: SG.cyan }
+      : tone === 'genesis' ? { color: GN.gold }
+        : tone === 'reward' ? { color: REWARD_GOLD.gold } : undefined;
   return (
-    <Animated.View style={[styles.scrim, dark && { backgroundColor: 'rgba(5,3,10,0.82)' }, { opacity: a, paddingTop: ins.top + pad, paddingBottom: ins.bottom + pad + bannerHeight, paddingLeft: ins.left + pad, paddingRight: ins.right + pad }]}>
-      <Animated.View style={[styles.card, dark && styles.cardDark, expanded && { maxWidth: 840, height: availableHeight }, short && { padding: 12 }, { maxHeight: availableHeight, transform: [{ scale: a.interpolate({ inputRange: [0, 1], outputRange: [0.85, 1] }) }] }]} accessibilityViewIsModal>
+    <Animated.View style={[styles.scrim, dark && { backgroundColor: 'rgba(5,3,10,0.82)' }, toneScrim, { opacity: a, paddingTop: ins.top + pad, paddingBottom: ins.bottom + pad + bannerHeight, paddingLeft: ins.left + pad, paddingRight: ins.right + pad }]}>
+      <Animated.View style={[styles.card, dark && styles.cardDark, toneStyle, expanded && { maxWidth: 840, height: availableHeight }, short && { padding: 12 }, { maxHeight: availableHeight, transform: [{ scale: a.interpolate({ inputRange: [0, 1], outputRange: [0.85, 1] }) }] }]} accessibilityViewIsModal>
         {title !== undefined && (
           <View style={[styles.cardHead, short && { marginBottom: 8 }]}>
-            <Text style={[styles.cardTitle, dark && { color: VD.text }, short && { fontSize: 22 }]} numberOfLines={1}>{title}</Text>
+            <Text style={[styles.cardTitle, dark && { color: VD.text }, toneTitle, short && { fontSize: 22 }]} numberOfLines={1}>{title}</Text>
             {onClose && (
               <PressScale onPress={onClose} testID="close-sheet" label="Close" style={styles.closeBtn}>
                 <Ionicons name="close" size={22} color={P.white} />
@@ -122,25 +137,35 @@ function Card({ children, onClose, title, scrollID, expanded = false, scrollRef,
   );
 }
 
-function Btn({ dark, label, icon, onPress, kind = 'primary', testID, disabled }: { dark?: boolean; label: string; icon: keyof typeof Ionicons.glyphMap; onPress: () => void; kind?: 'primary' | 'ghost'; testID?: string; disabled?: boolean }) {
+function Btn({ dark, tone, label, icon, onPress, kind = 'primary', testID, disabled }: { dark?: boolean; tone?: UiTone; label: string; icon: keyof typeof Ionicons.glyphMap; onPress: () => void; kind?: 'primary' | 'ghost'; testID?: string; disabled?: boolean }) {
+  const darkMode = dark || tone === 'void' || tone === 'singularity' || tone === 'reward';
+  const toneBtn = tone === 'void' ? (kind === 'primary' ? styles.btnVoid : styles.btnVoidGhost)
+    : tone === 'singularity' ? (kind === 'primary' ? styles.btnSing : styles.btnSingGhost)
+      : tone === 'genesis' ? (kind === 'primary' ? styles.btnGenesis : styles.btnGenesisGhost)
+        : tone === 'reward' ? (kind === 'primary' ? styles.btnReward : styles.btnRewardGhost) : undefined;
+  const iconColor = darkMode ? tone === 'singularity' ? SG.cyan : tone === 'reward' ? REWARD_GOLD.gold : VD.text
+    : kind === 'primary' ? P.white : P.ink;
+  const textColor = darkMode ? tone === 'singularity' ? SG.text : tone === 'reward' ? REWARD_GOLD.text : VD.text
+    : kind === 'primary' ? P.white : P.ink;
   return (
-    <PressScale disabled={disabled} onPress={onPress} testID={testID} label={label} containerStyle={styles.btnSlot} style={[styles.btn, kind === 'primary' ? styles.btnPrimary : styles.btnGhost, dark && (kind === 'primary' ? styles.btnVoid : styles.btnVoidGhost)]}>
-      <Ionicons name={icon} size={20} color={dark ? VD.text : kind === 'primary' ? P.white : P.ink} />
-      <Text numberOfLines={1} style={[styles.btnText, { color: dark ? VD.text : kind === 'primary' ? P.white : P.ink }]}>{label}</Text>
+    <PressScale disabled={disabled} onPress={onPress} testID={testID} label={label} containerStyle={styles.btnSlot} style={[styles.btn, kind === 'primary' ? styles.btnPrimary : styles.btnGhost, dark && tone === 'void' && (kind === 'primary' ? styles.btnVoid : styles.btnVoidGhost), toneBtn]}>
+      <Ionicons name={icon} size={20} color={iconColor} />
+      <Text numberOfLines={1} style={[styles.btnText, { color: textColor }]}>{label}</Text>
     </PressScale>
   );
 }
 
-export function WinCard({ dark, badge, deaths, masterclass, trial, score, highScore, bestTime, level, stars, elapsed, hasNext, onNext, onReplay, onLevels }: { dark?: boolean; badge?: string; deaths?: number; masterclass?: boolean; trial?: boolean; score?: number; highScore?: number; bestTime?: number; level: Level; stars: number; elapsed?: number; hasNext: boolean; onNext: () => void; onReplay: () => void; onLevels: () => void }) {
+export function WinCard({ dark, tone, badge, deaths, masterclass, trial, score, highScore, bestTime, level, stars, elapsed, hasNext, onNext, onReplay, onLevels }: { dark?: boolean; tone?: UiTone; badge?: string; deaths?: number; masterclass?: boolean; trial?: boolean; score?: number; highScore?: number; bestTime?: number; level: Level; stars: number; elapsed?: number; hasNext: boolean; onNext: () => void; onReplay: () => void; onLevels: () => void }) {
+  const subColor = tone === 'singularity' ? SG.textSoft : tone === 'genesis' ? GN.textSoft : dark ? VD.textSoft : P.inkSoft;
   return (
-    <Card dark={dark} showBanner={Platform.OS !== 'web'}>
-      <Text style={[styles.kicker, dark && { color: VD.red }]}>{level.name}</Text>
-      <Text style={[styles.big, dark && { color: VD.purple, textShadowColor: VD.red }]}>{trial ? 'Fast-pass trial cleared' : dark ? 'Protocol cleared' : masterclass ? 'Masterclass complete' : 'It bloomed!'}</Text>
-      <Text style={styles.brand}>Slice & Bloom</Text>
+    <Card dark={dark} tone={tone} showBanner={Platform.OS !== 'web'}>
+      <Text style={[styles.kicker, dark && { color: VD.red }, tone === 'singularity' && { color: SG.cyan }, tone === 'genesis' && { color: GN.gold }]}>{level.name}</Text>
+      <Text style={[styles.big, dark && { color: VD.purple, textShadowColor: VD.red }, tone === 'singularity' && { color: SG.cyan, textShadowColor: SG.gold }, tone === 'genesis' && { color: GN.gold, textShadowColor: GN.orange }]}>{trial ? 'Fast-pass trial cleared' : dark ? 'Protocol cleared' : masterclass ? 'Masterclass complete' : tone === 'singularity' ? 'Paradox solved' : 'It bloomed!'}</Text>
+      <Text style={[styles.brand, tone === 'singularity' && { color: SG.textSoft }, tone === 'genesis' && { color: GN.textSoft } ]}>Slice & Bloom</Text>
       <View style={{ marginVertical: 14 }}>
         <Stars count={stars} size={44} pop />
       </View>
-      <Text style={styles.sub}>{trial ? 'This preview does not change permanent unlock progress.'
+      <Text style={[styles.sub, { color: subColor }]}>{trial ? 'This preview does not change permanent unlock progress.'
         : level.hardcore
         ? `${(elapsed ?? 0).toFixed(1)}s · ${stars === 3 ? 'Gold earned!' : `Gold needs ${level.hardcore.goldTime}s or less and at most ${level.par} ${level.par === 1 ? 'move' : 'moves'}.`}`
         : stars === 3 ? 'Perfect watering.' : stars === 2 ? 'Nicely done. Fewer moves earn a third star.' : 'Bloomed. Try fewer moves for more stars.'}</Text>
@@ -150,22 +175,23 @@ export function WinCard({ dark, badge, deaths, masterclass, trial, score, highSc
         </Text>
       )}
       {level.hardcore && score !== undefined && (
-        <Text style={[styles.sub, { marginTop: 6, fontFamily: F.bold, color: dark ? VD.text : P.ink }]} testID="win-score">
+        <Text style={[styles.sub, { marginTop: 6, fontFamily: F.bold, color: tone === 'singularity' ? SG.cyan : tone === 'genesis' ? GN.gold : dark ? VD.text : P.ink }]} testID="win-score">
           Score {score}{highScore !== undefined ? ` · Best ${highScore}` : ''}{bestTime !== undefined ? ` · Best time ${bestTime.toFixed(1)}s` : ''}
         </Text>
       )}
       <View style={styles.row}>
-        {hasNext ? <Btn dark={dark} label="Next" icon="arrow-forward" onPress={onNext} testID="next-level" /> : <Btn dark={dark} label="All grown" icon="grid" onPress={onLevels} testID="all-levels" />}
+        {hasNext ? <Btn dark={dark} tone={tone} label="Next" icon="arrow-forward" onPress={onNext} testID="next-level" /> : <Btn dark={dark} tone={tone} label="All grown" icon="grid" onPress={onLevels} testID="all-levels" />}
       </View>
       <View style={styles.row}>
-        <Btn dark={dark} label="Replay" icon="refresh" kind="ghost" onPress={onReplay} testID="replay" />
-        <Btn dark={dark} label="Levels" icon="grid" kind="ghost" onPress={onLevels} testID="win-levels" />
+        <Btn dark={dark} tone={tone} label="Replay" icon="refresh" kind="ghost" onPress={onReplay} testID="replay" />
+        <Btn dark={dark} tone={tone} label="Levels" icon="grid" kind="ghost" onPress={onLevels} testID="win-levels" />
       </View>
     </Card>
   );
 }
 
-export function LoseCard({ reason, onRetry, onHint, onLevels, rewardedRetry }: {
+export function LoseCard({ reason, tone = 'campaign', onRetry, onHint, onLevels, rewardedRetry }: {
+  tone?: UiTone;
   reason: string;
   onRetry: () => void;
   onHint: () => void;
@@ -178,17 +204,18 @@ export function LoseCard({ reason, onRetry, onHint, onLevels, rewardedRetry }: {
   };
 }) {
   return (
-    <Card showBanner={Platform.OS !== 'web'}>
-      <Text style={styles.kicker}>Oh no</Text>
-      <Text style={styles.big}>Cloud dried up</Text>
-      <Text style={[styles.sub, { marginVertical: 12 }]}>{reason}</Text>
+    <Card tone={tone} showBanner={Platform.OS !== 'web'}>
+      <Text style={[styles.kicker, tone === 'singularity' && { color: SG.cyan }, tone === 'genesis' && { color: GN.gold }]}>{tone === 'singularity' ? 'PARADOX FAILED' : tone === 'genesis' ? 'TRY AGAIN' : 'Oh no'}</Text>
+      <Text style={[styles.big, tone === 'singularity' && { color: SG.cyan, textShadowColor: SG.gold }, tone === 'genesis' && { color: GN.gold, textShadowColor: GN.orange }]}>{tone === 'singularity' ? 'Timeline collapsed' : 'Cloud dried up'}</Text>
+      <Text style={[styles.sub, tone === 'singularity' && { color: SG.textSoft }, tone === 'genesis' && { color: GN.textSoft }, { marginVertical: 12 }]}>{reason}</Text>
       {rewardedRetry?.supported && (
         <>
-          <Text style={[styles.sub, { textAlign: 'center' }]}>
+          <Text style={[styles.sub, tone === 'singularity' && { color: SG.textSoft }, tone === 'genesis' && { color: GN.textSoft }, { textAlign: 'center' }]}>
             Watch a quick video to get +50% Extra Ink &amp; Retry instantly!
           </Text>
           <View style={styles.row}>
             <Btn
+              tone={tone}
               label={
                 rewardedRetry.status === 'ready' ? 'Watch video · +50% ink'
                   : rewardedRetry.status === 'showing' ? 'Ad playing…'
@@ -204,18 +231,18 @@ export function LoseCard({ reason, onRetry, onHint, onLevels, rewardedRetry }: {
             />
           </View>
           {!!rewardedRetry.message && (
-            <Text style={styles.rewardedNote} testID="rewarded-retry-status" accessibilityLiveRegion="polite">
+            <Text style={[styles.rewardedNote, tone === 'singularity' && { color: SG.textSoft }, tone === 'genesis' && { color: GN.textSoft }]} testID="rewarded-retry-status" accessibilityLiveRegion="polite">
               {rewardedRetry.message}
             </Text>
           )}
         </>
       )}
       <View style={styles.row}>
-        <Btn label="Retry" icon="refresh" onPress={onRetry} testID="retry" />
+        <Btn tone={tone} label="Retry" icon="refresh" onPress={onRetry} testID="retry" />
       </View>
       <View style={styles.row}>
-        <Btn label="Hint" icon="bulb" kind="ghost" onPress={onHint} testID="fail-hint" />
-        <Btn label="Levels" icon="grid" kind="ghost" onPress={onLevels} testID="fail-levels" />
+        <Btn tone={tone} label="Hint" icon="bulb" kind="ghost" onPress={onHint} testID="fail-hint" />
+        <Btn tone={tone} label="Levels" icon="grid" kind="ghost" onPress={onLevels} testID="fail-levels" />
       </View>
     </Card>
   );
@@ -254,6 +281,15 @@ export function RewardHub({
   onUseFastPass: () => void;
   onClose: () => void;
 }) {
+  const sparkle = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    const loop = Animated.loop(Animated.sequence([
+      Animated.timing(sparkle, { toValue: 1, duration: 900, useNativeDriver: true }),
+      Animated.timing(sparkle, { toValue: 0, duration: 900, useNativeDriver: true }),
+    ]));
+    loop.start();
+    return () => loop.stop();
+  }, [sparkle]);
   const actionLabel = (action: HubRewardAction, defaultLabel: string) => {
     if (!supported) return 'Available in the native app';
     if (!ready) return 'Loading saved rewards…';
@@ -268,18 +304,28 @@ export function RewardHub({
     pendingReward === action && (adStatus === 'loading' || adStatus === 'showing');
 
   return (
-    <Card title="App Reward Hub" onClose={onClose} showBanner={Platform.OS !== 'web'}>
-      <Text style={styles.hubIntro}>Earn optional boosts by finishing a short video. Rewards are saved on this device.</Text>
+    <Card tone="reward" title="App Reward Hub" onClose={onClose} showBanner={Platform.OS !== 'web'}>
+      <View style={styles.vaultHeader}>
+        <Animated.View style={{ opacity: sparkle.interpolate({ inputRange: [0, 1], outputRange: [.45, 1] }), transform: [{ scale: sparkle.interpolate({ inputRange: [0, 1], outputRange: [.82, 1.18] }) }] }}>
+          <Ionicons name="sparkles" size={22} color={REWARD_GOLD.glow} />
+        </Animated.View>
+        <Text style={styles.vaultLabel}>A little extra for your next run</Text>
+        <Animated.View style={{ opacity: sparkle.interpolate({ inputRange: [0, 1], outputRange: [1, .45] }), transform: [{ scale: sparkle.interpolate({ inputRange: [0, 1], outputRange: [1.18, .82] }) }] }}>
+          <Ionicons name="sparkles" size={22} color={REWARD_GOLD.gold} />
+        </Animated.View>
+      </View>
+      <Text style={[styles.hubIntro, styles.vaultText]}>Earn optional boosts by finishing a short video. Rewards are saved on this device.</Text>
 
-      <View style={styles.rewardOffer} testID="reward-offer-daily-brush">
+      <View style={[styles.rewardOffer, styles.vaultOffer]} testID="reward-offer-daily-brush">
         <View style={styles.rewardOfferHead}>
-          <Ionicons name="brush" size={23} color={P.marigold} />
-          <Text style={styles.rewardOfferTitle}>Daily Golden Ink Brush</Text>
+          <Ionicons name="brush" size={23} color={REWARD_GOLD.gold} />
+          <Text style={[styles.rewardOfferTitle, styles.vaultTitle]}>Daily Golden Ink Brush</Text>
         </View>
-        <Text style={styles.rewardOfferCopy}>Adds 50% ink to one attempt. Claim one brush per day.</Text>
-        <Text style={styles.rewardInventory} testID="golden-brush-count">In your kit: {brushCount}</Text>
+        <Text style={[styles.rewardOfferCopy, styles.vaultText]}>Adds 50% ink to one attempt. Claim one brush per day.</Text>
+        <Text style={[styles.rewardInventory, styles.vaultInventory]} testID="golden-brush-count">In your kit: {brushCount}</Text>
         <View style={styles.row}>
           <Btn
+            tone="reward"
             label={dailyClaimed ? 'Claimed today' : actionLabel('dailyBrush', 'Watch · Brush')}
             icon={dailyClaimed ? 'checkmark-circle' : 'play-circle'}
             kind={dailyClaimed ? 'ghost' : 'primary'}
@@ -288,6 +334,7 @@ export function RewardHub({
             testID="claim-daily-brush"
           />
           <Btn
+            tone="reward"
             label="Use Brush"
             icon="flash"
             kind="ghost"
@@ -299,15 +346,16 @@ export function RewardHub({
         {!canUseBrush && brushCount > 0 && <Text style={styles.rewardFootnote}>This level has no drawable ink to refill.</Text>}
       </View>
 
-      <View style={styles.rewardOffer} testID="reward-offer-genesis-pass">
+      <View style={[styles.rewardOffer, styles.vaultOffer]} testID="reward-offer-genesis-pass">
         <View style={styles.rewardOfferHead}>
-          <Ionicons name="key" size={23} color={P.dropDeep} />
-          <Text style={styles.rewardOfferTitle}>Genesis Gauntlet Fast-Pass</Text>
+          <Ionicons name="key" size={23} color={REWARD_GOLD.glow} />
+          <Text style={[styles.rewardOfferTitle, styles.vaultTitle]}>Genesis Gauntlet Fast-Pass</Text>
         </View>
-        <Text style={styles.rewardOfferCopy}>Try one locked challenge early. A trial clear won’t change permanent unlock progress.</Text>
-        <Text style={styles.rewardInventory} testID="genesis-fast-pass-count">Fast-passes: {fastPassCount}</Text>
+        <Text style={[styles.rewardOfferCopy, styles.vaultText]}>Try one locked challenge early. A trial clear won’t change permanent unlock progress.</Text>
+        <Text style={[styles.rewardInventory, styles.vaultInventory]} testID="genesis-fast-pass-count">Fast-passes: {fastPassCount}</Text>
         <View style={styles.row}>
           <Btn
+            tone="reward"
             label={actionLabel('fastPass', 'Watch · Fast-pass')}
             icon="play-circle"
             kind="primary"
@@ -316,6 +364,7 @@ export function RewardHub({
             testID="claim-genesis-fast-pass"
           />
           <Btn
+            tone="reward"
             label={inGenesis ? 'Choose level' : 'Open Genesis'}
             icon="grid"
             kind="ghost"
@@ -326,8 +375,8 @@ export function RewardHub({
         </View>
       </View>
 
-      {!!message && <Text style={styles.rewardMessage} testID="reward-hub-message" accessibilityLiveRegion="polite">{message}</Text>}
-      {!supported && <Text style={styles.rewardFootnote}>Reward videos need an iOS or Android build with Google Mobile Ads.</Text>}
+      {!!message && <Text style={[styles.rewardMessage, styles.vaultText]} testID="reward-hub-message" accessibilityLiveRegion="polite">{message}</Text>}
+      {!supported && <Text style={[styles.rewardFootnote, styles.vaultText]}>Reward videos need an iOS or Android build with Google Mobile Ads.</Text>}
     </Card>
   );
 }
@@ -342,6 +391,9 @@ export function LevelPicker({ deaths, badges, scores, bestTimes, levels, unlocke
   const { gap, columns, tileWidth } = levelGrid(measuredWidth || Math.max(0, estimatedWidth), fontScale);
   const hc = !!levels[0]?.hardcore;
   const vd = !!levels[0]?.voidProtocol;
+  const sg = levels[0]?.visualMode === 'singularity';
+  const genesis = levels[0]?.visualMode === 'genesis';
+  const pickerTone: UiTone | undefined = vd ? 'void' : sg ? 'singularity' : genesis ? 'genesis' : undefined;
   const [records, setRecords] = useState(false);
   const pages: { n: string; a: number; b: number }[] | null = vd
     ? [
@@ -352,6 +404,8 @@ export function LevelPicker({ deaths, badges, scores, bestTimes, levels, unlocke
         a: 55 + i * 14, b: Math.min(levels.length - 1, 68 + i * 14),
       })),
     ]
+    : sg
+      ? ['Photon', 'Event Horizon', 'Quasar', 'Paradox', 'Singularity'].map((n, i) => ({ n, a: i * 11, b: Math.min(levels.length - 1, i * 11 + 10) }))
     : hc
     ? Array.from({ length: Math.ceil(levels.length / 15) }, (_, i) => ({
       n: ['Precision', 'Pressure', 'Gauntlet', 'Ascendant', 'Apex', 'Overdrive', 'Final Circuit'][i] ?? `Circuit ${i + 1}`,
@@ -391,27 +445,27 @@ export function LevelPicker({ deaths, badges, scores, bestTimes, levels, unlocke
     setJump((n) => n + 1);
   };
   return (
-    <Card dark={vd} title={title} onClose={onClose} scrollID="level-list" expanded showBanner={showBanner}
+    <Card dark={vd} tone={pickerTone} title={title} onClose={onClose} scrollID="level-list" expanded showBanner={showBanner}
       scrollRef={scrollRef}
       onScrollLayout={(e) => setViewportHeight(e.nativeEvent.layout.height)}
       onContentSizeChange={(_, h) => setContentHeight(h)}
       footer={
-        <PressScale testID="current-level" label={`Return to current ${noun.toLowerCase()} ${levels[current]?.id ?? current + 1}`} onPress={returnToCurrent} containerStyle={styles.currentSlot} style={[styles.currentBtn, vd && { backgroundColor: VD.purpleDeep, borderColor: VD.purple }]}>
-          <Ionicons name="locate" size={20} color={vd ? VD.text : P.ink} />
-          <Text style={[styles.currentText, vd && { color: VD.text }]}>Current {noun.toLowerCase()} · {levels[current]?.id ?? current + 1}</Text>
+        <PressScale testID="current-level" label={`Return to current ${noun.toLowerCase()} ${levels[current]?.id ?? current + 1}`} onPress={returnToCurrent} containerStyle={styles.currentSlot} style={[styles.currentBtn, vd && { backgroundColor: VD.purpleDeep, borderColor: VD.purple }, sg && styles.sgCurrent, genesis && styles.gnCurrent]}>
+          <Ionicons name="locate" size={20} color={vd ? VD.text : sg ? SG.cyan : genesis ? GN.gold : P.ink} />
+          <Text style={[styles.currentText, vd && { color: VD.text }, sg && { color: SG.text }, genesis && { color: GN.text }]}>Current {noun.toLowerCase()} · {levels[current]?.id ?? current + 1}</Text>
         </PressScale>
       }>
       {hc && (
-        <PressScale testID="records-toggle" selected={records} label={records ? 'Show level grid' : 'Show personal records, ranked by best score'} onPress={() => setRecords((r) => !r)} containerStyle={{ marginBottom: 10 }} style={[styles.chap, { flexDirection: 'row', gap: 6 }, vd && styles.vTile, records && { backgroundColor: vd ? VD.purpleDeep : P.marigold }]}>
-          <Ionicons name="trophy" size={18} color={vd ? VD.text : P.ink} />
-          <Text style={[styles.chapT, vd && { color: VD.text }]}>{records ? 'Back to levels' : 'Personal records'}</Text>
+        <PressScale testID="records-toggle" selected={records} label={records ? 'Show level grid' : 'Show personal records, ranked by best score'} onPress={() => setRecords((r) => !r)} containerStyle={{ marginBottom: 10 }} style={[styles.chap, { flexDirection: 'row', gap: 6 }, vd && styles.vTile, sg && styles.sgTile, genesis && styles.gnTile, records && { backgroundColor: vd ? VD.purpleDeep : sg ? SG.panelHi : genesis ? GN.panelHi : P.marigold }]}>
+          <Ionicons name="trophy" size={18} color={vd ? VD.text : sg ? SG.gold : genesis ? GN.gold : P.ink} />
+          <Text style={[styles.chapT, vd && { color: VD.text }, sg && { color: SG.text }, genesis && { color: GN.text }]}>{records ? 'Back to levels' : 'Personal records'}</Text>
         </PressScale>
       )}
       {hc && records && (
         <View testID="records-list" accessibilityLabel="Personal records on this device">
-          <Text style={[styles.chapT, vd && { color: VD.text }]}>Personal records (this device)</Text>
+          <Text style={[styles.chapT, vd && { color: VD.text }, sg && { color: SG.text }, genesis && { color: GN.text }]}>Personal records (this device)</Text>
           {levels.map((l, i) => ({ l, i, s: scores?.[String(i)] })).sort((a, b) => (b.s ?? -1) - (a.s ?? -1) || a.i - b.i).map(({ l, i, s }, r) => (
-            <Text key={l.id} style={[styles.tileRec, vd && { color: VD.textSoft, paddingVertical: 3 }]} accessibilityLabel={`${noun} ${l.id}, ${l.name}, best score ${s ?? 'none'}${vd ? `, ${deaths?.[String(i)] ?? 0} deaths, badge ${badges?.[String(i)] ?? 'none'}` : ''}`}>
+            <Text key={l.id} style={[styles.tileRec, vd && { color: VD.textSoft, paddingVertical: 3 }, sg && { color: SG.textSoft, paddingVertical: 3 }, genesis && { color: GN.textSoft, paddingVertical: 3 }]} accessibilityLabel={`${noun} ${l.id}, ${l.name}, best score ${s ?? 'none'}${vd ? `, ${deaths?.[String(i)] ?? 0} deaths, badge ${badges?.[String(i)] ?? 'none'}` : ''}`}>
               {s !== undefined ? `#${r + 1}` : '–'}  {noun} {l.id} {l.name}: {s ?? '—'} · {bestTimes?.[String(i)] !== undefined ? `${bestTimes[String(i)].toFixed(1)}s` : '—'} · {stars[i] ?? 0}/3 stars{vd ? ` · ${deaths?.[String(i)] ?? 0} deaths · ${badges?.[String(i)] ?? '—'}` : ''}
             </Text>
           ))}
@@ -420,9 +474,9 @@ export function LevelPicker({ deaths, badges, scores, bestTimes, levels, unlocke
       {pages && !records && (
         <View style={styles.chapRow}>
           {pages.map(({ n, a, b }, c) => (
-            <PressScale key={c} testID={`chapter-${c}`} selected={chap === c} label={`${n}, levels ${a + 1} to ${b + 1}`} onPress={() => setChap(c)} containerStyle={{ flexGrow: 1, flexBasis: pages.length > 3 ? 84 : 100 }} style={[styles.chap, vd && styles.vTile, chap === c && { backgroundColor: vd ? VD.redDeep : P.coralDeep }]}>
-              <Text style={[styles.chapT, vd && { color: VD.text }, chap === c && { color: P.white }]} numberOfLines={1}>{n}</Text>
-              <Text style={[styles.chapS, vd && { color: VD.textSoft }, chap === c && { color: P.white }]}>{a + 1}–{b + 1}</Text>
+            <PressScale key={c} testID={`chapter-${c}`} selected={chap === c} label={`${n}, levels ${a + 1} to ${b + 1}`} onPress={() => setChap(c)} containerStyle={{ flexGrow: 1, flexBasis: pages.length > 3 ? 84 : 100 }} style={[styles.chap, vd && styles.vTile, sg && styles.sgTile, genesis && styles.gnTile, chap === c && { backgroundColor: vd ? VD.redDeep : sg ? SG.cyanDeep : genesis ? GN.orange : P.coralDeep }]}>
+              <Text style={[styles.chapT, vd && { color: VD.text }, sg && { color: SG.text }, genesis && { color: GN.text }, chap === c && { color: P.white }]} numberOfLines={1}>{n}</Text>
+              <Text style={[styles.chapS, vd && { color: VD.textSoft }, sg && { color: SG.textSoft }, genesis && { color: GN.textSoft }, chap === c && { color: P.white }]}>{a + 1}–{b + 1}</Text>
             </PressScale>
           ))}
         </View>
@@ -436,9 +490,9 @@ export function LevelPicker({ deaths, badges, scores, bestTimes, levels, unlocke
           const fastPassTrial = i > unlocked && fastPasses > 0;
           const locked = i > unlocked && !fastPassTrial;
           return (
-            <PressScale key={l.id} containerStyle={{ width: tileWidth }} disabled={locked} label={locked ? `${noun} ${l.id}, ${l.name}, locked` : fastPassTrial ? `${noun} ${l.id}, ${l.name}, temporary fast-pass trial` : `${noun} ${l.id}, ${l.name}`} selected={i === current} onPress={() => onPick(i)} testID={`level-${l.id}`} style={[styles.tile, { height: tileHeight }, vd && styles.vTile, i === current && (vd ? styles.vTileCur : styles.tileCur), locked && { backgroundColor: vd ? VD.bgDeep : P.paperDeep }]}>
-              {locked ? <Ionicons name="lock-closed" size={22} color={vd ? VD.textSoft : P.inkSoft} /> : <Text style={[styles.tileNum, vd && { color: VD.text }]}>{l.id}</Text>}
-              <Text style={[styles.tileName, vd && { color: VD.textSoft }, { minHeight: 30 * Math.max(1, fontScale) }]} numberOfLines={2}>{l.name}</Text>
+              <PressScale key={l.id} containerStyle={{ width: tileWidth }} disabled={locked} label={locked ? `${noun} ${l.id}, ${l.name}, locked` : fastPassTrial ? `${noun} ${l.id}, ${l.name}, temporary fast-pass trial` : `${noun} ${l.id}, ${l.name}`} selected={i === current} onPress={() => onPick(i)} testID={`level-${l.id}`} style={[styles.tile, { height: tileHeight }, vd && styles.vTile, sg && styles.sgTile, genesis && styles.gnTile, i === current && (vd ? styles.vTileCur : sg ? styles.sgTileCur : genesis ? styles.gnTileCur : styles.tileCur), locked && { backgroundColor: vd ? VD.bgDeep : sg ? SG.bgDeep : genesis ? GN.bgDeep : P.paperDeep }]}>
+               {locked ? <Ionicons name="lock-closed" size={22} color={vd ? VD.textSoft : sg ? SG.textSoft : genesis ? GN.textSoft : P.inkSoft} /> : <Text style={[styles.tileNum, vd && { color: VD.text }, sg && { color: SG.cyan }, genesis && { color: GN.gold }]}>{l.id}</Text>}
+               <Text style={[styles.tileName, vd && { color: VD.textSoft }, sg && { color: SG.textSoft }, genesis && { color: GN.textSoft }, { minHeight: 30 * Math.max(1, fontScale) }]} numberOfLines={2}>{l.name}</Text>
               <Stars count={stars[i] ?? 0} size={14} />
               {vd && <Text style={[styles.tileRec, { color: badges?.[String(i)] === 'Gold' ? VD.gold : VD.textSoft }]}>{deaths?.[String(i)] ?? 0} deaths · {badges?.[String(i)] ?? 'No badge'}</Text>}
               {fastPassTrial
@@ -452,31 +506,35 @@ export function LevelPicker({ deaths, badges, scores, bestTimes, levels, unlocke
   );
 }
 
-function Toggle({ on, onChange, label, sub, testID }: { on: boolean; onChange: (v: boolean) => void; label: string; sub: string; testID: string }) {
+function Toggle({ on, onChange, label, sub, testID, tone }: { on: boolean; onChange: (v: boolean) => void; label: string; sub: string; testID: string; tone?: UiTone }) {
+  const textTone = tone === 'singularity' ? SG.text : tone === 'genesis' ? GN.text : tone === 'void' ? VD.text : P.ink;
+  const subTone = tone === 'singularity' ? SG.textSoft : tone === 'genesis' ? GN.textSoft : tone === 'void' ? VD.textSoft : P.inkSoft;
+  const dark = tone === 'void' || tone === 'singularity';
   return (
     <PressScale onPress={() => onChange(!on)} testID={testID} role="switch" selected={on} label={`${label}: ${sub}`} style={styles.toggleRow}>
       <View style={{ flex: 1, minWidth: 0 }}>
-        <Text style={styles.toggleLabel}>{label}</Text>
-        <Text style={styles.toggleSub}>{sub}</Text>
+        <Text style={[styles.toggleLabel, { color: textTone }]}>{label}</Text>
+        <Text style={[styles.toggleSub, { color: subTone }]}>{sub}</Text>
       </View>
-      <View style={[styles.track, on && { backgroundColor: P.drop }]}>
+      <View style={[styles.track, dark && { backgroundColor: tone === 'singularity' ? SG.panelHi : VD.panelHi, borderColor: tone === 'singularity' ? SG.cyan : VD.line }, on && { backgroundColor: tone === 'singularity' ? SG.cyanDeep : tone === 'genesis' ? GN.amber : P.drop }]}>
         <View style={[styles.knob, on && { transform: [{ translateX: 20 }] }]} />
       </View>
     </PressScale>
   );
 }
 
-export function SettingsSheet({ dark, haptics, guides, sound, onHaptics, onGuides, onSound, onReset, onClose, resetLabel = 'Reset progress' }: { dark?: boolean; resetLabel?: string; haptics: boolean; guides: boolean; sound: boolean; onHaptics: (v: boolean) => void; onSound: (v: boolean) => void; onGuides: (v: boolean) => void; onReset: () => void; onClose: () => void }) {
+export function SettingsSheet({ dark, tone, haptics, guides, sound, onHaptics, onGuides, onSound, onReset, onClose, resetLabel = 'Reset progress' }: { dark?: boolean; tone?: UiTone; resetLabel?: string; haptics: boolean; guides: boolean; sound: boolean; onHaptics: (v: boolean) => void; onSound: (v: boolean) => void; onGuides: (v: boolean) => void; onReset: () => void; onClose: () => void }) {
   const [armed, setArmed] = React.useState(false);
   return (
-    <Card title="Settings" onClose={onClose} dark={dark}>
-      <Text style={styles.brand}>Slice & Bloom</Text>
-      <Toggle on={sound} onChange={onSound} label="Sound" sub="Snips, rope twangs and splashes" testID="toggle-sound" />
-      <Toggle on={haptics} onChange={onHaptics} label="Haptics" sub="Taps, cuts and splashes" testID="toggle-haptics" />
-      <Toggle on={guides} onChange={onGuides} label="Cut guides" sub="Dashed outline on timber you can slice" testID="toggle-guides" />
+    <Card title="Settings" onClose={onClose} dark={dark} tone={tone}>
+      <Text style={[styles.brand, tone === 'singularity' && { color: SG.textSoft }, tone === 'genesis' && { color: GN.textSoft }]} >Slice & Bloom</Text>
+      <Toggle on={sound} onChange={onSound} label="Sound" sub="Snips, rope twangs and splashes" testID="toggle-sound" tone={tone} />
+      <Toggle on={haptics} onChange={onHaptics} label="Haptics" sub="Taps, cuts and splashes" testID="toggle-haptics" tone={tone} />
+      <Toggle on={guides} onChange={onGuides} label="Cut guides" sub="Dashed outline on timber you can slice" testID="toggle-guides" tone={tone} />
       <View style={{ height: 8 }} />
       <Btn
         dark={dark}
+        tone={tone}
         label={armed ? 'Tap again to erase' : resetLabel}
         icon="trash"
         kind="ghost"
@@ -525,10 +583,35 @@ const styles = StyleSheet.create({
   btnText: { fontFamily: F.bold, fontSize: 17 },
   starShadow: { textShadowColor: P.ink, textShadowRadius: 0, textShadowOffset: { width: 0, height: 2 } },
   cardDark: { backgroundColor: VD.bg, borderColor: VD.purple, shadowColor: VD.red, shadowOpacity: 0.6, shadowRadius: 0 },
+  cardSingularity: { backgroundColor: SG.bg, borderColor: SG.cyan, shadowColor: SG.violet, shadowOpacity: 0.8 },
+  cardGenesis: { backgroundColor: GN.bg, borderColor: GN.amber, shadowColor: GN.orange, shadowOpacity: 0.9 },
+  cardReward: { backgroundColor: REWARD_GOLD.bg, borderColor: REWARD_GOLD.gold, shadowColor: REWARD_GOLD.glow, shadowOpacity: 0.9 },
   btnVoid: { backgroundColor: VD.redDeep, borderColor: VD.red, shadowColor: VD.red },
   btnVoidGhost: { backgroundColor: VD.panelHi, borderColor: VD.purple, shadowColor: VD.purple },
+  btnSing: { backgroundColor: SG.cyanDeep, borderColor: SG.cyan, shadowColor: SG.cyan },
+  btnSingGhost: { backgroundColor: SG.panelHi, borderColor: SG.line, shadowColor: SG.violet },
+  btnGenesis: { backgroundColor: GN.orange, borderColor: GN.amber, shadowColor: GN.orange },
+  btnGenesisGhost: { backgroundColor: GN.panelHi, borderColor: GN.line, shadowColor: GN.amber },
+  btnReward: { backgroundColor: REWARD_GOLD.gold, borderColor: REWARD_GOLD.glow, shadowColor: REWARD_GOLD.gold },
+  btnRewardGhost: { backgroundColor: REWARD_GOLD.panelHi, borderColor: REWARD_GOLD.line, shadowColor: REWARD_GOLD.gold },
   vTile: { backgroundColor: VD.panel, borderColor: VD.line, shadowColor: VD.purple },
   vTileCur: { backgroundColor: VD.purpleDeep, borderColor: VD.red },
+  sgTile: { backgroundColor: SG.panel, borderColor: SG.line, shadowColor: SG.violet },
+  sgTileCur: { backgroundColor: SG.panelHi, borderColor: SG.cyan, shadowColor: SG.cyan },
+  gnTile: { backgroundColor: GN.panel, borderColor: GN.line, shadowColor: GN.orange },
+  gnTileCur: { backgroundColor: GN.panelHi, borderColor: GN.gold, shadowColor: GN.amber },
+  sgCurrent: { backgroundColor: SG.panelHi, borderColor: SG.cyan },
+  gnCurrent: { backgroundColor: GN.panelHi, borderColor: GN.gold },
+  sgCurrentText: { color: SG.text },
+  gnCurrentText: { color: GN.text },
+  sgChip: { color: SG.text, backgroundColor: SG.cyanDeep },
+  gnChip: { color: GN.bgDeep, backgroundColor: GN.amber },
+  vaultHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12, paddingVertical: 8, marginBottom: 6, borderTopWidth: 1, borderBottomWidth: 1, borderColor: REWARD_GOLD.line },
+  vaultLabel: { fontFamily: F.bold, fontSize: 14, color: REWARD_GOLD.gold, textAlign: 'center' },
+  vaultText: { color: REWARD_GOLD.textSoft },
+  vaultTitle: { color: REWARD_GOLD.text },
+  vaultInventory: { color: REWARD_GOLD.gold },
+  vaultOffer: { backgroundColor: REWARD_GOLD.panel, borderColor: REWARD_GOLD.line, shadowColor: REWARD_GOLD.gold, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.8, shadowRadius: 5, elevation: 2 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   tile: { width: '100%', backgroundColor: P.white, borderRadius: R.btn, borderWidth: 3, borderColor: P.ink, shadowColor: P.ink, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 1, shadowRadius: 0, alignItems: 'center', justifyContent: 'center', gap: 4, padding: 8 },
   chapRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 },

@@ -5,8 +5,11 @@ const TIERS = ['Photon', 'Event Horizon', 'Quasar', 'Paradox', 'Singularity'];
 
 function makeVariant(source: Level, index: number): Level {
   const tier = Math.floor(index / 11);
-  const scale = 0.82 + tier * 0.018 + (index % 11 % 4) * 0.004;
-  const mirror = index % 2 === 1;
+  // Keep collision-critical geometry at campaign dimensions; the alternating
+  // horizontal mirror creates a distinct route without invalidating solved hints.
+  const scale = 1;
+  // Mirror whole tiers so eastbound/westbound pairs stay visually distinct.
+  const mirror = Math.floor(index / 11) % 2 === 1;
   const direction = mirror ? -1 : 1;
   const point = (v: V): V => ({
     x: 180 + direction * (v.x - 180) * scale,
@@ -22,7 +25,7 @@ function makeVariant(source: Level, index: number): Level {
     angle: angle(b.angle),
   });
 
-  const timeLimit = 27 - tier * 1.5;
+  const timeLimit = 32 - tier * 1.5;
   return {
     ...source,
     id: index + 1,
@@ -35,7 +38,12 @@ function makeVariant(source: Level, index: number): Level {
     soil: source.soil.map(block),
     wood: source.wood.map(block),
     stones: source.stones.map((s) => ({ ...point(s), r: s.r * scale })),
-    thorns: source.thorns.map((t) => ({ ...point({ x: t.x + t.w / 2, y: t.y }), w: t.w * scale })),
+    thorns: source.thorns.map((t) => ({
+      ...t,
+      x: point({ x: t.x + t.w / 2, y: t.y }).x - t.w * scale / 2,
+      y: point({ x: t.x + t.w / 2, y: t.y }).y,
+      w: t.w * scale,
+    })),
     hint: source.hint.map((h) => ({ ...h, pts: h.pts.map(point) })),
     ropes: source.ropes?.map((r) => ({
       ...r,
@@ -46,7 +54,7 @@ function makeVariant(source: Level, index: number): Level {
       ...block(z),
       force: vector(z.force),
     })),
-    movers: source.movers?.map((m) => ({ ...block(m), amplitude: m.amplitude * scale })),
+    movers: source.movers?.map((m) => ({ ...m, ...block(m), amplitude: m.amplitude * scale })),
     portals: source.portals?.map((p) => ({
       entry: point(p.entry),
       exit: point(p.exit),
@@ -85,7 +93,7 @@ function makeVariant(source: Level, index: number): Level {
       timeLimit,
       goldTime: timeLimit - 4,
       maxStrokes: Math.max(1, source.hint.length),
-      gravityScale: 1.08 + tier * 0.035,
+      gravityScale: 1.05,
     },
   };
 }
