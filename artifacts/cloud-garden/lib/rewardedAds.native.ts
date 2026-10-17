@@ -16,10 +16,12 @@ function getRewardedUnitId(): string {
   if (__DEV__) return TestIds.REWARDED;
   const productionUnitId = Platform.select({
     ios: process.env.EXPO_PUBLIC_ADMOB_REWARDED_IOS,
-    android: process.env.EXPO_PUBLIC_ADMOB_REWARDED_ANDROID,
+    // Ad unit IDs are public identifiers; this Android production unit was
+    // supplied for this app. Debug builds always use Google's test unit above.
+    android: 'ca-app-pub-3691647720194867/7981531326',
   });
   if (!productionUnitId) {
-    throw new Error('Set the platform EXPO_PUBLIC_ADMOB_REWARDED_* ad unit ID before enabling production ads.');
+    throw new Error('Set EXPO_PUBLIC_ADMOB_REWARDED_IOS before enabling production iOS ads.');
   }
   return productionUnitId;
 }
