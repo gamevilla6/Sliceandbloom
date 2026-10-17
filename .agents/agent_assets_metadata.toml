@@ -1,0 +1,9 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "4Uno21mhiZ26ueohYnV6H"
+uri = "file://artifacts/slice-bloom-promo/public/audio/bg_music.mp3"
+type = "audio"
+title = "bg"
+description = "Generated music: Playful bouncy instrumental game-trailer music, marimba, pizzicato strings, soft synth bass, light percussion, 110 BPM, cheerful, curious intro, steady build, bright lift at 18 secon…"

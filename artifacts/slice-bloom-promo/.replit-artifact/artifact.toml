@@ -1,0 +1,29 @@
+kind = "video"
+videoAspectRatio = "16:9"
+previewPath = "/slice-bloom-promo/"
+title = "Slice & Bloom — Animated Promo"
+description = "An animated promotional film about the Slice & Bloom physics puzzle game, its drawing and slicing mechanics, blooming targets, and five game modes."
+version = "1.0.0"
+id = "artifacts/slice-bloom-promo"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/slice-bloom-promo/" ]
+localPort = 23473
+
+[services.development]
+run = "pnpm --filter @workspace/slice-bloom-promo run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/slice-bloom-promo", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/slice-bloom-promo/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "23473"
+BASE_PATH = "/slice-bloom-promo/"
