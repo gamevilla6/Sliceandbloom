@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { GameBoard, Hud, Tool } from '@/components/GameBoard';
 import { LevelPicker, LoseCard, PressScale, SettingsSheet, Stars, WinCard } from '@/components/GameUi';
 import { RewardHub } from '@/components/RewardHub';
+import { SmartHintPrompt } from '@/components/SmartHintPrompt';
 import { useLayoutMode } from '@/components/layout';
 import { HardcoreFail, HardcoreHud, Mode, ModeSwitch, VoidHud } from '@/components/HardcoreLayer';
 import { useProgress } from '@/hooks/useProgress';
@@ -75,6 +76,8 @@ export default function GameScreen() {
   const [rewardAdRequest, setRewardAdRequest] = useState(0);
   const [rewardMessage, setRewardMessage] = useState<string>();
   const [rewardedHintUnlocked, setRewardedHintUnlocked] = useState(false);
+  const [hintPrompt, setHintPrompt] = useState(false);
+  const [hintWatchRequested, setHintWatchRequested] = useState(false);
   const rewardActionRef = useRef<RewardAction | null>(null);
   const rewardReceiptRef = useRef('');
   const dailyOfferRef = useRef<DailyRewardOffer | undefined>(undefined);
@@ -196,6 +199,8 @@ export default function GameScreen() {
     setAttempt((a) => a + 1);
     setBonusInkFraction(0);
     setRewardedHintUnlocked(false);
+    setHintPrompt(false);
+    setHintWatchRequested(false);
     rewardActionRef.current = null;
     setRewardAction(null);
     setRewardMessage(undefined);
@@ -208,6 +213,8 @@ export default function GameScreen() {
     setAttempt((a) => a + 1);
     setBonusInkFraction(0);
     setRewardedHintUnlocked(false);
+    setHintPrompt(false);
+    setHintWatchRequested(false);
     rewardActionRef.current = null;
     setRewardAction(null);
     setRewardMessage(undefined);
@@ -230,7 +237,7 @@ export default function GameScreen() {
   const canUsePendingReward = rewardAction === 'retryInk'
     ? canOfferRewardedRetry
     : rewardAction === 'hint'
-      ? sheet === 'none' && !overlay && (hardcore || isGenesis) && status !== 'won' && status !== 'lost'
+      ? sheet === 'none' && !overlay && hintPrompt && status !== 'won' && status !== 'lost'
       : !!rewardAction && sheet === 'rewards';
 
   const onRewardAfterClose = useCallback((reward: RewardedAdReward) => {
@@ -244,6 +251,8 @@ export default function GameScreen() {
         retryWithBonusInk();
         break;
       case 'hint':
+        setHintPrompt(false);
+        setHintWatchRequested(false);
         appRewards.recordHint();
         setRewardedHintUnlocked(true);
         dispatchHint({ type: 'show' });
@@ -265,6 +274,31 @@ export default function GameScreen() {
     void reward;
   }, [appRewards.grantHubAd, appRewards.recordHint, appRewards.recordInkRetry, retryWithBonusInk, playSound]);
   const rewardedAd = useRewardedAd(!!rewardAction && canUsePendingReward, rewardAdRequest, onRewardAfterClose);
+  // Watch Ad is explicit opt-in. A cold cache continues automatically once
+  // loading succeeds; no second tap or synthetic browser reward is needed.
+  useEffect(() => {
+    if (!hintWatchRequested || !hintPrompt || rewardAction !== 'hint') return;
+    if (rewardedAd.status === 'ready' && !adNexus.fullscreen) {
+      setHintWatchRequested(false);
+      rewardedAd.onPress();
+    } else if (rewardedAd.status === 'showing' || rewardedAd.status === 'unavailable') {
+      setHintWatchRequested(false);
+    }
+  }, [hintWatchRequested, hintPrompt, rewardAction, rewardedAd.status, rewardedAd.onPress, adNexus.fullscreen]);
+  const closeHintPrompt = () => {
+    if (adManager.getSnapshot().fullscreen) return;
+    setHintPrompt(false);
+    setHintWatchRequested(false);
+    rewardActionRef.current = null;
+    setRewardAction(null);
+  };
+  // The ghost path is guidance, never an automatic stroke or physics mutation.
+  // It fades after 15 seconds; the earned unlock can re-display it this attempt.
+  useEffect(() => {
+    if (!hint) return;
+    const timer = setTimeout(() => dispatchHint({ type: 'toggle' }), 15000);
+    return () => clearTimeout(timer);
+  }, [hint, tag]);
   const requestRewardedAction = (action: RewardAction) => {
     const watch = () => {
       dailyOfferRef.current = action === 'dailyBrush' ? createDailyRewardOffer(appRewards.profile, Date.now()) : undefined;
@@ -314,6 +348,8 @@ export default function GameScreen() {
     setAttempt((a) => a + 1);
     setBonusInkFraction(0);
     setRewardedHintUnlocked(false);
+    setHintPrompt(false);
+    setHintWatchRequested(false);
     rewardActionRef.current = null;
     setRewardAction(null);
     dispatchHint({ type: 'reset' });
@@ -386,7 +422,7 @@ export default function GameScreen() {
   const rules = 'First touch starts the timer. Undo: no refunds.';
   const hintAdNote = rewardAction === 'hint'
     ? rewardedAd.status === 'loading' ? 'Loading a video for the ghost-line solution…'
-      : rewardedAd.status === 'ready' ? 'Tap Hint again to watch and reveal the ghost line.'
+      : rewardedAd.status === 'ready' ? 'Your expert ghost path is ready to unlock.'
         : rewardedAd.status === 'showing' ? 'Video playing…'
           : rewardedAd.message ?? 'Rewarded hint unavailable. Try again.'
     : '';
@@ -551,24 +587,6 @@ export default function GameScreen() {
       </View>
       <View style={[styles.toolGroup, tightTools && { gap: 4 }]}>
         <MiniBtn dark={isVoid} tone={tone} name="Undo" icon="arrow-undo" disabled={!live || live.strokes === 0 || (status !== 'ready' && status !== 'running')} onPress={undo} id="undo" />
-        <MiniBtn dark={isVoid} tone={tone} name={Platform.OS === 'web' ? 'Retry level (R)' : 'Retry level'} icon="refresh" onPress={reset} id="reset" />
-        <MiniBtn
-          dark={isVoid}
-          tone={tone}
-          name={hint ? 'Hide hint' : (hardcore || isGenesis) && !rewardedHintUnlocked ? 'Watch video for ghost-line hint' : 'Show hint'}
-          icon="bulb"
-          active={hint}
-          disabled={level.hint.length === 0 || (rewardAction === 'hint' && (rewardedAd.status === 'loading' || rewardedAd.status === 'showing'))}
-          onPress={() => {
-            if (hardcore || isGenesis) {
-              if (rewardedHintUnlocked) dispatchHint({ type: 'toggle' });
-              else requestRewardedAction('hint');
-            } else {
-              dispatchHint({ type: 'toggle' });
-            }
-          }}
-          id="hint"
-        />
       </View>
       <PressScale onPress={release} disabled={status !== 'ready'} testID="release" label="Drop water" containerStyle={[styles.releaseSlot, tightTools && { flexGrow: 0, flexBasis: 44, minWidth: 44 }]} style={[styles.release, isVoid && { backgroundColor: VD.redDeep, borderColor: VD.red, shadowColor: VD.red }, isGenesis && { backgroundColor: GN.amber, borderColor: GN.glow, shadowColor: GN.orange }, isSingularity && { backgroundColor: SG.cyanDeep, borderColor: SG.cyan, shadowColor: SG.cyan }, { height: tightTools ? 44 : unit }, tightTools && { paddingHorizontal: 0 }]}>
         <Ionicons name="water" size={24} color={P.white} />
@@ -578,7 +596,17 @@ export default function GameScreen() {
   );
   const frame = (
     <View style={[styles.stageArea, isVoid && { backgroundColor: VD.bgDeep, borderWidth: 2, borderColor: VD.red }, isGenesis && { backgroundColor: GN.bgDeep, borderWidth: 2, borderColor: GN.amber }, isSingularity && { backgroundColor: SG.bgDeep, borderWidth: 2, borderColor: SG.cyan }]} testID="region-stage">
-      <GameBoard key={tag} modeKey={mode} engine={gameEngine} level={level} attempt={attempt} tool={tool} showHint={hint} hintStep={hintView.step} hintOverview={hintView.overview} guides={progress.settings.guides} paused={sheet !== 'none' || !!adNexus.fullscreen || (rewardAction === 'retryInk' && canUsePendingReward && (rewardedAd.status === 'loading' || rewardedAd.status === 'ready'))} playSound={playSound} engineRef={engineRef} onHud={onHud} />
+      <View style={styles.stageHud}>
+        <MiniBtn dark={isVoid} tone={tone} name={Platform.OS === 'web' ? 'Retry level (R)' : 'Retry level'} icon="refresh" onPress={reset} id="reset" />
+        <PressScale label={hint ? 'Hide hint' : 'Hint'} testID="hint" disabled={!level.hint.length || status === 'won' || status === 'lost'} onPress={() => {
+          if (rewardedHintUnlocked) dispatchHint({ type: 'toggle' });
+          else setHintPrompt(true);
+        }} style={styles.smartHint}>
+          <Ionicons name="bulb" size={20} color={P.ink} />
+          <Text style={styles.smartHintText}>Hint</Text>
+        </PressScale>
+      </View>
+      <GameBoard key={tag} modeKey={mode} engine={gameEngine} level={level} attempt={attempt} tool={tool} showHint={hint} hintStep={hintView.step} hintOverview={hintView.overview} guides={progress.settings.guides} paused={hintPrompt || sheet !== 'none' || !!adNexus.fullscreen || (rewardAction === 'retryInk' && canUsePendingReward && (rewardedAd.status === 'loading' || rewardedAd.status === 'ready'))} playSound={playSound} engineRef={engineRef} onHud={onHud} />
     </View>
   );
 
@@ -682,11 +710,15 @@ export default function GameScreen() {
           rewardedRetry={rewardedRetry}
           onHint={() => {
             reset();
-            dispatchHint({ type: 'show' });
+            setHintPrompt(true);
           }}
           onLevels={() => setSheet('levels')}
         />
       )}
+      <SmartHintPrompt visible={hintPrompt} busy={rewardAction === 'hint' && (hintWatchRequested || rewardedAd.status === 'loading' || rewardedAd.status === 'showing')} supported={rewardedAd.supported && appRewards.ready && !appRewards.storageError} message={rewardAction === 'hint' ? rewardedAd.message : appRewards.storageError ?? undefined} onClose={closeHintPrompt} onWatch={() => {
+        setHintWatchRequested(true);
+        requestRewardedAction('hint');
+      }} />
     </View>
   );
 }
@@ -718,6 +750,9 @@ function MiniBtn({ dark, tone, icon, onPress, disabled, active, id, name }: { da
 
 const lift = { shadowColor: P.ink, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 1, shadowRadius: 0, elevation: 3 } as const;
 const styles = StyleSheet.create({
+  stageHud: { flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', gap: 8, padding: 6 },
+  smartHint: { minHeight: 44, paddingHorizontal: 14, flexDirection: 'row', gap: 6, alignItems: 'center', backgroundColor: P.marigold, borderRadius: R.btn, shadowColor: P.marigold, shadowOpacity: 0.6, shadowRadius: 8, shadowOffset: { width: 0, height: 0 }, elevation: 4 },
+  smartHintText: { fontFamily: F.bold, color: P.ink, fontSize: 14 },
   outer: { flex: 1, backgroundColor: P.paper },
   safeRoot: { flex: 1, backgroundColor: P.paper },
   bannerDock: { position: 'absolute', left: 0, right: 0, alignItems: 'center', zIndex: 60 },
