@@ -3,7 +3,6 @@ import { StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { F, P, R, VD } from '@/constants/theme';
 import { PressScale } from '@/components/GameUi';
-import { VOID_LEVELS } from '@/lib/voidLevels';
 import { HARDCORE_LEVELS } from '@/lib/hardcoreLevels';
 
 export type Mode = 'classic' | 'hardcore' | 'genesis' | 'void';
@@ -21,7 +20,7 @@ export function ModeSwitch({ themed, mode, onChange, tight }: { themed?: boolean
         testID={`mode-${m}`}
         label={m === 'classic' ? 'Campaign Mode, Levels 1 to 100'
           : m === 'genesis' ? 'The Genesis Gauntlet, 45 Masterclass challenges'
-          : m === 'void' ? `Hardcore: The Void Protocol, ${VOID_LEVELS.length} levels` : `Hardcore mode, ${HARDCORE_LEVELS.length} timed levels`}
+          : m === 'void' ? 'Hardcore: The Void Protocol' : `Hardcore mode, ${HARDCORE_LEVELS.length} timed levels`}
         selected={on}
         containerStyle={m === 'void' ? { flexGrow: 1, flexBasis: '100%', minWidth: 0 } : { flexGrow: 1, flexBasis: 90, minWidth: 0 }}
         style={[styles.seg, on && (m === 'classic' ? styles.segClassic : m === 'genesis' ? styles.segGen : m === 'void' ? styles.segVoid : styles.segHard)]}
@@ -36,7 +35,7 @@ export function ModeSwitch({ themed, mode, onChange, tight }: { themed?: boolean
       {opt('classic', tight ? 'Campaign 100' : 'Campaign', 'leaf')}
       {opt('hardcore', tight ? `Hardcore ${HARDCORE_LEVELS.length}` : 'Hardcore', 'flame')}
       {opt('genesis', tight ? 'Genesis 45' : 'Genesis Gauntlet', 'planet')}
-      {opt('void', `Hardcore: The Void Protocol (${VOID_LEVELS.length} Levels)`, 'skull')}
+      {opt('void', 'Hardcore: The Void Protocol', 'skull')}
     </View>
   );
 }
