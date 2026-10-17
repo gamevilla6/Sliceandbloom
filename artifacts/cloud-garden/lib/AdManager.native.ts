@@ -2,7 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AppState, Platform } from 'react-native';
 import mobileAds, { AdsConsent, AdEventType, InterstitialAd, RewardedAd, RewardedAdEventType, TestIds } from 'react-native-google-mobile-ads';
 import { AdManagerCore, type AdAdapter, type AdPort } from './AdManagerCore';
-import { ANDROID_AD_UNITS } from './adConfig';
+import { adsUseTestUnits, ANDROID_AD_UNITS } from './adConfig';
 
 let initialization: Promise<unknown> | undefined;
 function initializeSdk() {
@@ -14,7 +14,8 @@ function initializeSdk() {
   return initialization;
 }
 function unitId(kind: keyof typeof ANDROID_AD_UNITS) {
-  if (__DEV__) return { banner: TestIds.BANNER, rewarded: TestIds.REWARDED, interstitial: TestIds.INTERSTITIAL }[kind];
+  if (adsUseTestUnits(__DEV__, process.env.EXPO_PUBLIC_ADMOB_TEST_ADS))
+    return { banner: TestIds.BANNER, rewarded: TestIds.REWARDED, interstitial: TestIds.INTERSTITIAL }[kind];
   if (Platform.OS === 'android') return ANDROID_AD_UNITS[kind];
   return { banner: process.env.EXPO_PUBLIC_ADMOB_BANNER_IOS,
     rewarded: process.env.EXPO_PUBLIC_ADMOB_REWARDED_IOS,

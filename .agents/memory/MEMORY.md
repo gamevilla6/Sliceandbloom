@@ -5,3 +5,4 @@
 - [Reward economy](reward-economy.md) — free-only virtual wagers; review policy before adding paid stakes, cash-out or transferable prizes.
 - [Ad placement](ad-placement-policy.md) — milestone interstitials only after real wins; no forced ads in the failure/retry loop or active puzzles.
 - [Gameplay view](camera-policy.md) — the user removed cinematic Overview/Focus modes; keep the normal unzoomed full-level view.
+- [Android release policy](android-release-policy.md) — preview APKs need test ads despite release JS; preserve code 1 for the first Play upload.

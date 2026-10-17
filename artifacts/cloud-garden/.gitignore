@@ -39,3 +39,10 @@ yarn-error.*
 .vercel
 
 .env
+
+# Android signing material and generated store/install artifacts
+credentials.json
+*.keystore
+*.aab
+*.apk
+*-service-account*.json
