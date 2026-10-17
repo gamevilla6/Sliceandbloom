@@ -8,7 +8,8 @@ import {
   RewardedAdEventType,
   TestIds,
 } from 'react-native-google-mobile-ads';
-import type { RewardedRetry, RewardedRetryStatus } from './rewardedAds';
+import type { RewardedAdReward } from 'react-native-google-mobile-ads';
+import type { RewardedAdController, RewardedAdStatus } from './rewardedAds';
 
 let initialization: Promise<unknown> | null = null;
 
@@ -45,26 +46,30 @@ export function initializeRewardedAds(): Promise<unknown> {
 }
 
 /**
- * Preloads one opt-in rewarded retry while the normal campaign failure card is open.
- * A retry is granted only by Google's EARNED_REWARD event; closing/skipping or an
- * ad error never invokes the reward callback.
+ * Loads one ad for the selected reward. Credit is issued only after both
+ * EARNED_REWARD and CLOSED arrive, so dismissing early never grants inventory.
  */
-export function useRewardedRetry(
+export function useRewardedAd(
   enabled: boolean,
-  onUserEarnedReward: () => void,
-): RewardedRetry {
-  const [status, setStatus] = useState<RewardedRetryStatus>('loading');
+  requestKey: number,
+  onRewardAfterClose: (reward: RewardedAdReward) => void,
+): RewardedAdController {
+  const [status, setStatus] = useState<RewardedAdStatus>('idle');
   const [message, setMessage] = useState<string>();
-  const onRewardRef = useRef(onUserEarnedReward);
+  const onRewardRef = useRef(onRewardAfterClose);
   const adRef = useRef<RewardedAd | null>(null);
   const loadedRef = useRef(false);
   const showingRef = useRef(false);
-  const earnedRef = useRef(false);
+  const earnedRef = useRef<RewardedAdReward | null>(null);
 
-  onRewardRef.current = onUserEarnedReward;
+  onRewardRef.current = onRewardAfterClose;
 
   useEffect(() => {
-    if (!enabled) return;
+    if (!enabled) {
+      setStatus('idle');
+      setMessage(undefined);
+      return;
+    }
 
     let active = true;
     let ad: RewardedAd | null = null;
@@ -92,17 +97,22 @@ export function useRewardedRetry(
         });
 
         // This is the sole place that grants the retry. An ad close is not enough.
-        removeEarned = ad.addAdEventListener(RewardedAdEventType.EARNED_REWARD, () => {
+        removeEarned = ad.addAdEventListener(RewardedAdEventType.EARNED_REWARD, (reward) => {
           if (!active || earnedRef.current) return;
-          earnedRef.current = true;
-          onRewardRef.current();
+          earnedRef.current = reward;
         });
 
         removeClosed = ad.addAdEventListener(AdEventType.CLOSED, () => {
           if (!active) return;
           loadedRef.current = false;
           showingRef.current = false;
-          if (!earnedRef.current) {
+          const reward = earnedRef.current;
+          earnedRef.current = null;
+          if (reward && reward.type && Number.isFinite(reward.amount) && reward.amount > 0) {
+            setStatus('idle');
+            setMessage(undefined);
+            onRewardRef.current(reward);
+          } else {
             setStatus('unavailable');
             setMessage('The ad ended before the reward was earned. You can retry normally.');
           }
@@ -129,7 +139,7 @@ export function useRewardedRetry(
 
     loadedRef.current = false;
     showingRef.current = false;
-    earnedRef.current = false;
+    earnedRef.current = null;
     setStatus('loading');
     setMessage(undefined);
     void load();
@@ -145,14 +155,15 @@ export function useRewardedRetry(
       if (adRef.current === ad) adRef.current = null;
       loadedRef.current = false;
       showingRef.current = false;
+      earnedRef.current = null;
     };
-  }, [enabled]);
+  }, [enabled, requestKey]);
 
   const onPress = useCallback(() => {
     const ad = adRef.current;
     if (!ad || !loadedRef.current || showingRef.current) return;
     showingRef.current = true;
-    earnedRef.current = false;
+    earnedRef.current = null;
     setMessage(undefined);
     setStatus('showing');
     ad.show().catch((error: unknown) => {

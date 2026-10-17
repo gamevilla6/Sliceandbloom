@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useReducer, useRef, useState } 
 import { Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { GameBoard, Hud, Tool } from '@/components/GameBoard';
-import { LevelPicker, LoseCard, PressScale, SettingsSheet, Stars, WinCard } from '@/components/GameUi';
+import { LevelPicker, LoseCard, PressScale, RewardHub, SettingsSheet, Stars, WinCard, type HubRewardAction } from '@/components/GameUi';
 import { useLayoutMode } from '@/components/layout';
 import { HardcoreFail, HardcoreHud, Mode, ModeSwitch, VoidHud } from '@/components/HardcoreLayer';
 import { useProgress } from '@/hooks/useProgress';
@@ -15,10 +15,14 @@ import { useSound } from '@/lib/audio';
 import { setHapticsEnabled } from '@/lib/haptics';
 import { F, P, R, VD } from '@/constants/theme';
 import { hintReducer, INITIAL_HINT_VIEW } from '@/lib/hints';
-import { useRewardedRetry } from '@/lib/rewardedAds';
+import { useRewardedAd } from '@/lib/rewardedAds';
 import { BannerAdComponent, BANNER_AD_RESERVED_HEIGHT } from '@/components/BannerAdComponent';
+import { useAppRewards } from '@/hooks/useAppRewards';
+import { localRewardDay } from '@/lib/appRewards';
+import type { RewardedAdReward } from 'react-native-google-mobile-ads';
 
-type Sheet = 'none' | 'levels' | 'settings';
+type Sheet = 'none' | 'levels' | 'settings' | 'rewards';
+type RewardAction = HubRewardAction | 'retryInk' | 'hint';
 
 export default function GameScreen() {
   'use no memo';
@@ -27,6 +31,7 @@ export default function GameScreen() {
   const hard = useProgress(HARDCORE_LEVELS.length, 'cloud-garden:hardcore:v1');
   const gen = useProgress(GENESIS_LEVELS.length, 'cloud-garden:genesis:v1');
   const vd = useProgress(VOID_LEVELS.length, 'cloud-garden:void:v1');
+  const appRewards = useAppRewards();
   const [mode, setMode] = useState<Mode>('classic');
   const hardcore = mode !== 'classic';
   const isGenesis = mode === 'genesis';
@@ -51,6 +56,13 @@ export default function GameScreen() {
   const [hud, setHud] = useState<Hud | null>(null);
   const [overlay, setOverlay] = useState(false);
   const [mainBannerHeight, setMainBannerHeight] = useState<number | null>(null);
+  const [bonusInkFraction, setBonusInkFraction] = useState(0);
+  const [rewardAction, setRewardAction] = useState<RewardAction | null>(null);
+  const [rewardAdRequest, setRewardAdRequest] = useState(0);
+  const [rewardMessage, setRewardMessage] = useState<string>();
+  const [rewardedHintUnlocked, setRewardedHintUnlocked] = useState(false);
+  const rewardActionRef = useRef<RewardAction | null>(null);
+  const fastPassTrialRef = useRef(false);
   const engineRef = useRef<GardenEngine | null>(null);
   const loaded = useRef(false);
   const savedKey = useRef('');
@@ -60,7 +72,7 @@ export default function GameScreen() {
   const level = levels[idx];
   const hc = level.hardcore;
   // The world belongs to the screen, not the responsive board's mount point.
-  const gameEngine = useMemo(() => new GardenEngine(level), [level, attempt]);
+  const gameEngine = useMemo(() => new GardenEngine(level, bonusInkFraction), [level, attempt, bonusInkFraction]);
   useEffect(() => () => gameEngine.dispose(), [gameEngine]);
   const tag = `${mode}:${level.id}:${attempt}`;
   const live = hud && hud.tag === tag ? hud : null;
@@ -88,10 +100,11 @@ export default function GameScreen() {
   useEffect(() => {
     if (status === 'won' && live && savedKey.current !== tag) {
       savedKey.current = tag;
-      if (hardcore) hardComplete(idx, live.stars, { score: live.score, time: live.elapsed });
+      if (hardcore && fastPassTrialRef.current) appRewards.recordFastPassClear();
+      else if (hardcore) hardComplete(idx, live.stars, { score: live.score, time: live.elapsed });
       else classicComplete(idx, live.stars);
     }
-  }, [status, live, tag, idx, hardcore, hardComplete, classicComplete]);
+  }, [status, live, tag, idx, hardcore, hardComplete, classicComplete, appRewards.recordFastPassClear]);
 
   // Void deaths: exactly once per lost attempt, before the 450ms auto retry.
   const recordDeath = vd.recordDeath;
@@ -115,11 +128,11 @@ export default function GameScreen() {
   // Hardcore failures retry themselves; an open sheet suspends that.
   useEffect(() => {
     const thermal = !!level.thermalZone && !!live?.fail.includes('Thermal');
-    if (!(hardcore || thermal) || status !== 'lost' || sheet !== 'none') return;
-    const t = setTimeout(() => resetRef.current(), 450);
+    if (!(hardcore || thermal) || status !== 'lost' || sheet !== 'none' || rewardAction === 'retryInk') return;
+    const t = setTimeout(() => resetRef.current(), 2500);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hardcore, status, sheet, tag, level, live?.fail]);
+  }, [hardcore, status, sheet, tag, level, live?.fail, rewardAction]);
 
   const sheetRef = useRef(sheet);
   sheetRef.current = sheet;

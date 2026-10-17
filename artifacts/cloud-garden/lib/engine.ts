@@ -122,11 +122,13 @@ export class GardenEngine {
   shakeIntensity = 0;
   private slicePending = false;
   private lastImpactTime = -1;
+  private bonusInkFraction: number;
   soilBodies: Matter.Body[] = [];
   revealedBodies = new Set<number>();
 
-  constructor(level: Level) {
+  constructor(level: Level, bonusInkFraction = 0) {
     this.level = level;
+    this.bonusInkFraction = Number.isFinite(bonusInkFraction) ? Math.max(0, bonusInkFraction) : 0;
     this.engine = Engine.create({ gravity: { x: 0, y: 1, scale: 0.0011 } });
     const world = this.engine.world;
     const stat = { isStatic: true, friction: 0.15 };
@@ -237,8 +239,9 @@ export class GardenEngine {
     return Math.max(0, this.inkMax - this.inkUsed);
   }
   get inkMax() {
-    return Math.min(this.level.ink, this.level.maxInkLength ?? Infinity,
+    const base = Math.min(this.level.ink, this.level.maxInkLength ?? Infinity,
       this.level.strictInkLength === undefined ? Infinity : 400 * this.level.strictInkLength);
+    return Math.round(base * (1 + this.bonusInkFraction));
   }
   get score() {
     if (!this.level.hardcore || this.status !== 'won') return 0;

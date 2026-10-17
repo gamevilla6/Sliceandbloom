@@ -83,7 +83,18 @@ export function HardcoreHud({ themed, started, timeLeft, limit, elapsed, gold, p
   );
 }
 
-export function HardcoreFail({ themed, reason, onRetry, title = 'Wilted' }: { themed?: boolean; reason: string; onRetry: () => void; title?: string }) {
+export function HardcoreFail({ themed, reason, onRetry, title = 'Wilted', rewardedRetry }: {
+  themed?: boolean;
+  reason: string;
+  onRetry: () => void;
+  title?: string;
+  rewardedRetry?: {
+    status: 'idle' | 'loading' | 'ready' | 'showing' | 'unavailable';
+    supported: boolean;
+    message?: string;
+    onPress: () => void;
+  };
+}) {
   const insets = useSafeInsets();
   const showBanner = Platform.OS !== 'web';
   const [loadedBannerHeight, setLoadedBannerHeight] = useState<number | null>(null);
@@ -93,6 +104,32 @@ export function HardcoreFail({ themed, reason, onRetry, title = 'Wilted' }: { th
       <View style={[styles.fail, themed && { backgroundColor: VD.bg, borderColor: VD.red, shadowColor: VD.red }]} accessibilityLiveRegion="assertive">
         <Text style={[styles.failKicker, themed && { color: VD.red }]}>{title}</Text>
         <Text style={[styles.failText, themed && { color: VD.textSoft }]} numberOfLines={2}>{reason || 'Try again, faster.'}</Text>
+        {rewardedRetry?.supported && (
+          <>
+            <Text style={[styles.failText, { textAlign: 'center' }]}>Watch a quick video to get +50% Extra Ink &amp; Retry instantly!</Text>
+            <PressScale
+              onPress={rewardedRetry.onPress}
+              disabled={rewardedRetry.status === 'loading' || rewardedRetry.status === 'showing'}
+              testID="rewarded-retry"
+              label="Watch a rewarded video for fifty percent extra ink and retry"
+              style={[styles.failBtn, themed && { backgroundColor: VD.purpleDeep, borderColor: VD.purple }]}
+            >
+              <Ionicons name="play-circle" size={18} color={P.ink} />
+              <Text style={styles.failBtnText}>
+                {rewardedRetry.status === 'loading' ? 'Loading video…'
+                  : rewardedRetry.status === 'showing' ? 'Video playing…'
+                    : rewardedRetry.status === 'ready' ? 'Watch · +50% ink'
+                      : rewardedRetry.status === 'unavailable' ? 'Try video again'
+                        : 'Load rewarded video'}
+              </Text>
+            </PressScale>
+            {!!rewardedRetry.message && (
+              <Text style={[styles.failText, { textAlign: 'center' }]} testID="rewarded-retry-status">
+                {rewardedRetry.message}
+              </Text>
+            )}
+          </>
+        )}
         <PressScale onPress={onRetry} testID="retry" label="Retry now" style={[styles.failBtn, themed && { backgroundColor: VD.redDeep, borderColor: VD.red }]}>
           <Ionicons name="refresh" size={18} color={P.ink} />
           <Text style={styles.failBtnText}>Retry now</Text>

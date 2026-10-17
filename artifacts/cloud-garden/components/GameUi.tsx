@@ -170,7 +170,7 @@ export function LoseCard({ reason, onRetry, onHint, onLevels, rewardedRetry }: {
   onHint: () => void;
   onLevels: () => void;
   rewardedRetry?: {
-    status: 'loading' | 'ready' | 'showing' | 'unavailable';
+    status: 'idle' | 'loading' | 'ready' | 'showing' | 'unavailable';
     supported: boolean;
     message?: string;
     onPress: () => void;
@@ -183,17 +183,21 @@ export function LoseCard({ reason, onRetry, onHint, onLevels, rewardedRetry }: {
       <Text style={[styles.sub, { marginVertical: 12 }]}>{reason}</Text>
       {rewardedRetry?.supported && (
         <>
+          <Text style={[styles.sub, { textAlign: 'center' }]}>
+            Watch a quick video to get +50% Extra Ink &amp; Retry instantly!
+          </Text>
           <View style={styles.row}>
             <Btn
               label={
-                rewardedRetry.status === 'ready' ? 'Watch ad · Earn a retry'
+                rewardedRetry.status === 'ready' ? 'Watch video · +50% ink'
                   : rewardedRetry.status === 'showing' ? 'Ad playing…'
                     : rewardedRetry.status === 'loading' ? 'Loading rewarded ad…'
-                      : 'Rewarded ad unavailable'
+                      : rewardedRetry.status === 'idle' ? 'Load rewarded ad'
+                        : 'Try loading video again'
               }
               icon="play-circle"
               kind="ghost"
-              disabled={rewardedRetry.status !== 'ready'}
+              disabled={rewardedRetry.status === 'loading' || rewardedRetry.status === 'showing'}
               onPress={rewardedRetry.onPress}
               testID="rewarded-retry"
             />
@@ -212,6 +216,110 @@ export function LoseCard({ reason, onRetry, onHint, onLevels, rewardedRetry }: {
         <Btn label="Hint" icon="bulb" kind="ghost" onPress={onHint} testID="fail-hint" />
         <Btn label="Levels" icon="grid" kind="ghost" onPress={onLevels} testID="fail-levels" />
       </View>
+    </Card>
+  );
+}
+
+export type HubRewardAction = 'dailyBrush' | 'fastPass';
+
+export function RewardHub({
+  dailyClaimed,
+  brushCount,
+  fastPassCount,
+  canUseBrush,
+  inGenesis,
+  adStatus,
+  pendingReward,
+  message,
+  onWatch,
+  onUseBrush,
+  onUseFastPass,
+  onClose,
+}: {
+  dailyClaimed: boolean;
+  brushCount: number;
+  fastPassCount: number;
+  canUseBrush: boolean;
+  inGenesis: boolean;
+  adStatus: 'idle' | 'loading' | 'ready' | 'showing' | 'unavailable';
+  pendingReward: HubRewardAction | 'retryInk' | 'hint' | null;
+  message?: string;
+  onWatch: (action: HubRewardAction) => void;
+  onUseBrush: () => void;
+  onUseFastPass: () => void;
+  onClose: () => void;
+}) {
+  const actionLabel = (action: HubRewardAction, defaultLabel: string) => {
+    if (pendingReward !== action) return defaultLabel;
+    if (adStatus === 'loading') return 'Loading video…';
+    if (adStatus === 'showing') return 'Video playing…';
+    if (adStatus === 'unavailable') return 'Try video again';
+    if (adStatus === 'ready') return 'Watch video now';
+    return defaultLabel;
+  };
+  const actionDisabled = (action: HubRewardAction) =>
+    pendingReward === action && (adStatus === 'loading' || adStatus === 'showing');
+
+  return (
+    <Card title="App Reward Hub" onClose={onClose} showBanner={Platform.OS !== 'web'}>
+      <Text style={styles.hubIntro}>Earn optional boosts by finishing a short video. Rewards are saved on this device.</Text>
+
+      <View style={styles.rewardOffer} testID="reward-offer-daily-brush">
+        <View style={styles.rewardOfferHead}>
+          <Ionicons name="brush" size={23} color={P.marigold} />
+          <Text style={styles.rewardOfferTitle}>Daily Golden Ink Brush</Text>
+        </View>
+        <Text style={styles.rewardOfferCopy}>Adds 50% ink to one attempt. Claim one brush per day.</Text>
+        <Text style={styles.rewardInventory} testID="golden-brush-count">In your kit: {brushCount}</Text>
+        <View style={styles.row}>
+          <Btn
+            label={dailyClaimed ? 'Claimed today' : actionLabel('dailyBrush', 'Watch video · Claim brush')}
+            icon={dailyClaimed ? 'checkmark-circle' : 'play-circle'}
+            kind={dailyClaimed ? 'ghost' : 'primary'}
+            disabled={dailyClaimed || actionDisabled('dailyBrush')}
+            onPress={() => onWatch('dailyBrush')}
+            testID="claim-daily-brush"
+          />
+          <Btn
+            label="Use on this level"
+            icon="flash"
+            kind="ghost"
+            disabled={!canUseBrush || brushCount < 1}
+            onPress={onUseBrush}
+            testID="use-golden-brush"
+          />
+        </View>
+        {!canUseBrush && brushCount > 0 && <Text style={styles.rewardFootnote}>This level has no drawable ink to refill.</Text>}
+      </View>
+
+      <View style={styles.rewardOffer} testID="reward-offer-genesis-pass">
+        <View style={styles.rewardOfferHead}>
+          <Ionicons name="key" size={23} color={P.dropDeep} />
+          <Text style={styles.rewardOfferTitle}>Genesis Gauntlet Fast-Pass</Text>
+        </View>
+        <Text style={styles.rewardOfferCopy}>Try one locked challenge early. A trial clear won’t change permanent unlock progress.</Text>
+        <Text style={styles.rewardInventory} testID="genesis-fast-pass-count">Fast-passes: {fastPassCount}</Text>
+        <View style={styles.row}>
+          <Btn
+            label={actionLabel('fastPass', 'Watch video · Get a pass')}
+            icon="play-circle"
+            kind="primary"
+            disabled={actionDisabled('fastPass')}
+            onPress={() => onWatch('fastPass')}
+            testID="claim-genesis-fast-pass"
+          />
+          <Btn
+            label={inGenesis ? 'Choose a challenge' : 'Open Genesis'}
+            icon="grid"
+            kind="ghost"
+            disabled={fastPassCount < 1}
+            onPress={onUseFastPass}
+            testID="use-genesis-fast-pass"
+          />
+        </View>
+      </View>
+
+      {!!message && <Text style={styles.rewardMessage} testID="reward-hub-message" accessibilityLiveRegion="polite">{message}</Text>}
     </Card>
   );
 }
@@ -392,6 +500,14 @@ const styles = StyleSheet.create({
   btnSlot: { flexGrow: 1, flexBasis: 120, minWidth: 0 },
   btn: { minHeight: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 14, paddingHorizontal: 16, borderRadius: R.btn, borderWidth: 3, borderColor: P.ink, shadowColor: P.ink, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 1, shadowRadius: 0 },
   rewardedNote: { fontFamily: F.medium, fontSize: 13, color: P.inkSoft, textAlign: 'center', marginTop: 6 },
+  hubIntro: { fontFamily: F.medium, fontSize: 14, color: P.inkSoft, lineHeight: 20, marginBottom: 12 },
+  rewardOffer: { borderWidth: 3, borderColor: P.ink, borderRadius: R.card, backgroundColor: P.paperDeep, padding: 12, marginBottom: 12, gap: 6 },
+  rewardOfferHead: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  rewardOfferTitle: { flex: 1, fontFamily: F.bold, fontSize: 17, color: P.ink },
+  rewardOfferCopy: { fontFamily: F.medium, fontSize: 13, color: P.inkSoft, lineHeight: 18 },
+  rewardInventory: { fontFamily: F.bold, fontSize: 13, color: P.dropDeep },
+  rewardFootnote: { fontFamily: F.medium, fontSize: 12, color: P.coralDeep, textAlign: 'center' },
+  rewardMessage: { fontFamily: F.bold, fontSize: 14, color: P.dropDeep, textAlign: 'center', paddingVertical: 8 },
   btnPrimary: { backgroundColor: P.drop },
   btnGhost: { backgroundColor: P.marigold },
   btnText: { fontFamily: F.bold, fontSize: 17 },
