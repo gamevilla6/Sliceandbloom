@@ -1,4 +1,4 @@
 - [Physics release safety](physics-release.md) — create held droplets dynamically before freezing; check finite mass and hint solutions after physics changes.
 - [Visual direction](visual-direction.md) — Arcade Pop is the default; Void Protocol uses its own dark neon red/purple theme.
-- [Campaign expansion](campaign-expansion.md) — Campaign has 100 beds, Genesis and Hardcore have 45 each; Void Protocol is a separate 110-level mode.
+- [Campaign expansion](campaign-expansion.md) — Campaign and Hardcore have 100 levels each; Genesis has 45 and Void Protocol is a separate 110-level mode.
 - [Browser verification](browser-verification.md) — seed progress once; batch short-countdown actions so test overhead does not create false deaths or lost saves.

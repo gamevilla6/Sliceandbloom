@@ -98,7 +98,7 @@ for (const level of HARDCORE_LEVELS.slice(45)) {
 }
 
 test('unlocking Hardcore level 46 preserves all level 45 progress and the separate campaign save', () => {
-  const hardcore45 = completeProgress(DEFAULT_PROGRESS, 45, 44, 3, { score: 3210, time: 8.2 });
+  const hardcore45 = { ...completeProgress(DEFAULT_PROGRESS, 45, 44, 3, { score: 3210, time: 8.2 }), last: 44 };
   const expanded = readProgress(hardcore45, HARDCORE_LEVELS.length);
   assert.equal(expanded.unlocked, 45);
   assert.equal(expanded.last, 44);

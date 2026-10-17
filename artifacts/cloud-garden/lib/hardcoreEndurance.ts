@@ -58,6 +58,14 @@ export const HARDCORE_ENDURANCE: Level[] = Array.from({ length: 55 }, (_, i) => 
   level.lesson = `HARDCORE · ${source.lesson}`;
   level.hintText = level.lesson;
   if (round % 2 === 1) mirrorHorizontally(level);
+  // The gravity relay's two portals are intentionally chained quickly; the
+  // short per-level cooldown lets Cloud reach the low exit before the thorns.
+  if (source.name === 'Inverted Relay') level.portalCooldown = .25;
+  // Separate the first repeat of the original corridor with a tighter rotor
+  // angle rather than shipping an identical duplicate challenge.
+  if (round === 0 && source.name === 'Glass Corridor' && level.rotatingBarriers?.[0]) {
+    level.rotatingBarriers[0].angle = .08;
+  }
 
   const rules = level.hardcore;
   if (!rules) throw new Error(`Missing Hardcore timer on archetype ${source.id}`);

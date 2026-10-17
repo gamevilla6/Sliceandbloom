@@ -9,11 +9,11 @@ Introduce the advanced mechanics as new levels after the existing 26, rather tha
 
 **How to apply:** Preserve the original campaign and earned progress when extending it. Do not treat the brief's opening-level examples or pastel styling as permission to replace the established game.
 
-Hardcore is a separate, optional 45-level mode. Preserve the original 45 campaign levels when expanding the main campaign.
+Hardcore is a separate, optional 100-level mode. Levels 46–100 extend the original Hardcore set; preserve the first 45 levels and their records.
 
-**Why:** The user first chose a separate 25-level Hardcore mode and later explicitly expanded it to 45 levels, rather than replacing the campaign.
+**Why:** The user chose a separate Hardcore mode, then explicitly expanded its level count while preserving the existing campaign and other modes.
 
-**How to apply:** Keep mode progression and ratings independent. Future difficulty changes must not replace the Classic campaign or overwrite its earned stars.
+**How to apply:** Keep mode progression and ratings independent. Append new levels without changing the original 45 Hardcore levels or their earned stars.
 
 The Genesis Gauntlet is a third, completely separate arcade mode with 45 unique Masterclass Challenges, not another name for Campaign or Hardcore.
 
@@ -25,7 +25,7 @@ Infinity Cascade extends the main Campaign with Levels 46–100; it is not anoth
 
 **Why:** The user explicitly requested Infinity Cascade as a campaign expansion covering Levels 46–100, alongside the separate Genesis Gauntlet.
 
-**How to apply:** Keep the opening 45 campaign levels and their saves intact. Campaign has 100 levels; Genesis and Hardcore each retain 45 independent stages. Category navigation must distinguish Campaign 1–45, Infinity 46–100 and Genesis Challenges 1–45.
+**How to apply:** Keep the opening 45 campaign levels and their saves intact. Campaign has 100 levels; Genesis has 45 and Hardcore has 100 independent stages. Category navigation distinguishes each mode and its ranges.
 
 The Void Protocol is a fourth, dedicated 110-level mode, not a replacement for the existing Hardcore mode.
 

@@ -52,6 +52,8 @@ export interface Level {
   /** Radians per second; individual barriers can override the default. */
   rotatingBarrierSpeed?: number;
   rotatingBarriers?: (Block & { speed?: number })[];
+  /** Override the default portal anti-loop cooldown for tightly timed routes. */
+  portalCooldown?: number;
   crushingWalls?: CrushingWalls[];
   /** Absolute, lifetime drawing budget in world units. */
   maxInkLength?: number;

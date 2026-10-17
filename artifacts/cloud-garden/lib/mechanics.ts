@@ -126,7 +126,7 @@ export class AdvancedMechanics {
     const direction = rotated && speed > 0.001 ? { x: velocity.x / speed, y: velocity.y / speed } : { x: 0, y: 1 };
     Body.setPosition(cloud, { x: destination.x + direction.x * offset, y: destination.y + direction.y * offset });
     Body.setVelocity(cloud, velocity);
-    this.portalCooldown = 0.55;
+    this.portalCooldown = this.level.portalCooldown ?? 0.55;
     this.portalLocked = true;
     this.teleports++;
     effects.push({ type: 'portal', at: { ...cloud.position } });
