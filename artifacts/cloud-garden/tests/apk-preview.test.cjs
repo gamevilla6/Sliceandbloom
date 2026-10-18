@@ -8,7 +8,7 @@ const { verifyAndroidAdConfig } = require('../scripts/check-android-release.cjs'
 test('Game Villa production identity and isolated preview namespace stay consistent', () => {
   const app = require('../app.json').expo;
   assert.equal(app.extra.developerName, 'Game Villa');
-  assert.equal(app.extra.supportEmail, 'gameover0134@gmail.com');
+  assert.equal(app.extra.supportEmail, 'support.gamevilla@gmail.com');
   assert.equal(app.android.package, 'com.gamevilla.sliceandbloom');
   assert.equal(app.ios.bundleIdentifier, app.android.package);
   assert.equal(PREVIEW_PACKAGE, `${app.android.package}.preview`);

@@ -3,7 +3,7 @@
 ## Configured identity
 
 - Developer branding: **Game Villa**
-- Public support email: `gameover0134@gmail.com` (also shown in Settings)
+- Public support email: `support.gamevilla@gmail.com` (also shown in Settings and the Privacy page)
 - Package / application ID and iOS bundle identifier: `com.gamevilla.sliceandbloom`
 - First release: version name `1.0.0`, Android version code `1`
 - Expo slug: `slice-and-bloom`; the existing `cloud-garden` deep-link scheme is preserved.
@@ -98,8 +98,12 @@ policy URL and Data safety form. The code's launcher PNG is not a substitute for
 every store-listing asset. Review the currently enforced target API/SDK and
 testing requirements shown in Play Console before submitting.
 
+The app includes **Settings → Privacy policy** and a web route at `/privacy`.
+Publish the web version before submitting its full HTTPS URL as the Play Console
+privacy-policy link, and confirm the page is publicly reachable.
+
 Use **Game Villa** as the intended developer brand and
-`gameover0134@gmail.com` for the public support contact. Set these explicitly
+`support.gamevilla@gmail.com` for the public support contact. Set these explicitly
 in Play Console as well: changing app metadata does not update your account or
 store listing automatically.
 

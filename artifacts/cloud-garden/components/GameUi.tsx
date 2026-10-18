@@ -402,7 +402,7 @@ function Toggle({ on, onChange, label, sub, testID, tone }: { on: boolean; onCha
   );
 }
 
-export function SettingsSheet({ dark, tone, haptics, guides, sound, onHaptics, onGuides, onSound, onReset, onClose, resetLabel = 'Reset progress' }: { dark?: boolean; tone?: UiTone; resetLabel?: string; haptics: boolean; guides: boolean; sound: boolean; onHaptics: (v: boolean) => void; onSound: (v: boolean) => void; onGuides: (v: boolean) => void; onReset: () => void; onClose: () => void }) {
+export function SettingsSheet({ dark, tone, haptics, guides, sound, onHaptics, onGuides, onSound, onReset, onPrivacy, onClose, resetLabel = 'Reset progress' }: { dark?: boolean; tone?: UiTone; resetLabel?: string; haptics: boolean; guides: boolean; sound: boolean; onHaptics: (v: boolean) => void; onSound: (v: boolean) => void; onGuides: (v: boolean) => void; onReset: () => void; onPrivacy: () => void; onClose: () => void }) {
   const [armed, setArmed] = React.useState(false);
   const [supportError, setSupportError] = React.useState(false);
   return (
@@ -418,6 +418,7 @@ export function SettingsSheet({ dark, tone, haptics, guides, sound, onHaptics, o
           .catch(() => setSupportError(true));
       }} />
       {supportError && <Text accessibilityLiveRegion="polite" style={[styles.developerCredit, dark && { color: VD.text }]}>Could not open a mail app. Please copy the email address above to contact support.</Text>}
+      <Btn dark={dark} tone={tone} label="Privacy policy" icon="shield-checkmark" kind="ghost" testID="privacy-policy-link" onPress={onPrivacy} />
       <Toggle on={sound} onChange={onSound} label="Sound" sub="Snips, rope twangs and splashes" testID="toggle-sound" tone={tone} />
       <Toggle on={haptics} onChange={onHaptics} label="Haptics" sub="Taps, cuts and splashes" testID="toggle-haptics" tone={tone} />
       <Toggle on={guides} onChange={onGuides} label="Cut guides" sub="Dashed outline on timber you can slice" testID="toggle-guides" tone={tone} />

@@ -27,12 +27,14 @@ import { createDailyRewardOffer, dailyStatus, formatCountdown, type DailyRewardO
 import { SINGULARITY_LEVELS } from '@/lib/singularityLevels';
 import type { RewardedAdReward } from 'react-native-google-mobile-ads';
 import { SafeAreaView, type Edge } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 
 type Sheet = 'none' | 'menu' | 'levels' | 'settings' | 'rewards';
 type RewardAction = HubRewardAction | 'retryInk' | 'hint';
 
 export default function GameScreen() {
   'use no memo';
+  const router = useRouter();
   // Retry is an explicit useMemo dependency even though its factory only reads level.
   const classic = useProgress(LEVELS.length);
   const hard = useProgress(HARDCORE_LEVELS.length, 'cloud-garden:hardcore:v1');
@@ -673,6 +675,7 @@ export default function GameScreen() {
           onSound={(v) => setSetting('sound', v)}
           onHaptics={(v) => setSetting('haptics', v)}
           onGuides={(v) => setSetting('guides', v)}
+          onPrivacy={() => router.push('/privacy')}
           resetLabel={isVoid ? 'Reset Void progress' : isGenesis ? 'Reset Genesis progress' : isSingularity ? 'Reset Singularity progress' : hardcore ? 'Reset Hardcore progress' : 'Reset progress'}
           onReset={() => {
             appRewards.clearModeSkips(mode);
