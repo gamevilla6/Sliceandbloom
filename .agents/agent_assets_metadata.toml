@@ -36,3 +36,17 @@ mtime_ms = 1792297673288
 storage_uri = "gcs://replit-rams-assets-pike/rams/assets/repl:f7651a05-0f1b-4e35-b597-6fcb4ba48849/2ef3ce0d-ec8e-401b-bf6b-f40ea5df4627/7dffca11-56e0-4b3a-9017-d70f47f44d62"
 storage_version_token = "1792297757908439"
 content_type = "image/png"
+
+[[outputs]]
+id = "GylelM5UJ006Aku2VXSQD"
+uri = "file://artifacts/cloud-garden/docs/copyright-and-play-audit.md"
+type = "text"
+title = "Slice & Bloom — Copyright & Play Release Audit"
+description = "Asset provenance, commercial-use license findings, completed audio remediation, security findings, and remaining release requirements. This is not a legal or Google Play approval certificate."
+logical_id = "a9d21e80-bf4a-4ef2-8cfd-ccab00f181f7"
+content_hash = "sha256:c688966c22a5551ac810a835097b79d7f9cc763716ae58b9ccd65605baf5c60c"
+size = 12684
+mtime_ms = 1792311474534
+storage_uri = "gcs://replit-rams-assets-pike/rams/assets/repl:f7651a05-0f1b-4e35-b597-6fcb4ba48849/a9d21e80-bf4a-4ef2-8cfd-ccab00f181f7/7321e098-1f15-447a-bc42-14d38abd8b7d"
+storage_version_token = "1792311617670491"
+content_type = "text/markdown"
