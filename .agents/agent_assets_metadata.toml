@@ -22,3 +22,17 @@ mtime_ms = 1792240762642
 storage_uri = "gcs://replit-rams-assets-pike/rams/assets/repl:f7651a05-0f1b-4e35-b597-6fcb4ba48849/c43f4915-5f85-4aa1-8081-2d619db9e56b/8f9221db-9a4b-4b58-86f6-18820fe5b713"
 storage_version_token = "1792243863909394"
 content_type = "application/octet-stream"
+
+[[outputs]]
+id = "8vXsHFQVVb7ReHns_eEqo"
+uri = "file://artifacts/cloud-garden/assets/images/icon.png"
+type = "image"
+title = "Game Mood app icon"
+description = "New 3D Game Mood artwork with a water droplet, blooming flower, golden slice line and correctly typeset GAME MOOD branding."
+logical_id = "2ef3ce0d-ec8e-401b-bf6b-f40ea5df4627"
+content_hash = "sha256:c33002da703640f705086f39cd5fc115dc41e3d5146caeb5e41c9c5a1d43389e"
+size = 1185509
+mtime_ms = 1792297673288
+storage_uri = "gcs://replit-rams-assets-pike/rams/assets/repl:f7651a05-0f1b-4e35-b597-6fcb4ba48849/2ef3ce0d-ec8e-401b-bf6b-f40ea5df4627/7dffca11-56e0-4b3a-9017-d70f47f44d62"
+storage_version_token = "1792297757908439"
+content_type = "image/png"
