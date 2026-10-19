@@ -51,4 +51,5 @@ checks exercise the browser adapter, not Android device storage.
 After rebuilding the testing APK, complete levels, spend an inventory item,
 force-close and reopen. Confirm scores/stars/unlocks and balances remain.
 Repeat with a same-package signed update, and check storage-failure Retry where
-device tooling permits. Already-downloaded APKs/ZIPs predate this source fix.
+device tooling permits. APKs/ZIPs downloaded before the persistence fix predate
+this code. The fresh QA build is documented in `android-persistence-build.md`.

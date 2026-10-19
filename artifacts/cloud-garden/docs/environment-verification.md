@@ -3,9 +3,9 @@
 Verification date: October 19, 2026.
 
 Historical snapshot: the persistence fix made after this report changes runtime
-source. Previously delivered APKs and ZIPs do not contain that fix; rebuild them
-before testing the new save behavior. Native AsyncStorage was already linked,
-but this report is not verification of a rebuilt persistence-fix APK.
+source. APKs and ZIPs delivered before that fix do not contain it. A fresh QA APK
+has now been built; see `android-persistence-build.md` for its fingerprint and
+verification. This older report is not validation of a signed production AAB.
 
 ## Source and published application
 

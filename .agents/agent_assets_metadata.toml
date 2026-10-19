@@ -92,3 +92,31 @@ mtime_ms = 1792391848479
 storage_uri = "gcs://replit-rams-assets-pike/rams/assets/repl:f7651a05-0f1b-4e35-b597-6fcb4ba48849/aaaf2361-3bb9-45d8-9b20-9a6c49e5cd24/6fb0c987-266c-40c6-a217-f46a06e4083f"
 storage_version_token = "1792391926326498"
 content_type = "application/octet-stream"
+
+[[outputs]]
+id = "fQw8LKxDtBF_K1PI1YIf_"
+uri = "file://generated-artifacts/android/SliceAndBloom-Persistence-Fix-QA.zip"
+type = "unspecified"
+title = "Slice & Bloom — Fresh Persistence-Fix QA ZIP"
+description = "Rebuilt testing APK with AsyncStorage fix, privacy policy, README, verification report and source fingerprints. Verified archive; no production AAB included because Expo repository linking remains blocked."
+logical_id = "f81ffee6-d91a-4059-a73e-2abbda437a5a"
+content_hash = "sha256:2b8b4cb66f3134aa817a6fca46b95751e9a892d7c0f790943f8c2899d3e14eed"
+size = 41978332
+mtime_ms = 1792394052110
+storage_uri = "gcs://replit-rams-assets-pike/rams/assets/repl:f7651a05-0f1b-4e35-b597-6fcb4ba48849/f81ffee6-d91a-4059-a73e-2abbda437a5a/94e4bc71-31d2-42f6-b53e-db03ddc39374"
+storage_version_token = "1792394117699410"
+content_type = "application/octet-stream"
+
+[[outputs]]
+id = "dUDlfALCUqeOIJsQSCdmO"
+uri = "file://generated-artifacts/android/SliceAndBloom-persistence-test.apk"
+type = "unspecified"
+title = "Slice & Bloom — Fresh Testing APK"
+description = "New Android build containing the persistence fix. Separate .preview package, public debug signing and official Google test ads. Install over the preceding Preview APK without uninstalling to check saved progress."
+logical_id = "61a5ed2b-9f39-43c8-86f7-57b71d7bf06f"
+content_hash = "sha256:35e464a960dc6ecdffdeaf9cbd56509852b2e143d1d8f5b7ce20453950b19667"
+size = 72835671
+mtime_ms = 1792394045694
+storage_uri = "gcs://replit-rams-assets-pike/rams/assets/repl:f7651a05-0f1b-4e35-b597-6fcb4ba48849/61a5ed2b-9f39-43c8-86f7-57b71d7bf06f/e375b15c-a107-406d-9d0d-6f2b6b4d706f"
+storage_version_token = "1792394119527696"
+content_type = "application/octet-stream"
