@@ -466,7 +466,25 @@ export default function GameScreen() {
   const showStarsInHeader = !landscape && availW >= 400;
   const compactModeSwitch = landscape ? panelW < 640 : availW < 650;
 
-  if (!ready) return <View style={[styles.root, { backgroundColor: P.skyTop }]} />;
+  const progressStores = [classic, hard, gen, vd, sing];
+  const saveError = progressStores.find(store => store.storageError)?.storageError;
+  if (!ready || saveError) return (
+    <SafeAreaView style={[styles.root, { backgroundColor: P.skyTop, justifyContent: 'center', padding: 24 }]}>
+      <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', gap: 16 }}>
+        <Text accessibilityRole="header" style={{ fontFamily: F.bold, fontSize: 24, color: P.ink }}>
+          {saveError ? 'Keep your garden safe' : 'Loading your garden…'}
+        </Text>
+        {saveError && <>
+          <Text accessibilityRole="alert" style={{ fontFamily: F.semi, fontSize: 16, color: P.ink }}>{saveError}</Text>
+          <PressScale testID="retry-progress-storage" label="Retry loading or saving game progress"
+            onPress={() => progressStores.forEach(store => store.retrySave())}
+            disabled={progressStores.some(store => store.saving)} style={styles.release}>
+            <Text style={styles.releaseText}>Retry</Text>
+          </PressScale>
+        </>}
+      </ScrollView>
+    </SafeAreaView>
+  );
 
   const header = (
     <View style={styles.topBar} testID="region-header">

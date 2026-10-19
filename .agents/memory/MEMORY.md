@@ -11,3 +11,4 @@
 - [Google Play access](google-play-access.md) — verify the publishing API destination separately from OAuth; repeated authorization cannot fix a wrong host.
 - [Web publishing](web-publishing.md) — a healthy Expo landing page is not a playable web release; verify the export and distinguish preview from republished public play.
 - [Developer branding](developer-branding.md) — use Game Villa as the developer brand; account ownership and store display names are separate.
+- [Git inspection guard](git-inspection.md) — read-only inspection batches can hit the index.lock guard; do not escalate Git permissions just to finish verification.

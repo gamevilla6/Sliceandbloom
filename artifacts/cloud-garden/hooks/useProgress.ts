@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useCallback } from 'react';
+import { useSavedGameData } from './useSavedGameData';
 import { completeProgress, DEFAULT_PROGRESS, readProgress, recordDeath as addDeath, type Completion, type Progress, type Settings } from '@/lib/progress';
 export type { Progress, Settings } from '@/lib/progress';
 
@@ -8,30 +8,8 @@ const KEY = 'cloud-garden:v1';
 const DEFAULT = DEFAULT_PROGRESS;
 
 export function useProgress(total: number, key = KEY) {
-  const [state, setState] = useState<Progress>(DEFAULT);
-  const [ready, setReady] = useState(false);
-
-  useEffect(() => {
-    AsyncStorage.getItem(key)
-      .then((raw) => {
-        if (!raw) return;
-        try {
-          setState(readProgress(JSON.parse(raw), total));
-        } catch {
-          // ignore corrupt data
-        }
-      })
-      .catch(() => {})
-      .finally(() => setReady(true));
-  }, [total, key]);
-
-  const update = useCallback((fn: (p: Progress) => Progress) => {
-    setState((prev) => {
-      const next = fn(prev);
-      AsyncStorage.setItem(key, JSON.stringify(next)).catch(() => {});
-      return next;
-    });
-  }, [key]);
+  const read = useCallback((raw: unknown) => readProgress(raw, total), [total]);
+  const { data: state, ready, update, storageError, saving, retrySave } = useSavedGameData(key, DEFAULT, read);
 
   const complete = useCallback(
     (idx: number, stars: number, result?: Completion) =>
@@ -51,5 +29,5 @@ export function useProgress(total: number, key = KEY) {
   const unlockThrough = useCallback((idx: number) => update(p => idx > p.unlocked
     ? { ...p, unlocked: Math.min(total - 1, idx) } : p), [update, total]);
 
-  return { progress: state, ready, complete, setLast, setSetting, resetAll, recordDeath, skip, unlockThrough };
+  return { progress: state, ready, storageError, saving, retrySave, complete, setLast, setSetting, resetAll, recordDeath, skip, unlockThrough };
 }
