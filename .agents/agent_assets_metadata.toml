@@ -78,3 +78,17 @@ mtime_ms = 1792388032512
 storage_uri = "gcs://replit-rams-assets-pike/rams/assets/repl:f7651a05-0f1b-4e35-b597-6fcb4ba48849/11a77a48-60ec-427a-b6b8-b9185cbe3b8f/0ea75ed1-e836-45f0-a522-eab6763c0082"
 storage_version_token = "1792389811652236"
 content_type = "application/octet-stream"
+
+[[outputs]]
+id = "Svrxaf52VTb5y-0kBPxQ5"
+uri = "file://generated-artifacts/android/SliceAndBloom-QA-and-Build-Setup.zip"
+type = "unspecified"
+title = "Slice & Bloom — QA APK & Build Setup"
+description = "Verified Android test APK, privacy policy, README, current app.json/eas.json and source/layout/ad verification report. Production AAB is not included; existing signing settings are preserved."
+logical_id = "aaaf2361-3bb9-45d8-9b20-9a6c49e5cd24"
+content_hash = "sha256:f12a840450f498585d38c683badfdc288f8599097eab1b3af32ba05a26eb64bc"
+size = 41972040
+mtime_ms = 1792391848479
+storage_uri = "gcs://replit-rams-assets-pike/rams/assets/repl:f7651a05-0f1b-4e35-b597-6fcb4ba48849/aaaf2361-3bb9-45d8-9b20-9a6c49e5cd24/6fb0c987-266c-40c6-a217-f46a06e4083f"
+storage_version_token = "1792391926326498"
+content_type = "application/octet-stream"

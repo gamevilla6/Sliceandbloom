@@ -50,3 +50,13 @@ while downloaded toolchains and incremental native outputs survived on disk.
 **How to apply:** Resume from the preserved native checkout when its source
 identity is still current. Verify the actual newly built binary before archiving;
 do not deliver an older APK merely because its filename matches.
+
+For build/source comparisons, compare effective dependency names and versions,
+not only the raw package manifest.
+
+**Why:** Expo prebuild can add Expo, React and React Native to `dependencies`
+while identical declarations remain in `devDependencies`. That changes the
+manifest bytes without changing the requested runtime versions.
+
+**How to apply:** Normalize both sections before deciding a build is stale;
+still treat any actual version or runtime-source mismatch as significant.
