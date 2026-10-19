@@ -15,6 +15,7 @@ import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { adManager, initializeAds } from '@/lib/AdManager';
 import { InternetProvider, InternetRequiredModal, useInternetAccess } from '@/components/InternetAccess';
+import { CloudSyncProvider, useCloudSync } from '@/components/CloudSyncProvider';
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
@@ -23,12 +24,14 @@ const queryClient = new QueryClient();
 
 function OnlineAdsBootstrap() {
   const { online } = useInternetAccess();
+  const cloud = useCloudSync();
+  const ready = online && cloud.playReady;
   useEffect(() => {
-    adManager.setOnline(online);
-    if (online) initializeAds().catch((error: unknown) => {
+    adManager.setOnline(ready);
+    if (ready) initializeAds().catch((error: unknown) => {
       console.warn('[ads] Google Mobile Ads SDK initialization failed.', error);
     });
-  }, [online]);
+  }, [ready]);
   return null;
 }
 
@@ -64,9 +67,11 @@ export default function RootLayout() {
           <GestureHandlerRootView style={{ flex: 1 }}>
             <KeyboardProvider>
               <InternetProvider>
-                <RootLayoutNav />
-                <OnlineAdsBootstrap />
-                <InternetRequiredModal />
+                <CloudSyncProvider>
+                  <RootLayoutNav />
+                  <OnlineAdsBootstrap />
+                  <InternetRequiredModal />
+                </CloudSyncProvider>
               </InternetProvider>
             </KeyboardProvider>
           </GestureHandlerRootView>

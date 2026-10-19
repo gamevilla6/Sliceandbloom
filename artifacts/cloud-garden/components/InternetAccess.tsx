@@ -5,10 +5,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { usePathname, useRouter } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { InternetAccess, type InternetStatus } from '@/lib/internetAccess';
+import { useCloudSync } from '@/components/CloudSyncProvider';
 import { F, P, R } from '@/constants/theme';
 
 const NATIVE_PROBE = 'https://clients3.google.com/generate_204';
-export const INTERNET_REQUIRED_MESSAGE = 'Internet connection required! Please connect to the internet to play Slice & Bloom.';
+export const INTERNET_REQUIRED_MESSAGE = 'Internet connection required! Please connect to Wi-Fi or mobile data to play Slice & Bloom.';
 
 /** A real HTTP response, not just a Wi-Fi icon. No saves/identifiers are sent. */
 async function probeInternet() {
@@ -91,30 +92,43 @@ export function useInternetAccess() {
 
 export function InternetRequiredModal() {
   const { status, check } = useInternetAccess();
+  const cloud = useCloudSync();
   const pathname = usePathname();
   const router = useRouter();
   const { height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const checking = status === 'checking';
+  const waitingForCloud = status === 'online' && cloud.status !== 'ready';
+  const visible = (status !== 'online' || !cloud.playReady) && pathname !== '/privacy';
+  const retry = async () => {
+    if (await check(true)) await cloud.retry();
+  };
   // Privacy can always be read. Gameplay remains paused behind that route.
   return (
-    <Modal visible={status !== 'online' && pathname !== '/privacy'} transparent animationType="fade"
+    <Modal visible={visible} transparent animationType="fade"
       statusBarTranslucent onRequestClose={() => {}}>
       <SafeAreaView style={styles.scrim}>
         <View style={[styles.card, { height: Math.max(0, Math.min(440, height - insets.top - insets.bottom - 32)) }]}
           testID="internet-required-modal" accessibilityViewIsModal>
           <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
             <Ionicons name="wifi" size={44} color={P.drop} />
-            <Text accessibilityRole="header" style={styles.title}>{checking ? 'Checking internet…' : 'Internet required'}</Text>
-            <Text accessibilityLiveRegion="polite" style={styles.body}>
-              {checking ? 'Checking your connection before play…' : INTERNET_REQUIRED_MESSAGE}
+            <Text accessibilityRole="header" style={styles.title}>
+              {checking ? 'Checking internet…' : waitingForCloud ? 'Syncing private save…' : 'Internet required'}
             </Text>
-            {checking && <ActivityIndicator color={P.drop} accessibilityLabel="Checking internet connection" />}
+            <Text accessibilityLiveRegion="polite" style={styles.body}>
+              {checking ? 'Checking your connection before play…'
+                : waitingForCloud ? cloud.status === 'error'
+                  ? cloud.error ?? 'Cloud sync is unavailable. Please retry before playing.'
+                  : 'Syncing your private progress before play…'
+                : INTERNET_REQUIRED_MESSAGE}
+            </Text>
+            {(checking || (waitingForCloud && cloud.status !== 'error'))
+              && <ActivityIndicator color={P.drop} accessibilityLabel="Checking internet and syncing your private save" />}
             <Pressable accessibilityRole="button" accessibilityState={{ disabled: checking }} disabled={checking}
-              testID="internet-retry" onPress={() => { void check(true); }} style={[styles.retry, checking && { opacity: 0.6 }]}>
+              testID="internet-retry" onPress={() => { void retry(); }} style={[styles.retry, checking && { opacity: 0.6 }]}>
               <Text style={styles.retryText}>{checking ? 'Checking…' : 'Retry'}</Text>
             </Pressable>
-            <Text style={styles.note}>Your scores and progress stay saved on this device.</Text>
+            <Text style={styles.note}>Your scores and progress sync privately for this installation. No account is required.</Text>
             <Pressable accessibilityRole="link" testID="internet-privacy" onPress={() => router.push('/privacy')} style={styles.privacy}>
               <Text style={styles.link}>Privacy policy</Text>
             </Pressable>

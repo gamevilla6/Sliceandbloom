@@ -75,7 +75,8 @@
           "androidAppId": "ca-app-pub-3691647720194867~6693245246",
           "iosAppId": "ca-app-pub-3940256099942544~1458002511"
         }
-      ]
+      ],
+      "expo-secure-store"
     ],
     "experiments": {
       "typedRoutes": true,
