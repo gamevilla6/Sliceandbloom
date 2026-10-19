@@ -4,12 +4,12 @@ const {
   previewConfig, requirePreviewEnvironment, verifySigning, sdkPackages, PREVIEW_PACKAGE,
 } = require('../scripts/prepare-preview-apk.cjs');
 const { verifyAndroidAdConfig } = require('../scripts/check-android-release.cjs');
-const { makeReadme } = require('../scripts/package-android-release.cjs');
+const { makeReadme, verifyBundledConfig } = require('../scripts/package-android-release.cjs');
 
 test('Game Villa production identity and isolated preview namespace stay consistent', () => {
   const app = require('../app.json').expo;
   assert.equal(app.extra.developerName, 'Game Villa');
-  assert.equal(app.extra.supportEmail, 'gameover0134@gmail.com');
+  assert.equal(app.extra.supportEmail, 'contact.gamevilla@gmail.com');
   assert.equal(app.android.package, 'com.gamevilla.sliceandbloom');
   assert.equal(app.ios.bundleIdentifier, app.android.package);
   assert.equal(PREVIEW_PACKAGE, `${app.android.package}.preview`);
@@ -46,12 +46,25 @@ test('APK preview isolates identity without changing store configuration or reco
 
 test('release bundle instructions identify the QA APK, store AAB and current contact', () => {
   const readme = makeReadme();
-  assert.match(readme, /slice-and-bloom-preview\.apk/);
-  assert.match(readme, /slice-and-bloom-production\.aab/);
+  assert.match(readme, /SliceAndBloom-debug-test\.apk/);
+  assert.match(readme, /SliceAndBloom-production\.aab/);
   assert.match(readme, /com\.gamevilla\.sliceandbloom/);
-  assert.match(readme, /gameover0134@gmail\.com/);
+  assert.match(readme, /contact\.gamevilla@gmail\.com/);
   assert.match(readme, /test ads/i);
   assert.match(readme, /do not upload the APK to Google Play/i);
+});
+
+test('release packaging rejects stale binary metadata and wrong package identities', () => {
+  const production = structuredClone(require('../app.json').expo);
+  assert.doesNotThrow(() => verifyBundledConfig(production, false));
+  assert.doesNotThrow(() => verifyBundledConfig(previewConfig({ expo: production }).expo, true));
+  const stale = structuredClone(production);
+  stale.extra.supportEmail = 'outdated@example.invalid';
+  assert.throws(() => verifyBundledConfig(stale, false), /outdated support email/);
+  assert.throws(() => verifyBundledConfig(production, true));
+  const wrongVersion = structuredClone(production);
+  wrongVersion.android.versionCode++;
+  assert.throws(() => verifyBundledConfig(wrongVersion, false));
 });
 
 test('APK preparation refuses local or live-ad environments and unknown packages', () => {

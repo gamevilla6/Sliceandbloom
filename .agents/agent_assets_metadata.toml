@@ -50,3 +50,31 @@ mtime_ms = 1792311474534
 storage_uri = "gcs://replit-rams-assets-pike/rams/assets/repl:f7651a05-0f1b-4e35-b597-6fcb4ba48849/a9d21e80-bf4a-4ef2-8cfd-ccab00f181f7/7321e098-1f15-447a-bc42-14d38abd8b7d"
 storage_version_token = "1792311617670491"
 content_type = "text/markdown"
+
+[[outputs]]
+id = "d3KlIOGROEtpMJEel3DcN"
+uri = "file://generated-artifacts/android/SliceAndBloom-TESTING-ONLY.zip"
+type = "unspecified"
+title = "Slice & Bloom — Testing ZIP"
+description = "Fresh verified Android QA APK, privacy policy and installation guide. Uses the separate preview package and Google test ads. No production AAB is included."
+logical_id = "3996af7d-50c0-48ec-ab4b-633ab344fdf7"
+content_hash = "sha256:224bd8b2371f5822bbd4855fe807c25fb96b01d4cbd92867ea7a6a1206754589"
+size = 41966826
+mtime_ms = 1792388037756
+storage_uri = "gcs://replit-rams-assets-pike/rams/assets/repl:f7651a05-0f1b-4e35-b597-6fcb4ba48849/3996af7d-50c0-48ec-ab4b-633ab344fdf7/b2747a77-0a3e-4042-86c0-4ab3c03fd377"
+storage_version_token = "1792388078461019"
+content_type = "application/octet-stream"
+
+[[outputs]]
+id = "ta8IW4lHBgb5kYOPYTRUg"
+uri = "file://generated-artifacts/android/SliceAndBloom-debug-test.apk"
+type = "unspecified"
+title = "Slice & Bloom — Fresh Android Test APK"
+description = "Standalone QA build for Android phones; public debug signing and test ads. Not for Google Play upload."
+logical_id = "11a77a48-60ec-427a-b6b8-b9185cbe3b8f"
+content_hash = "sha256:fe2b458002ef8dbc69bf0eb831a2cf8d12a6cd945477cd913f399d9e9ea6ac49"
+size = 72831271
+mtime_ms = 1792388032512
+storage_uri = "gcs://replit-rams-assets-pike/rams/assets/repl:f7651a05-0f1b-4e35-b597-6fcb4ba48849/11a77a48-60ec-427a-b6b8-b9185cbe3b8f/0b6de8b0-5ab8-48f9-952b-7eb9eac30a05"
+storage_version_token = "1792388080396119"
+content_type = "application/octet-stream"

@@ -6,6 +6,19 @@ Android package: com.gamevilla.sliceandbloom
 
 ## Verdict
 
+### Release recheck — October 19, 2026
+
+The dependency/asset inventory was regenerated from the installed packages:
+548 package records and 11 assets. All seven WAV files still reproduce from
+the original synthesis script. The main icon is 297,803 bytes and the adaptive
+foreground is 322,212 bytes, both below 1 MB. The release contact is now
+`contact.gamevilla@gmail.com`.
+
+This recheck does not resolve the distribution-notice or native SDK licensing
+obligations below. The security-scan counts later in this report are historical
+findings from the October 18 scan, not a fresh security clearance. Native device
+QA and inspection of the final signed AAB remain outstanding.
+
 **Audit completed, but this is not a 100% copyright-free certificate or a Google
 Play compliance approval.** No obvious copied character, entertainment franchise
 logo, branded stock artwork or externally streamed music was identified in the

@@ -1,7 +1,7 @@
 # Slice & Bloom Privacy Policy
 
 **Developer:** Game Villa  
-**Support:** [gameover0134@gmail.com](mailto:gameover0134@gmail.com)  
+**Support:** [contact.gamevilla@gmail.com](mailto:contact.gamevilla@gmail.com)  
 **Last updated:** October 19, 2026
 
 This policy explains what Slice & Bloom stores on your device and how
@@ -44,7 +44,7 @@ offered by Google's consent tools apply to ad requests on that device.
 ## Contact
 
 Questions about this policy or the game? Contact Game Villa at
-[gameover0134@gmail.com](mailto:gameover0134@gmail.com).
+[contact.gamevilla@gmail.com](mailto:contact.gamevilla@gmail.com).
 
 This policy describes the current version of Slice & Bloom. If the app's data
 practices change, this policy will be updated.

@@ -6362,8 +6362,8 @@
     },
     {
       "path": "assets/images/adaptive-icon.png",
-      "bytes": 299304,
-      "sha256": "ea1abc5fcfdd1b33b3d5f88a31a7c3d3740372c614a6706cc9f6a0b451883999",
+      "bytes": 322212,
+      "sha256": "358301f050627208a828ff48763032655d47ebbc7dd5111ba7937969ea59cc57",
       "evidence": "Custom Game Mood icon family from earlier project generation; legal/trademark clearance not established"
     },
     {
@@ -6374,14 +6374,14 @@
     },
     {
       "path": "assets/images/icon.png",
-      "bytes": 1185509,
-      "sha256": "c33002da703640f705086f39cd5fc115dc41e3d5146caeb5e41c9c5a1d43389e",
+      "bytes": 297803,
+      "sha256": "2dd0bd94a91875190a52572057c4f258fffad37a72e4892c2e3fb75fd6911810",
       "evidence": "Custom Game Mood icon family from earlier project generation; legal/trademark clearance not established"
     },
     {
       "path": "assets/images/monochrome-icon.png",
-      "bytes": 40843,
-      "sha256": "0531c0a0779de3086f7be453c12937ae7dda01f5e29bb543a7af1f35917396e4",
+      "bytes": 50663,
+      "sha256": "e39155e9dc5ee53ee5a93a87f7812c7d3e1026a32b64e7b9d44343b616d6b3d0",
       "evidence": "Custom Game Mood icon family from earlier project generation; legal/trademark clearance not established"
     }
   ]

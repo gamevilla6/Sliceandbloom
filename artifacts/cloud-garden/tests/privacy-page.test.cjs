@@ -11,7 +11,7 @@ const game = fs.readFileSync(path.join(appDir, 'app/index.tsx'), 'utf8');
 const settings = fs.readFileSync(path.join(appDir, 'components/GameUi.tsx'), 'utf8');
 
 test('privacy page is routed from Settings and uses the configured support contact', () => {
-  assert.equal(appConfig.extra.supportEmail, 'gameover0134@gmail.com');
+  assert.equal(appConfig.extra.supportEmail, 'contact.gamevilla@gmail.com');
   assert.ok(layout.includes('Stack.Screen name="privacy"'));
   assert.ok(game.includes("router.push('/privacy')"));
   assert.ok(settings.includes('testID="privacy-policy-link"'));
