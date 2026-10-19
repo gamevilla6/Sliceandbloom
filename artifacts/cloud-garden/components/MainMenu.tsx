@@ -32,7 +32,7 @@ export function MainMenu({ mode, currentLevel, onContinue, onSelectMode, onRewar
     <Card title="Slice & Bloom" expanded showBanner={Platform.OS !== 'web'} onClose={onContinue}>
       <View testID="main-menu" style={s.wrap}>
         <Text style={s.tag}>No ads during a puzzle. Optional videos offer boosts.</Text>
-        <Btn tone="campaign" kind="primary" icon="play" label={`Continue ${cur.name} - Level ${currentLevel}`} onPress={onContinue} testID="menu-continue" />
+        <Btn tone="campaign" kind="primary" icon="play" label={`Continue ${cur.name} - Level ${currentLevel}`} labelLines={2} containerStyle={s.menuButton} onPress={onContinue} testID="menu-continue" />
         <Text style={s.head}>Choose a mode</Text>
         <View style={s.grid}>
           {MODES.map(m => (
@@ -41,7 +41,7 @@ export function MainMenu({ mode, currentLevel, onContinue, onSelectMode, onRewar
               <View style={[s.dot, { backgroundColor: m.color }]}>
                 <Ionicons name={m.icon} size={18} color={P.white} />
               </View>
-              <View style={{ flex: 1 }}>
+              <View style={{ flex: 1, minWidth: 0 }}>
                 <Text numberOfLines={1} style={s.name}>{m.name}</Text>
                 <Text numberOfLines={1} style={s.sub}>{m.blurb}</Text>
               </View>
@@ -49,7 +49,7 @@ export function MainMenu({ mode, currentLevel, onContinue, onSelectMode, onRewar
             </Pressable>
           ))}
         </View>
-        <Btn tone="campaign" kind="ghost" icon="gift" label="Rewards" onPress={onRewards} testID="menu-rewards" />
+        <Btn tone="campaign" kind="ghost" icon="gift" label="Rewards" containerStyle={s.menuButton} onPress={onRewards} testID="menu-rewards" />
       </View>
     </Card>
   );
@@ -57,10 +57,12 @@ export function MainMenu({ mode, currentLevel, onContinue, onSelectMode, onRewar
 
 const s = StyleSheet.create({
   wrap: { gap: 10 },
+  // These buttons are in a column, not the shared 120px-basis button row.
+  menuButton: { flexGrow: 0, flexBasis: 'auto' },
   tag: { fontFamily: F.medium, fontSize: 13, color: P.inkSoft, textAlign: 'center' },
   head: { fontFamily: F.bold, fontSize: 12, letterSpacing: 1, textTransform: 'uppercase', color: P.inkSoft, marginTop: 4 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  tile: { flexGrow: 1, flexBasis: 240, minWidth: 200, flexDirection: 'row', alignItems: 'center', gap: 10, padding: 10, borderRadius: R.btn, backgroundColor: P.white, borderWidth: 2, borderColor: P.paperDeep, minHeight: 56 },
+  tile: { flexGrow: 1, flexShrink: 1, flexBasis: 240, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 10, padding: 10, borderRadius: R.btn, backgroundColor: P.white, borderWidth: 2, borderColor: P.paperDeep, minHeight: 56 },
   tileOn: { borderColor: P.ink },
   dot: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
   name: { fontFamily: F.bold, fontSize: 16, color: P.ink },

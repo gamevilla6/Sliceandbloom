@@ -120,3 +120,31 @@ mtime_ms = 1792394045694
 storage_uri = "gcs://replit-rams-assets-pike/rams/assets/repl:f7651a05-0f1b-4e35-b597-6fcb4ba48849/61a5ed2b-9f39-43c8-86f7-57b71d7bf06f/e375b15c-a107-406d-9d0d-6f2b6b4d706f"
 storage_version_token = "1792394119527696"
 content_type = "application/octet-stream"
+
+[[outputs]]
+id = "vxNUvzjHUKifioOkZtY1g"
+uri = "file://generated-artifacts/android/SliceAndBloom-level-selection-test.apk"
+type = "unspecified"
+title = "Slice & Bloom — Updated Testing APK"
+description = "Fresh Android QA build with visible level grids, saved unlocks, clearer dark-mode controls and Home/Back navigation. Uses official Google test ads; not for Play Store submission."
+logical_id = "4f609a8e-61ee-41e2-b268-3de5bd2eea29"
+content_hash = "sha256:03a47725faea79099569e8214ad8e15c10c206ff4d9e73e22df5db127b68d8cb"
+size = 72838711
+mtime_ms = 1792395864569
+storage_uri = "gcs://replit-rams-assets-pike/rams/assets/repl:f7651a05-0f1b-4e35-b597-6fcb4ba48849/4f609a8e-61ee-41e2-b268-3de5bd2eea29/f3afc43e-095b-4336-a623-5e41b78685a0"
+storage_version_token = "1792396056726577"
+content_type = "application/octet-stream"
+
+[[outputs]]
+id = "D-6WC4ZNw1wOJBdj8R-yd"
+uri = "file://generated-artifacts/android/SliceAndBloom-Level-Selection-QA.zip"
+type = "unspecified"
+title = "Level Selection Fix — QA Package"
+description = "Updated APK, privacy policy, installation/testing guide, verification report and source fingerprints. Production signing is unchanged."
+logical_id = "adb40664-b5fa-4444-9f7c-078eedf5473d"
+content_hash = "sha256:0319e0e68866c54f6b28429c085d0b22fad23be01c0bb5271e66f4c8eb6461f7"
+size = 41974745
+mtime_ms = 1792396019285
+storage_uri = "gcs://replit-rams-assets-pike/rams/assets/repl:f7651a05-0f1b-4e35-b597-6fcb4ba48849/adb40664-b5fa-4444-9f7c-078eedf5473d/c4ed8964-82ee-4738-9eee-ec8af73f2aaf"
+storage_version_token = "1792396058483247"
+content_type = "application/octet-stream"

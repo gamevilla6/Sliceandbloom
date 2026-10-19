@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
-import { Modal, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { BackHandler, Modal, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { GameBoard, Hud, Tool } from '@/components/GameBoard';
 import { LevelPicker, LoseCard, PressScale, SettingsSheet, Stars, WinCard } from '@/components/GameUi';
@@ -13,6 +13,7 @@ import { LEVELS } from '@/lib/levels';
 import { HARDCORE_LEVELS } from '@/lib/hardcoreLevels';
 import { GENESIS_LEVELS } from '@/lib/genesisLevels';
 import { levelTools } from '@/lib/levelTools';
+import { canSelectLevel } from '@/lib/levelGrid';
 import { VOID_LEVELS } from '@/lib/voidLevels';
 import { useSound } from '@/lib/audio';
 import { setHapticsEnabled } from '@/lib/haptics';
@@ -197,6 +198,8 @@ export default function GameScreen() {
   const onHud = useCallback((h: Hud) => setHud(h), []);
 
   const load = (i: number) => {
+    if (!ready || !canSelectLevel(i, levels.length, progress.unlocked,
+      mode === 'genesis' ? appRewards.profile.genesisFastPasses : 0)) return;
     if (adManager.getSnapshot().fullscreen || victoryTransition.current) return;
     const fastPassTrial = mode === 'genesis' && i > progress.unlocked;
     if (i > progress.unlocked && (!fastPassTrial || appRewards.profile.genesisFastPasses < 1)) return;
@@ -426,6 +429,31 @@ export default function GameScreen() {
   };
   const release = () => engineRef.current?.release();
   const undo = () => engineRef.current?.undo();
+
+  // Read current navigation state without re-registering Android Back on every
+  // physics HUD update. Native Modal handles its own onRequestClose as usual.
+  const navigationBack = useRef<() => boolean>(() => false);
+  navigationBack.current = () => {
+    if (adManager.getSnapshot().fullscreen || victoryTransition.current) return true;
+    if (puzzleDetails) setPuzzleDetails(false);
+    else if (hintPrompt) closeHintPrompt();
+    else if (sheet === 'levels' || sheet === 'none') setSheet('menu');
+    else if (sheet === 'settings') setSheet('none');
+    else if (sheet === 'rewards') closeRewardHub();
+    else return false; // Android may exit only from Home.
+    return true;
+  };
+  useEffect(() => {
+    if (Platform.OS === 'web') {
+      const listener = (event: KeyboardEvent) => {
+        if (event.key === 'Escape' && navigationBack.current()) event.preventDefault();
+      };
+      window.addEventListener('keydown', listener);
+      return () => window.removeEventListener('keydown', listener);
+    }
+    const listener = BackHandler.addEventListener('hardwareBackPress', () => navigationBack.current());
+    return () => listener.remove();
+  }, []);
 
   const inkPct = inkMax > 0 ? inkLeft / inkMax : 0;
   const rules = 'First touch starts the timer. Undo: no refunds.';
@@ -682,7 +710,7 @@ export default function GameScreen() {
       {sheet === 'menu' && <MainMenu mode={mode} currentLevel={idx + 1} onContinue={() => setSheet('none')}
         onSelectMode={m => switchMode(m, 'levels')} onRewards={() => setSheet('rewards')} />}
 
-       {sheet === 'levels' && <LevelPicker deaths={vProg.deaths} badges={vProg.badges} title={isVoid ? 'Hardcore: The Void Protocol' : isGenesis ? 'The Genesis Gauntlet' : isSingularity ? 'Singularity Paradox' : hardcore ? 'Hardcore' : 'Garden beds'} noun={noun} levels={levels} unlocked={progress.unlocked} fastPasses={isGenesis ? appRewards.profile.genesisFastPasses : 0} stars={progress.stars} scores={hardcore ? arcade.progress.scores : undefined} bestTimes={hardcore ? arcade.progress.bestTimes : undefined} current={idx} onPick={load} onClose={() => setSheet('none')} />}
+       {sheet === 'levels' && <LevelPicker deaths={vProg.deaths} badges={vProg.badges} title={isVoid ? 'Hardcore: The Void Protocol' : isGenesis ? 'The Genesis Gauntlet' : isSingularity ? 'Singularity Paradox' : hardcore ? 'Hardcore' : 'Garden beds'} noun={noun} levels={levels} unlocked={progress.unlocked} fastPasses={isGenesis ? appRewards.profile.genesisFastPasses : 0} stars={progress.stars} scores={hardcore ? arcade.progress.scores : undefined} bestTimes={hardcore ? arcade.progress.bestTimes : undefined} current={idx} onPick={load} onClose={() => setSheet('none')} onHome={() => setSheet('menu')} />}
       {sheet === 'settings' && (
         <SettingsSheet
           dark={isVoid}

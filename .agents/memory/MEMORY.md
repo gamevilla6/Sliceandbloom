@@ -1,7 +1,7 @@
 - [Physics release safety](physics-release.md) — create held droplets dynamically before freezing; check finite mass and hint solutions after physics changes.
 - [Visual direction](visual-direction.md) — Arcade Pop is the default; Void Protocol uses its own dark neon red/purple theme.
 - [Campaign expansion](campaign-expansion.md) — Campaign, Hardcore and Genesis have 100 levels each; Void Protocol is a separate 110-level mode.
-- [Browser verification](browser-verification.md) — seed progress once; batch short-countdown actions so test overhead does not create false deaths or lost saves.
+- [Browser verification](browser-verification.md) — seed once, batch countdown inputs, and finish UI checks before compiling the native QA APK.
 - [Reward economy](reward-economy.md) — free-only virtual wagers; review policy before adding paid stakes, cash-out or transferable prizes.
 - [Ad placement](ad-placement-policy.md) — milestone interstitials only after real wins; no forced ads in the failure/retry loop or active puzzles.
 - [Gameplay view](camera-policy.md) — the user removed cinematic Overview/Focus modes; keep the normal unzoomed full-level view.

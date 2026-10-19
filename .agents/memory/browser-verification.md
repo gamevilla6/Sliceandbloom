@@ -20,3 +20,9 @@ A working Expo screenshot does not by itself prove the managed workflow restarte
 **Why:** An older Expo process continued serving the preview while the new workflow waited for an alternate-port prompt.
 
 **How to apply:** Confirm the new workflow logs reach Metro readiness on the artifact's assigned port. Resolve confirmed stale process ownership rather than accepting a different port or changing routing to hide the conflict.
+
+Finish browser navigation checks and their small UI corrections before compiling the native QA APK.
+
+**Why:** Building in parallel with browser verification required repeated native rebundles when the browser exposed additional spacing and contrast issues. Cached native libraries do not make an older bundled JavaScript UI current.
+
+**How to apply:** Complete the single focused browser pass, resolve its findings with cheap checks, then freeze and fingerprint the source staged for the APK build. Do not treat browser success as proof of native screen layout or physical-device behavior.
