@@ -55,14 +55,14 @@ content_type = "text/markdown"
 id = "d3KlIOGROEtpMJEel3DcN"
 uri = "file://generated-artifacts/android/SliceAndBloom-TESTING-ONLY.zip"
 type = "unspecified"
-title = "Slice & Bloom — Testing ZIP"
-description = "Fresh verified Android QA APK, privacy policy and installation guide. Uses the separate preview package and Google test ads. No production AAB is included."
+title = "Slice & Bloom — Verified QA ZIP"
+description = "Fresh Android test APK, updated privacy policy and README. Checksums and archive integrity passed. Uses test ads; no production AAB is included."
 logical_id = "3996af7d-50c0-48ec-ab4b-633ab344fdf7"
 content_hash = "sha256:224bd8b2371f5822bbd4855fe807c25fb96b01d4cbd92867ea7a6a1206754589"
 size = 41966826
 mtime_ms = 1792388037756
-storage_uri = "gcs://replit-rams-assets-pike/rams/assets/repl:f7651a05-0f1b-4e35-b597-6fcb4ba48849/3996af7d-50c0-48ec-ab4b-633ab344fdf7/b2747a77-0a3e-4042-86c0-4ab3c03fd377"
-storage_version_token = "1792388078461019"
+storage_uri = "gcs://replit-rams-assets-pike/rams/assets/repl:f7651a05-0f1b-4e35-b597-6fcb4ba48849/3996af7d-50c0-48ec-ab4b-633ab344fdf7/cbab5a4f-c3ba-4580-81d5-fa60882d96fc"
+storage_version_token = "1792388911414550"
 content_type = "application/octet-stream"
 
 [[outputs]]
