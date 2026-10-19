@@ -3,7 +3,7 @@
 ## Configured identity
 
 - Developer branding: **Game Villa**
-- Public support email: `support.gamevilla@gmail.com` (also shown in Settings and the Privacy page)
+- Public support email: `gameover0134@gmail.com` (also shown in Settings and the Privacy page)
 - Package / application ID and iOS bundle identifier: `com.gamevilla.sliceandbloom`
 - First release: version name `1.0.0`, Android version code `1`
 - Expo slug: `slice-and-bloom`; the existing `cloud-garden` deep-link scheme is preserved.
@@ -60,7 +60,8 @@ to change the studio display name.
 ## 3. Test on Android safely first
 
 For an Android build from the connected repository in your Expo project's
-build dashboard, choose the **preview** profile from this app's `eas.json`.
+build dashboard, choose the **testing** profile from this app's `eas.json`
+(`preview` remains a compatible alias).
 It is configured for an installable release-mode **APK with Google test ads**.
 The **development** profile instead includes a dev client that connects to
 Metro. Google Mobile Ads cannot run in Expo Go or the web preview.
@@ -103,7 +104,7 @@ Publish the web version before submitting its full HTTPS URL as the Play Console
 privacy-policy link, and confirm the page is publicly reachable.
 
 Use **Game Villa** as the intended developer brand and
-`support.gamevilla@gmail.com` for the public support contact. Set these explicitly
+`gameover0134@gmail.com` for the public support contact. Set these explicitly
 in Play Console as well: changing app metadata does not update your account or
 store listing automatically.
 
@@ -156,6 +157,26 @@ ImageMagick. If changing the source icon, regenerate locally with ImageMagick:
 pnpm run release:assets
 pnpm run release:check
 ```
+
+The store release uses the **production** profile, which emits a signed AAB
+with production ad units. For installable gameplay QA, use the **preview**
+profile; it emits a separate APK with official test ad units. Do not use the
+development-client APK as the standalone QA deliverable.
+
+After collecting both fresh build outputs, place them in
+`generated-artifacts/android/` as `slice-and-bloom-preview.apk` and
+`slice-and-bloom-production.aab`. Keep the APK inspection reports
+(`package.txt` and `signature.txt`) alongside them, then run:
+
+```sh
+pnpm run release:package
+```
+
+The packaging script refuses to make the ZIP if either binary is missing, the
+APK is not the isolated debug-signed preview, or the AAB lacks its bundle
+signature files. The resulting ZIP includes both binaries, `privacy_policy.md`,
+and a generated `README.txt`. The script packages binaries; it does not compile
+or sign them.
 
 Official references:
 - https://docs.expo.dev/build-reference/build-with-monorepos/

@@ -17,6 +17,22 @@ function verifyAndroidAdConfig(config, expectedAppId) {
   assert.equal(native.android_sdk, 'classic', 'Preserve the tested classic Android AdMob backend.');
 }
 
+function resolveBuildProfile(eas, name, visiting = new Set()) {
+  assert.ok(eas.build?.[name], `Missing EAS build profile: ${name}`);
+  assert.ok(!visiting.has(name), `Circular EAS profile inheritance: ${[...visiting, name].join(' -> ')}`);
+  const profile = eas.build[name];
+  if (!profile.extends) return profile;
+  visiting.add(name);
+  const parent = resolveBuildProfile(eas, profile.extends, visiting);
+  visiting.delete(name);
+  return {
+    ...parent,
+    ...profile,
+    env: { ...parent.env, ...profile.env },
+    android: { ...parent.android, ...profile.android },
+  };
+}
+
 async function main() {
   const config = json('app.json');
   const app = config.expo;
@@ -26,11 +42,11 @@ async function main() {
   assert.equal(app.android.package, 'com.gamevilla.sliceandbloom');
   assert.equal(app.ios.bundleIdentifier, 'com.gamevilla.sliceandbloom');
   assert.equal(app.extra.developerName, 'Game Villa');
-  assert.equal(app.extra.supportEmail, 'support.gamevilla@gmail.com');
+  assert.equal(app.extra.supportEmail, 'gameover0134@gmail.com');
   assert.match(app.version, /^\d+\.\d+\.\d+$/);
   assert.ok(Number.isSafeInteger(app.android.versionCode) && app.android.versionCode >= 1);
   assert.equal(eas.cli.appVersionSource, 'local');
-  const prod = eas.build.production;
+  const prod = resolveBuildProfile(eas, 'production');
   assert.equal(prod.distribution, 'store');
   assert.equal(prod.developmentClient, false);
   assert.equal(prod.android.buildType, 'app-bundle');
@@ -41,14 +57,18 @@ async function main() {
   assert.equal(prod.autoIncrement, false);
   assert.equal(prod.env.EXPO_PUBLIC_ADMOB_TEST_ADS, 'false');
   assert.equal(ads.adsUseTestUnits(false, prod.env.EXPO_PUBLIC_ADMOB_TEST_ADS), false);
-  for (const profile of ['preview', 'development']) {
-    assert.equal(eas.build[profile].android.buildType, 'apk');
-    assert.equal(eas.build[profile].env.EXPO_PUBLIC_ADMOB_TEST_ADS, 'true');
+  for (const profile of ['preview', 'testing', 'development']) {
+    const resolved = resolveBuildProfile(eas, profile);
+    assert.equal(resolved.android.buildType, 'apk');
+    assert.equal(resolved.env.EXPO_PUBLIC_ADMOB_TEST_ADS, 'true');
   }
+  assert.equal(resolveBuildProfile(eas, 'testing').developmentClient, false,
+    'The testing APK must install and run without Metro.');
   // Prevent an EAS dashboard/environment override from silently changing ads.
   const profile = process.env.EAS_BUILD_PROFILE;
-  if (profile && eas.build[profile]?.env?.EXPO_PUBLIC_ADMOB_TEST_ADS !== undefined) {
-    assert.equal(process.env.EXPO_PUBLIC_ADMOB_TEST_ADS, eas.build[profile].env.EXPO_PUBLIC_ADMOB_TEST_ADS,
+  if (profile && eas.build[profile]) {
+    const expectedAds = resolveBuildProfile(eas, profile).env?.EXPO_PUBLIC_ADMOB_TEST_ADS;
+    if (expectedAds !== undefined) assert.equal(process.env.EXPO_PUBLIC_ADMOB_TEST_ADS, expectedAds,
       'Ad test flag differs from eas.json; remove conflicting EAS environment overrides.');
   }
   const plugins = new Map(app.plugins.map(p => Array.isArray(p) ? p : [p, {}]));
@@ -72,6 +92,9 @@ async function main() {
     assert.equal(png.subarray(0, 8).toString('hex'), '89504e470d0a1a0a', `${file} is not PNG`);
     assert.equal(png.readUInt32BE(16), 1024, `${file} must be 1024px wide`);
     assert.equal(png.readUInt32BE(20), 1024, `${file} must be 1024px high`);
+    if (file === app.icon) {
+      assert.ok(png.length < 1_000_000, 'The launcher icon must remain below 1 MB.');
+    }
     if (file !== app.icon) assert.equal(png[25], 6, `${file} must have an RGBA mask`);
   }
   const projectId = app.extra?.eas?.projectId;

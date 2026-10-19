@@ -4,11 +4,12 @@ const {
   previewConfig, requirePreviewEnvironment, verifySigning, sdkPackages, PREVIEW_PACKAGE,
 } = require('../scripts/prepare-preview-apk.cjs');
 const { verifyAndroidAdConfig } = require('../scripts/check-android-release.cjs');
+const { makeReadme } = require('../scripts/package-android-release.cjs');
 
 test('Game Villa production identity and isolated preview namespace stay consistent', () => {
   const app = require('../app.json').expo;
   assert.equal(app.extra.developerName, 'Game Villa');
-  assert.equal(app.extra.supportEmail, 'support.gamevilla@gmail.com');
+  assert.equal(app.extra.supportEmail, 'gameover0134@gmail.com');
   assert.equal(app.android.package, 'com.gamevilla.sliceandbloom');
   assert.equal(app.ios.bundleIdentifier, app.android.package);
   assert.equal(PREVIEW_PACKAGE, `${app.android.package}.preview`);
@@ -41,6 +42,16 @@ test('APK preview isolates identity without changing store configuration or reco
   assert.deepEqual(preview.expo.plugins, source.expo.plugins);
   assert.equal(JSON.stringify(source), before);
   assert.deepEqual(previewConfig(preview), preview);
+});
+
+test('release bundle instructions identify the QA APK, store AAB and current contact', () => {
+  const readme = makeReadme();
+  assert.match(readme, /slice-and-bloom-preview\.apk/);
+  assert.match(readme, /slice-and-bloom-production\.aab/);
+  assert.match(readme, /com\.gamevilla\.sliceandbloom/);
+  assert.match(readme, /gameover0134@gmail\.com/);
+  assert.match(readme, /test ads/i);
+  assert.match(readme, /do not upload the APK to Google Play/i);
 });
 
 test('APK preparation refuses local or live-ad environments and unknown packages', () => {

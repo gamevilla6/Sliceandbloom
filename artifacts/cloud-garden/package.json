@@ -17,6 +17,7 @@
     "release:check": "node scripts/check-android-release.cjs",
     "release:manifest": "node scripts/check-android-release.cjs --native",
     "release:assets": "node scripts/prepare-android-assets.cjs",
+    "release:package": "node scripts/package-android-release.cjs",
     "eas-build-post-install": "node scripts/check-android-release.cjs"
   },
   "devDependencies": {
