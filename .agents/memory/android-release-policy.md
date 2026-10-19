@@ -34,3 +34,14 @@ for credential-delivery failures.
 creation or a remote build. Use an available provider API or the Git pane/manual
 Actions flow when CLI authentication is unavailable. Do not loop on OAuth or
 request raw tokens to work around an unexplained healthy-connection mismatch.
+
+Repository-triggered EAS builds also need a repository explicitly linked in the
+Expo project's GitHub settings. A Replit GitHub connection and a successful
+GitHub push do not establish that Expo project association.
+
+**Why:** Workspace authorization, Git transport authentication, and Expo's source
+repository association are separate requirements.
+
+**How to apply:** When Expo reports no repository for an app ID, direct the user
+to that Expo project's GitHub settings rather than repeating Replit OAuth or
+asking for another push. Verify remaining build budget before retrying.
