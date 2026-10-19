@@ -8,6 +8,7 @@ import { SmartHintPrompt } from '@/components/SmartHintPrompt';
 import { useLayoutMode } from '@/components/layout';
 import { HardcoreFail, HardcoreHud, Mode, ModeSwitch, VoidHud } from '@/components/HardcoreLayer';
 import { useProgress } from '@/hooks/useProgress';
+import { useCloudSync } from '@/components/CloudSyncProvider';
 import { GardenEngine } from '@/lib/engine';
 import { LEVELS } from '@/lib/levels';
 import { HARDCORE_LEVELS } from '@/lib/hardcoreLevels';
@@ -38,16 +39,17 @@ export default function GameScreen() {
   'use no memo';
   const router = useRouter();
   const internet = useInternetAccess();
+  const cloud = useCloudSync();
   const pathname = usePathname();
   const routeRef = useRef(pathname);
   routeRef.current = pathname;
   const levelTransition = useRef(false);
   // Retry is an explicit useMemo dependency even though its factory only reads level.
-  const classic = useProgress(LEVELS.length);
-  const hard = useProgress(HARDCORE_LEVELS.length, 'cloud-garden:hardcore:v1');
-  const gen = useProgress(GENESIS_LEVELS.length, 'cloud-garden:genesis:v1');
-  const vd = useProgress(VOID_LEVELS.length, 'cloud-garden:void:v1');
-  const sing = useProgress(SINGULARITY_LEVELS.length, 'cloud-garden:singularity:v1');
+  const classic = useProgress(LEVELS.length, 'cloud-garden:v1', 'campaign');
+  const hard = useProgress(HARDCORE_LEVELS.length, 'cloud-garden:hardcore:v1', 'hardcore');
+  const gen = useProgress(GENESIS_LEVELS.length, 'cloud-garden:genesis:v1', 'genesis');
+  const vd = useProgress(VOID_LEVELS.length, 'cloud-garden:void:v1', 'void');
+  const sing = useProgress(SINGULARITY_LEVELS.length, 'cloud-garden:singularity:v1', 'singularity');
   const appRewards = useAppRewards();
   const [mode, setMode] = useState<Mode>('classic');
   const hardcore = mode !== 'classic';
@@ -151,7 +153,7 @@ export default function GameScreen() {
       savedKey.current = tag;
       if (hardcore && fastPassTrialRef.current) appRewards.recordFastPassClear();
       else if (hardcore) hardComplete(idx, live.stars, { score: live.score, time: live.elapsed });
-      else classicComplete(idx, live.stars);
+      else classicComplete(idx, live.stars, { score: live.score, time: live.elapsed });
       winRecord.current = adManager.recordCompletion(`${adSession.current}:${tag}`);
     }
   }, [status, live, tag, idx, hardcore, hardComplete, classicComplete, appRewards.recordFastPassClear]);
@@ -178,11 +180,11 @@ export default function GameScreen() {
   // Hardcore failures retry themselves; an open sheet suspends that.
   useEffect(() => {
     const thermal = !!level.thermalZone && !!live?.fail.includes('Thermal');
-    if (!internet.online || !(hardcore || thermal) || status !== 'lost' || sheet !== 'none' || rewardAction === 'retryInk') return;
+    if (!internet.online || !cloud.playReady || !(hardcore || thermal) || status !== 'lost' || sheet !== 'none' || rewardAction === 'retryInk') return;
     const t = setTimeout(() => resetRef.current(), 2500);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hardcore, status, sheet, tag, level, live?.fail, rewardAction, internet.online]);
+  }, [hardcore, status, sheet, tag, level, live?.fail, rewardAction, internet.online, cloud.playReady]);
 
   const sheetRef = useRef(sheet);
   sheetRef.current = sheet;
@@ -209,14 +211,15 @@ export default function GameScreen() {
       mode === 'genesis' ? appRewards.profile.genesisFastPasses : 0)) return;
     levelTransition.current = true;
     try {
-      if (!await internet.check(true) || routeRef.current !== '/') return;
+      if (!cloud.playReady || !await internet.check() || !cloud.playReady || routeRef.current !== '/') return;
       if (adManager.getSnapshot().fullscreen || victoryTransition.current) return;
       const fastPassTrial = mode === 'genesis' && i > progress.unlocked;
       if (i > progress.unlocked && (!fastPassTrial || appRewards.profile.genesisFastPasses < 1)) return;
+      if (!fastPassTrial) setLast(i);
+      if (!await active.flushCloud()) return;
       if (fastPassTrial && !appRewards.useFastPass()) return;
       fastPassTrialRef.current = fastPassTrial;
       setIdx(i);
-      setLast(i);
       setAttempt((a) => a + 1);
       setBonusInkFraction(0);
       setRewardedHintUnlocked(false);
@@ -234,7 +237,7 @@ export default function GameScreen() {
     if (levelTransition.current) return;
     levelTransition.current = true;
     try {
-      if (!await internet.check(true) || routeRef.current !== '/') return;
+       if (!cloud.playReady || !await internet.check() || !cloud.playReady || routeRef.current !== '/') return;
       if (adManager.getSnapshot().fullscreen || victoryTransition.current) return;
       setAttempt((a) => a + 1);
       setBonusInkFraction(0);
@@ -249,7 +252,8 @@ export default function GameScreen() {
     } finally { levelTransition.current = false; }
   };
   const continueGame = async () => {
-    if (await internet.check(true) && routeRef.current === '/') setSheet('none');
+    if (cloud.playReady && await internet.check() && cloud.playReady
+      && await active.flushCloud() && routeRef.current === '/') setSheet('none');
   };
   const retryWithBonusInk = useCallback(() => {
     setBonusInkFraction(0.5);
@@ -303,7 +307,7 @@ export default function GameScreen() {
     // game inventory, not the publisher's configured amount.
     void reward;
   }, [appRewards.grantHubAd, appRewards.recordHint, appRewards.recordInkRetry, retryWithBonusInk, playSound]);
-  const rewardedAd = useRewardedAd(internet.online && !!rewardAction && canUsePendingReward, rewardAdRequest, onRewardAfterClose);
+  const rewardedAd = useRewardedAd(internet.online && cloud.playReady && !!rewardAction && canUsePendingReward, rewardAdRequest, onRewardAfterClose);
   // Watch Ad is explicit opt-in. A cold cache continues automatically once
   // loading succeeds; no second tap or synthetic browser reward is needed.
   useEffect(() => {
@@ -325,12 +329,12 @@ export default function GameScreen() {
   // The ghost path is guidance, never an automatic stroke or physics mutation.
   // It fades after 15 seconds; the earned unlock can re-display it this attempt.
   useEffect(() => {
-    if (!internet.online || !hint || puzzleDetails || sheet !== 'none') return;
+    if (!internet.online || !cloud.playReady || !hint || puzzleDetails || sheet !== 'none') return;
     const timer = setTimeout(() => dispatchHint({ type: 'toggle' }), 15000);
     return () => clearTimeout(timer);
-  }, [hint, tag, puzzleDetails, sheet, internet.online]);
+  }, [hint, tag, puzzleDetails, sheet, internet.online, cloud.playReady]);
   const requestRewardedAction = (action: RewardAction) => {
-    if (!internet.isOnline()) return;
+    if (!internet.isOnline() || !cloud.playReady) return;
     const watch = () => {
       dailyOfferRef.current = action === 'dailyBrush' ? createDailyRewardOffer(appRewards.profile, Date.now()) : undefined;
       if (action === 'dailyBrush' && !dailyOfferRef.current) return;
@@ -447,8 +451,8 @@ export default function GameScreen() {
       next();
     } finally { victoryTransition.current = false; }
   };
-  const release = () => { if (internet.isOnline()) engineRef.current?.release(); };
-  const undo = () => { if (internet.isOnline()) engineRef.current?.undo(); };
+  const release = () => { if (internet.isOnline() && cloud.playReady) engineRef.current?.release(); };
+  const undo = () => { if (internet.isOnline() && cloud.playReady) engineRef.current?.undo(); };
 
   // Read current navigation state without re-registering Android Back on every
   // physics HUD update. Native Modal handles its own onRequestClose as usual.
@@ -689,7 +693,7 @@ export default function GameScreen() {
         </PressScale>
       </View>
       {!landscape && <View style={styles.stageCounters}>{ink}{hudCore}</View>}
-      <GameBoard key={tag} modeKey={mode} engine={gameEngine} level={level} attempt={attempt} tool={tool} showHint={hint} hintStep={hintView.step} hintOverview={hintView.overview} guides={progress.settings.guides} paused={!internet.online || pathname !== '/' || puzzleDetails || hintPrompt || sheet !== 'none' || !!adNexus.fullscreen || (rewardAction === 'retryInk' && canUsePendingReward && (rewardedAd.status === 'loading' || rewardedAd.status === 'ready'))} playSound={playSound} engineRef={engineRef} onHud={onHud} />
+      <GameBoard key={tag} modeKey={mode} engine={gameEngine} level={level} attempt={attempt} tool={tool} showHint={hint} hintStep={hintView.step} hintOverview={hintView.overview} guides={progress.settings.guides} paused={!internet.online || !cloud.playReady || pathname !== '/' || puzzleDetails || hintPrompt || sheet !== 'none' || !!adNexus.fullscreen || (rewardAction === 'retryInk' && canUsePendingReward && (rewardedAd.status === 'loading' || rewardedAd.status === 'ready'))} playSound={playSound} engineRef={engineRef} onHud={onHud} />
     </View>
   );
 
@@ -730,7 +734,7 @@ export default function GameScreen() {
       {sheet === 'menu' && <MainMenu mode={mode} currentLevel={idx + 1} onContinue={continueGame}
         onSelectMode={m => switchMode(m, 'levels')} onRewards={() => setSheet('rewards')} />}
 
-       {sheet === 'levels' && <LevelPicker deaths={vProg.deaths} badges={vProg.badges} title={isVoid ? 'Hardcore: The Void Protocol' : isGenesis ? 'The Genesis Gauntlet' : isSingularity ? 'Singularity Paradox' : hardcore ? 'Hardcore' : 'Garden beds'} noun={noun} levels={levels} unlocked={progress.unlocked} fastPasses={isGenesis ? appRewards.profile.genesisFastPasses : 0} stars={progress.stars} scores={hardcore ? arcade.progress.scores : undefined} bestTimes={hardcore ? arcade.progress.bestTimes : undefined} current={idx} onPick={load} onClose={continueGame} onHome={() => setSheet('menu')} />}
+       {sheet === 'levels' && <LevelPicker deaths={vProg.deaths} badges={vProg.badges} title={isVoid ? 'Hardcore: The Void Protocol' : isGenesis ? 'The Genesis Gauntlet' : isSingularity ? 'Singularity Paradox' : hardcore ? 'Hardcore' : 'Garden beds'} noun={noun} levels={levels} unlocked={progress.unlocked} fastPasses={isGenesis ? appRewards.profile.genesisFastPasses : 0} stars={progress.stars} scores={active.progress.scores} bestTimes={active.progress.bestTimes} current={idx} onPick={load} onClose={continueGame} onHome={() => setSheet('menu')} />}
       {sheet === 'settings' && (
         <SettingsSheet
           dark={isVoid}

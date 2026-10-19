@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { F, P, R } from '@/constants/theme';
+import { useCloudSync } from '@/components/CloudSyncProvider';
 import appConfig from '../app.json';
 
 const { developerName, supportEmail } = appConfig.expo.extra;
@@ -22,6 +23,7 @@ function PolicySection({ title, children }: { title: string; children: React.Rea
 export default function PrivacyPolicyScreen() {
   const router = useRouter();
   const { width } = useWindowDimensions();
+  const cloud = useCloudSync();
   const horizontalPadding = width < 420 ? 18 : 28;
 
   const goBack = () => {
@@ -64,12 +66,18 @@ export default function PrivacyPolicyScreen() {
             An active internet connection is required to start and continue gameplay. Connection loss pauses puzzles behind an internet-required message. Retry checks your connection again without erasing saved progress. This policy remains accessible without passing that check.
           </Text>
           <Text style={[styles.body, styles.paragraphGap]}>
-            The app checks network status at launch, before level starts and retries, when returning to the foreground, and periodically while active. Native builds make small requests to Google’s clients3.google.com/generate_204 connectivity endpoint; browsers check the game’s current host. No scores, progress or reward inventory are included. The receiving service can process ordinary connection information such as IP address, request headers and request time. No Wi-Fi network names or location permission are requested.
+            The app checks network status at launch, before level starts and retries, when returning to the foreground, and periodically while active. Native builds make small requests to Google’s clients3.google.com/generate_204 connectivity endpoint; browsers check the game’s current host. The game also contacts its API over HTTPS to retrieve and save progress. These services can process ordinary connection information such as IP address, request headers and request time. No Wi-Fi network names or location permission are requested.
           </Text>
         </PolicySection>
-        <PolicySection title="Game data stored on your device">
+        <PolicySection title="Game data and private installation sync">
           <Text style={styles.body}>
-            Your level progress, stars, records, settings and in-game reward items are saved locally on your device or browser so they are available when you play again. The game does not require an account. This information is not uploaded to a Game Villa game server. Internet access does not enable cloud saves, cross-device synchronization or an online leaderboard.
+            Settings, reward inventory and a local progress cache stay on your device. Level unlocks, stars, high scores and best times are sent to Game Villa over HTTPS and saved in a private record for this app installation. The record contains a random installation ID, a one-way hash of its access token, progress records, and timestamps—not your name, email, or account credentials. No account is required. This is not a public leaderboard and does not sync across devices. Android and iOS keep the access token in secure storage; web browsers keep it in browser storage. Reinstalling or clearing that storage removes access to the cloud record.
+          </Text>
+          <Text style={[styles.body, styles.paragraphGap]}>
+            Installation ID for a deletion request:
+          </Text>
+          <Text selectable style={styles.installationId} testID="privacy-installation-id">
+            {cloud.installationId ?? 'Available after a successful online sync'}
           </Text>
         </PolicySection>
 
@@ -92,13 +100,13 @@ export default function PrivacyPolicyScreen() {
 
         <PolicySection title="Analytics and sharing">
           <Text style={styles.body}>
-            The current game code does not include a separate analytics service or send gameplay progress to a Game Villa server. Google receives the information needed for its advertising and consent services when those services are used. If you choose to email support, your email app handles the message.
+            The game does not include a separate gameplay analytics service or public leaderboard. Progress is sent to Game Villa solely for the private installation save described above. Google receives the information needed for its advertising and consent services when those services are used. If you choose to email support, your email app handles the message.
           </Text>
         </PolicySection>
 
         <PolicySection title="Your choices">
           <Text style={styles.body}>
-            An internet connection is required even if you do not choose to watch a rewarded video. Ad availability is not guaranteed by connectivity. You can remove locally saved game data by clearing the app’s storage in your device or browser settings; this also removes local progress and rewards. Any consent choices offered by Google’s consent tools apply to ad requests on that device.
+            An internet connection is required even if you do not choose to watch a rewarded video. Ad availability is not guaranteed by connectivity. Clearing app or browser storage removes the local cache and access token, but does not necessarily erase the server-side record. To request server-side deletion, email support with the installation ID shown on this page. Clearing local game data also removes local progress and rewards. Google’s consent choices apply to ad requests on that device.
           </Text>
         </PolicySection>
 
@@ -173,6 +181,7 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   email: { fontSize: 17, marginTop: 7 },
+  installationId: { fontFamily: F.medium, color: P.ink, fontSize: 13, lineHeight: 19, marginTop: 6 },
   footer: {
     fontFamily: F.regular,
     color: P.inkSoft,

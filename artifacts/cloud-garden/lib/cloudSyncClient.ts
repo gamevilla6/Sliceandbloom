@@ -16,8 +16,12 @@ export class CloudSyncClient {
   private credentialLoad?: Promise<InstallationCredentials>;
   private writes = new Map<CloudMode, Promise<unknown>>();
   private baseUrl: string;
-  constructor(baseUrl: string, private readonly fetcher: typeof fetch = fetch) {
+  private readonly fetcher: typeof fetch;
+  constructor(baseUrl: string, fetcher?: typeof fetch) {
     this.baseUrl = baseUrl.replace(/\/+$/, "");
+    // Preserve the browser's Window receiver; unbound window.fetch throws
+    // "Illegal invocation" in web previews.
+    this.fetcher = fetcher ?? globalThis.fetch.bind(globalThis);
   }
   private async getCredentials() {
     if (this.credentials) return this.credentials;
@@ -74,6 +78,9 @@ export class CloudSyncClient {
     }
     return result;
   }
+  async getInstallationId() {
+    return (await this.getCredentials()).installationId;
+  }
   syncMode(mode: CloudMode, progress: CloudProgress): Promise<CloudProgress> {
     const previous = this.writes.get(mode) ?? Promise.resolve();
     const next = previous.catch(() => {}).then(async () => {
@@ -106,10 +113,13 @@ function validateCredentials(value: unknown): asserts value is InstallationCrede
 }
 
 function apiBaseUrl() {
-  const configured = process.env.EXPO_PUBLIC_API_BASE_URL?.trim();
-  const devDomain = process.env.EXPO_PUBLIC_DOMAIN?.trim();
+  const configuredValue = process.env.EXPO_PUBLIC_API_BASE_URL;
+  const configured = configuredValue ? configuredValue.trim() : "";
   const published = Constants.expoConfig?.extra?.apiBaseUrl;
-  const raw = configured || (__DEV__ && devDomain ? `https://${devDomain}/api` : published);
+  const webOrigin = typeof window !== "undefined" && window.location?.origin
+    ? `${window.location.origin}/api`
+    : undefined;
+  const raw = configured || webOrigin || published;
   if (typeof raw !== "string" || !raw) throw new Error("Private cloud sync is not configured.");
   const url = new URL(raw);
   if (!__DEV__ && url.protocol !== "https:") throw new Error("Cloud saves require a secure connection.");

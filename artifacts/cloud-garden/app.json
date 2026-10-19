@@ -5,6 +5,7 @@
     "extra": {
       "developerName": "Game Villa",
       "supportEmail": "contact.gamevilla@gmail.com",
+      "apiBaseUrl": "https://cloud-to-plant-physics-puzzle.replit.app/api",
       "eas": {
         "projectId": "e20e9de1-ea5b-4b14-93e4-4d42ba186d5f"
       }

@@ -9,7 +9,7 @@ access is still unavailable to the local build setup. Do not rename a ZIP,
 unsigned bundle or testing APK to represent a signed production AAB.
 
 CONTENTS
-privacy_policy.md: updated internet-check and device-local-save disclosures.
+privacy_policy.md: internet-only and private, per-installation cloud-save disclosure.
 store-listing/: accurate short/full Play descriptions for the 2D game.
 online-only-release.md: implemented behavior and release blockers.
 source-overlay/: current mobile source, assets, tests and dependency lockfile.
@@ -63,7 +63,18 @@ AFTER A SIGNED AAB IS AVAILABLE
    Do not uninstall an existing game to test update persistence.
 
 SAVE BEHAVIOR
-Scores, unlocks, stars, settings and rewards remain device-local in AsyncStorage.
-There are no player accounts, cloud saves or online leaderboards. Losing the
-network pauses play but does not delete data. Preview and production packages
-have separate storage. Privacy remains accessible while offline.
+Level unlocks, stars, high scores and best times are cached in AsyncStorage and
+synced to a private cloud record for this installation. The anonymous bearer
+token stays in Expo SecureStore on Android/iOS. No account or public leaderboard
+is used; saves do not move between devices. Settings and rewarded-ad inventory
+remain device-local. Losing the network pauses play and keeps the local cache.
+Clearing secure storage makes an existing cloud record inaccessible; the Privacy
+page displays an installation ID for a deletion request. Privacy remains
+accessible while offline.
+
+API AND DATABASE
+The mobile app calls the API at
+https://cloud-to-plant-physics-puzzle.replit.app/api. New development tables
+must be applied to the development database with the workspace Drizzle push.
+Production schema changes take effect through Replit Publish. Do not run a
+production database push from the development workspace.

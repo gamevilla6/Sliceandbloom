@@ -5,7 +5,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { usePathname, useRouter } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { InternetAccess, type InternetStatus } from '@/lib/internetAccess';
-import { useCloudSync } from '@/components/CloudSyncProvider';
 import { F, P, R } from '@/constants/theme';
 
 const NATIVE_PROBE = 'https://clients3.google.com/generate_204';
@@ -14,7 +13,9 @@ export const INTERNET_REQUIRED_MESSAGE = 'Internet connection required! Please c
 /** A real HTTP response, not just a Wi-Fi icon. No saves/identifiers are sent. */
 async function probeInternet() {
   if (Platform.OS === 'web' && navigator.onLine === false) return false;
-  const url = new URL(Platform.OS === 'web' ? window.location.href : NATIVE_PROBE);
+  const url = Platform.OS === 'web'
+    ? new URL('/api/healthz', window.location.origin)
+    : new URL(NATIVE_PROBE);
   url.hash = '';
   url.searchParams.set('online_check', String(Date.now()));
   const abort = new AbortController();
@@ -90,18 +91,22 @@ export function useInternetAccess() {
   return context;
 }
 
-export function InternetRequiredModal() {
+export function InternetRequiredModal({ cloudReady, cloudStatus, cloudError, retryCloud }: {
+  cloudReady: boolean;
+  cloudStatus: string;
+  cloudError?: string;
+  retryCloud: () => Promise<void>;
+}) {
   const { status, check } = useInternetAccess();
-  const cloud = useCloudSync();
   const pathname = usePathname();
   const router = useRouter();
   const { height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const checking = status === 'checking';
-  const waitingForCloud = status === 'online' && cloud.status !== 'ready';
-  const visible = (status !== 'online' || !cloud.playReady) && pathname !== '/privacy';
+  const waitingForCloud = status === 'online' && !cloudReady;
+  const visible = (status !== 'online' || !cloudReady) && pathname !== '/privacy';
   const retry = async () => {
-    if (await check(true)) await cloud.retry();
+    if (await check(true)) await retryCloud();
   };
   // Privacy can always be read. Gameplay remains paused behind that route.
   return (
@@ -117,12 +122,12 @@ export function InternetRequiredModal() {
             </Text>
             <Text accessibilityLiveRegion="polite" style={styles.body}>
               {checking ? 'Checking your connection before play…'
-                : waitingForCloud ? cloud.status === 'error'
-                  ? cloud.error ?? 'Cloud sync is unavailable. Please retry before playing.'
+                : waitingForCloud ? cloudStatus === 'error'
+                  ? cloudError ?? 'Cloud sync is unavailable. Please retry before playing.'
                   : 'Syncing your private progress before play…'
                 : INTERNET_REQUIRED_MESSAGE}
             </Text>
-            {(checking || (waitingForCloud && cloud.status !== 'error'))
+            {(checking || (waitingForCloud && cloudStatus !== 'error'))
               && <ActivityIndicator color={P.drop} accessibilityLabel="Checking internet and syncing your private save" />}
             <Pressable accessibilityRole="button" accessibilityState={{ disabled: checking }} disabled={checking}
               testID="internet-retry" onPress={() => { void retry(); }} style={[styles.retry, checking && { opacity: 0.6 }]}>

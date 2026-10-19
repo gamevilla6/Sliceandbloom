@@ -23,8 +23,20 @@ Support: `contact.gamevilla@gmail.com`
 - Ads cannot preload/show while the manager is offline. Reconnection retries
   preloads, and native banners wait for online verification. SDK-earned rewards
   still wait for ad close; disconnecting does not fabricate or erase a receipt.
-- Progress remains device-local, as requested. No cloud sync, online leaderboard,
-  daily online seeds or 3D gameplay are advertised.
+- A randomly issued per-install token is stored in native SecureStore (browser
+  storage on web); the API stores only its SHA-256 digest. Level unlocks, stars,
+  scores and best times merge with existing local progress, then sync privately
+  over HTTPS. Settings and rewarded inventory remain local. No player account,
+  public leaderboard or cross-device restore is provided.
+- Gameplay and ad loading wait until both internet access and all five mode
+  saves have synchronized. API failures block play and offer a retry rather than
+  silently reverting to device-only play. The Privacy page exposes an install ID
+  for requests to delete the server copy.
+- The API is configured at
+  `https://cloud-to-plant-physics-puzzle.replit.app/api`. Its routes require the
+  new `game_installations` table. Development schema is applied with the
+  workspace Drizzle push; production schema applies on Replit Publish. The
+  currently deployed API does not include these new routes until published.
 
 ## Production build status
 
@@ -52,7 +64,8 @@ do not deliver this as a JavaScript-only update to an incompatible old binary.
    package, version, certificate, native dependencies and bundled assets.
 4. Test cold launch without internet, captive Wi-Fi, Wi-Fi/cellular handoffs,
    foreground resume and loss during a timed puzzle or rewarded ad.
-5. Confirm local saves persist after force-close/reopen and after updating an
-   existing same-package installation. Do not uninstall to test persistence.
+5. Confirm local saves persist after force-close/reopen and that cloud scores,
+   stars and unlocks hydrate on the same installation. Do not uninstall to test
+   persistence; reinstall can remove the private installation key.
 6. Use the accurate store descriptions and updated privacy policy. Reconcile
    the Play Console Data safety form with SDK behavior before submission.

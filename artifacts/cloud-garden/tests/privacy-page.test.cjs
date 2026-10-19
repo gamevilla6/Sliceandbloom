@@ -18,14 +18,17 @@ test('privacy page is routed from Settings and uses the configured support conta
   assert.ok(privacy.includes('const { developerName, supportEmail } = appConfig.expo.extra;'));
 });
 
-test('privacy disclosures describe local saves, ad consent and Google data handling', () => {
+test('privacy disclosures describe the private cloud save, local cache, ad consent and Google data handling', () => {
   for (const disclosure of [
-    'saved locally on your device or browser',
+    'Settings, reward inventory and a local progress cache',
+    'high scores and best times are sent',
+    'not a public leaderboard',
+    'installation ID shown on this page',
     'Google Mobile Ads and Google’s consent tools',
     'non-personalized',
     'policies.google.com/privacy',
-    'does not include a separate analytics service',
-    'clearing the app’s storage',
+    'does not include a separate gameplay analytics service',
+    'Clearing app or browser storage',
   ]) {
     assert.ok(privacy.includes(disclosure), `Missing privacy disclosure: ${disclosure}`);
   }

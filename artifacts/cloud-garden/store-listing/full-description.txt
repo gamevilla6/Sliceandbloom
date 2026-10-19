@@ -1,7 +1,7 @@
 Welcome to Slice & Bloom, a colorful 2D physics puzzle game by Game Villa! Draw paths, slice ropes and guide a water droplet toward a dry flower. Solve creative puzzles where gravity, timing and a carefully placed stroke can make the garden bloom.
 
 INTERNET CONNECTION REQUIRED
-An active internet connection is required to start and continue playing. If your connection drops, gameplay pauses until connectivity is restored. Rewarded hint videos also require connectivity and depend on ad availability.
+An active internet connection is required to load levels, start and continue playing, sync your private progress, and watch optional rewarded hint videos. If your connection drops, gameplay pauses until it is restored.
 
 KEY FEATURES
 
@@ -14,8 +14,8 @@ Draw ramps and cut ropes with one-touch controls. Work with moving obstacles, po
 OPTIONAL REWARDED HINTS
 Choose to watch an available rewarded video to reveal a helpful cutting or drawing guide. Rewards are credited only after the ad reports an earned reward and closes.
 
-LOCAL PROGRESS AND PERSONAL RECORDS
-Your level unlocks, stars, personal records and reward inventory are saved on your device. No player account is required. There are no cloud saves, cross-device progress sync or online leaderboards in this version.
+PRIVATE PROGRESS SYNC
+Level unlocks, stars, high scores and best times are cached on your device and synced to a private save for this installation. No player account is required. Your save is not a public leaderboard and does not sync across devices. Reinstalling the game or clearing its secure storage removes access to that installation's cloud save.
 
 RESPONSIVE PLAY
 Browse scrollable level chapters and play on supported Android phones and tablets. Retry challenging stages and improve your own results.

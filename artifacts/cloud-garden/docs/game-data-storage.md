@@ -17,6 +17,13 @@ receipts and daily streaks remain at `cloud-garden:app-rewards:v1`.
 adapter, key and typed profile. The existing profile readers sanitize loaded
 scores, stars, unlocks, completion times and reward counts.
 
+Progress fields (unlocks, stars, scores and best times) are also synchronized
+to a private anonymous server record for this installation. The server never
+receives the AsyncStorage key or the raw bearer token; the token is kept in
+Expo SecureStore on native devices. Local settings, death counts and reward
+inventory are intentionally excluded from the cloud record. A web browser uses
+localStorage for its per-install bearer token.
+
 - Load successfully before enabling profile changes.
 - Save immediately after each transition, in per-key order.
 - Serialize snapshots outside React state updater functions.
@@ -28,11 +35,13 @@ scores, stars, unlocks, completion times and reward counts.
 - The browser uses AsyncStorage's browser adapter; native uses Android storage,
   not `window.localStorage`.
 
-AsyncStorage is not encrypted storage or cloud backup. Do not store credentials
-or sensitive personal information here. Changing package identifiers creates a
-different Android storage sandbox. A normal same-package, same-signature update
-preserves saves; uninstalling or clearing app data removes local progress.
-Web saves and the `.preview` APK do not automatically transfer to the store app.
+AsyncStorage is not encrypted storage. Do not store credentials or sensitive
+personal information there. Clearing app storage removes the local cache and
+secure token and can make the cloud record inaccessible. The cloud save does
+not restore across devices or after reinstall. Changing package identifiers
+creates a different Android storage sandbox. A normal same-package,
+same-signature update preserves local saves. Web saves and the `.preview` APK
+do not automatically transfer to the store app.
 
 ## Verification
 

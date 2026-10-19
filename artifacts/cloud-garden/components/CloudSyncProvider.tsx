@@ -8,6 +8,7 @@ type CloudStatus = "checking" | "offline" | "connecting" | "hydrating" | "ready"
 type CloudSnapshot = {
   status: CloudStatus;
   error?: string;
+  installationId?: string;
   progress: CloudProgressBundle;
   epoch: number;
   readyModes: Set<CloudMode>;
@@ -24,6 +25,13 @@ const EMPTY: CloudSnapshot = { status: "checking", progress: {}, epoch: 0, ready
 const CloudContext = createContext<CloudContextValue | null>(null);
 const statusMessage = "Could not prepare your private cloud save. Check your connection and retry.";
 
+function safeError(error: unknown) {
+  if (error instanceof Error && /^(Private cloud|Cloud save authorization|Cloud save request failed \(\d+\)|Cloud sync timed out|Cloud sync is unavailable|Secure private-save storage is unavailable)/.test(error.message)) {
+    return error.message;
+  }
+  return statusMessage;
+}
+
 export function CloudSyncProvider({ children }: { children: React.ReactNode }) {
   const internet = useInternetAccess();
   const client = useMemo<CloudSyncClient>(() => getCloudSyncClient(), []);
@@ -32,6 +40,7 @@ export function CloudSyncProvider({ children }: { children: React.ReactNode }) {
   snapshotRef.current = snapshot;
   const generation = useRef(0);
   const activeRequest = useRef<Promise<void> | null>(null);
+  const pendingWrites = useRef(new Map<CloudMode, { serialized: string; promise: Promise<CloudProgress> }>());
 
   const startSync = useCallback((): Promise<void> => {
     if (!internet.online) return Promise.resolve();
@@ -39,13 +48,16 @@ export function CloudSyncProvider({ children }: { children: React.ReactNode }) {
     const epoch = ++generation.current;
     setSnapshot({ status: "connecting", progress: {}, epoch, readyModes: new Set() });
     const request = (async () => {
+      let installationId: string | undefined;
       try {
+        installationId = await client.getInstallationId();
         const remoteProgress = await client.load();
         if (epoch !== generation.current || !internet.isOnline()) return;
-        setSnapshot({ status: "hydrating", progress: remoteProgress, epoch, readyModes: new Set() });
-      } catch {
+        setSnapshot({ status: "hydrating", installationId, progress: remoteProgress, epoch, readyModes: new Set() });
+      } catch (error) {
         if (epoch === generation.current && internet.isOnline()) {
-          setSnapshot({ status: "error", error: statusMessage, progress: {}, epoch, readyModes: new Set() });
+          const message = safeError(error);
+          setSnapshot({ status: "error", installationId, error: message, progress: {}, epoch, readyModes: new Set() });
         }
       }
     })().finally(() => {
@@ -59,6 +71,7 @@ export function CloudSyncProvider({ children }: { children: React.ReactNode }) {
     if (internet.online) void startSync();
     else {
       generation.current++;
+      activeRequest.current = null;
       setSnapshot({ ...snapshotRef.current, status: internet.status === "checking" ? "checking" : "offline" });
     }
   }, [internet.online, internet.status, startSync]);
@@ -72,21 +85,31 @@ export function CloudSyncProvider({ children }: { children: React.ReactNode }) {
     if (!internet.isOnline() || !["hydrating", "ready"].includes(snapshotRef.current.status)) {
       throw new Error(statusMessage);
     }
+    const serialized = JSON.stringify(progress);
+    const pending = pendingWrites.current.get(mode);
+    if (pending?.serialized === serialized) return pending.promise;
     const cached = snapshotRef.current.progress[mode];
-    if (cached && JSON.stringify(cached) === JSON.stringify(progress)) return cached;
-    try {
-      const saved = await client.syncMode(mode, progress);
-      if (epoch !== generation.current || !internet.isOnline()) throw new Error(statusMessage);
-      setSnapshot((current) => ({
-        ...current,
-        progress: { ...current.progress, [mode]: saved },
-      }));
-      return saved;
-    } catch (error) {
-      if (epoch === generation.current && internet.isOnline()) {
-        setSnapshot((current) => ({ ...current, status: "error", error: statusMessage, readyModes: new Set() }));
+    if (!pending && cached && JSON.stringify(cached) === serialized) return cached;
+    const promise = (async () => {
+      try {
+        const saved = await client.syncMode(mode, progress);
+        if (epoch !== generation.current || !internet.isOnline()) throw new Error(statusMessage);
+        setSnapshot((current) => ({
+          ...current,
+          progress: { ...current.progress, [mode]: saved },
+        }));
+        return saved;
+      } catch (error) {
+        if (epoch === generation.current && internet.isOnline()) {
+          setSnapshot((current) => ({ ...current, status: "error", error: statusMessage, readyModes: new Set() }));
+        }
+        throw error;
       }
-      throw error;
+    })();
+    pendingWrites.current.set(mode, { serialized, promise });
+    try { return await promise; }
+    finally {
+      if (pendingWrites.current.get(mode)?.promise === promise) pendingWrites.current.delete(mode);
     }
   }, [client, internet.isOnline]);
 

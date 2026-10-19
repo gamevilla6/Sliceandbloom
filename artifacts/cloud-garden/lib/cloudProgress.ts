@@ -52,11 +52,12 @@ export function parseCloudProgress(mode: CloudMode, value: unknown): CloudProgre
   const data = value as Record<string, unknown>;
   const total = CLOUD_PROGRESS_MODES[mode].total;
   const validLevel = (n: unknown) => Number.isInteger(n) && (n as number) >= 0 && (n as number) < total;
-  const readMap = (raw: unknown, kind: "stars" | "scores" | "bestTimes") => {
+  const readMap = (raw: unknown, kind: "stars" | "scores" | "bestTimes", unlocked: number) => {
     if (!raw || typeof raw !== "object" || Array.isArray(raw)) throw new Error("Invalid cloud progress response.");
     const entries = Object.entries(raw);
     if (entries.length > total || entries.some(([key, n]) => !/^(0|[1-9]\d{0,2})$/.test(key)
       || !validLevel(Number(key))
+      || Number(key) > unlocked
       || typeof n !== "number" || !Number.isFinite(n)
       || (kind === "stars" ? !Number.isInteger(n) || n < 1 || n > 3 : n <= 0))) {
       throw new Error("Invalid cloud progress response.");
@@ -70,8 +71,8 @@ export function parseCloudProgress(mode: CloudMode, value: unknown): CloudProgre
   return {
     unlocked: data.unlocked as number,
     last: data.last as number,
-    stars: readMap(data.stars, "stars"),
-    scores: readMap(data.scores, "scores"),
-    bestTimes: readMap(data.bestTimes, "bestTimes"),
+    stars: readMap(data.stars, "stars", data.unlocked as number),
+    scores: readMap(data.scores, "scores", data.unlocked as number),
+    bestTimes: readMap(data.bestTimes, "bestTimes", data.unlocked as number),
   };
 }

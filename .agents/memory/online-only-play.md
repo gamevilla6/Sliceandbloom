@@ -1,10 +1,10 @@
 ---
-name: Online-only play with local saves
-description: User-selected saving scope and truthful listing requirements for the online-only game
+name: Online-only play with private per-install sync
+description: User-selected internet and progress-sync scope for the game
 ---
 
-The current game requires internet access to play, but scores and progress remain device-local.
+Require a verified internet connection to play. Progress sync is private to one installation; do not add accounts, public leaderboards, or promise cross-device recovery. Settings, deaths, and reward inventory remain device-local.
 
-**Why:** The user explicitly chose “Keep device-local saves, but require internet to play” rather than adding player sign-in and cloud synchronization.
+**Why:** The user first chose local-only saves, then explicitly selected “Private cloud sync for this installation,” superseding that earlier choice.
 
-**How to apply:** Preserve local saves through connection loss and reconnection. Describe the internet requirement separately from saving: do not advertise cloud saves, online leaderboards, cross-device progress or player accounts as current features.
+**How to apply:** Keep gameplay blocked while internet or the private save service is unavailable. Describe internet play and per-install cloud progress accurately; do not imply a public leaderboard, player account, or cross-device restore.

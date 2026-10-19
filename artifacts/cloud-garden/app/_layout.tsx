@@ -35,6 +35,16 @@ function OnlineAdsBootstrap() {
   return null;
 }
 
+function OnlineAccessGate() {
+  const cloud = useCloudSync();
+  return <InternetRequiredModal
+    cloudReady={cloud.playReady}
+    cloudStatus={cloud.status}
+    cloudError={cloud.error}
+    retryCloud={cloud.retry}
+  />;
+}
+
 function RootLayoutNav() {
   return (
     <Stack screenOptions={{ headerShown: false }}>
@@ -70,7 +80,7 @@ export default function RootLayout() {
                 <CloudSyncProvider>
                   <RootLayoutNav />
                   <OnlineAdsBootstrap />
-                  <InternetRequiredModal />
+                  <OnlineAccessGate />
                 </CloudSyncProvider>
               </InternetProvider>
             </KeyboardProvider>
