@@ -50,6 +50,36 @@ test('startup preloads both fullscreen formats, never shows one automatically, a
   assert.equal(f.ads.rewarded.length, 1); assert.equal(f.ad('rewarded').shows, 0);
   assert.equal(f.ad('interstitial').shows, 0);
 });
+
+test('offline gate blocks cached ads and preserves an already-earned reward on close', async t => {
+  const f = await fixture(t);
+  f.load('rewarded');
+  f.manager.setOnline(false);
+  assert.equal(f.manager.showRewarded(() => assert.fail('offline ad must not reward')), false);
+  assert.equal(f.ad('rewarded').shows, 0);
+  f.manager.setOnline(true);
+  const earned = [];
+  assert.equal(f.manager.showRewarded(reward => earned.push(reward)), true);
+  f.ad('rewarded').emit('earned', { type: 'hint', amount: 1 });
+  f.manager.setOnline(false);
+  assert.equal(earned.length, 0);
+  f.ad('rewarded').emit('closed');
+  assert.equal(earned.length, 1);
+  assert.equal(f.ads.rewarded.length, 1); // No new load while offline.
+});
+
+test('offline incomplete ads do not reward and reconnect retries failed preloads', async t => {
+  const f = await fixture(t);
+  f.load('rewarded');
+  const earned = [];
+  f.manager.showRewarded(reward => earned.push(reward));
+  f.manager.setOnline(false);
+  f.ad('rewarded').emit('closed');
+  assert.equal(earned.length, 0);
+  f.manager.setOnline(true);
+  await tick();
+  assert.equal(f.ads.rewarded.length, 2);
+});
 test('reward is granted once only after showing, earned AND closed, then a replacement preloads', async t => {
   const f = await fixture(t); f.load('rewarded');
   const ad = f.ad('rewarded'), reward = { amount: 1, type: 'ink' };

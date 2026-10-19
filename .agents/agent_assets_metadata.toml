@@ -148,3 +148,10 @@ mtime_ms = 1792396019285
 storage_uri = "gcs://replit-rams-assets-pike/rams/assets/repl:f7651a05-0f1b-4e35-b597-6fcb4ba48849/adb40664-b5fa-4444-9f7c-078eedf5473d/c4ed8964-82ee-4738-9eee-ec8af73f2aaf"
 storage_version_token = "1792396058483247"
 content_type = "application/octet-stream"
+
+[[outputs]]
+id = "kdgpoVuOQpquUBhu4Rljp"
+uri = "file://generated-artifacts/android/SliceAndBloom-Online-Only-SETUP.zip"
+type = "unspecified"
+title = "Slice & Bloom — Online-only setup ZIP"
+description = "Source/setup bundle with updated privacy policy, Play descriptions, verification report and README. No compiled APK or production AAB is included; production signing access remains blocked."

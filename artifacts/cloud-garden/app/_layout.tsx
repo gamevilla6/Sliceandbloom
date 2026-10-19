@@ -13,12 +13,24 @@ import {
 } from '@expo-google-fonts/fredoka';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import { initializeAds } from '@/lib/AdManager';
+import { adManager, initializeAds } from '@/lib/AdManager';
+import { InternetProvider, InternetRequiredModal, useInternetAccess } from '@/components/InternetAccess';
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
 
 const queryClient = new QueryClient();
+
+function OnlineAdsBootstrap() {
+  const { online } = useInternetAccess();
+  useEffect(() => {
+    adManager.setOnline(online);
+    if (online) initializeAds().catch((error: unknown) => {
+      console.warn('[ads] Google Mobile Ads SDK initialization failed.', error);
+    });
+  }, [online]);
+  return null;
+}
 
 function RootLayoutNav() {
   return (
@@ -38,12 +50,6 @@ export default function RootLayout() {
   });
 
   useEffect(() => {
-    initializeAds().catch((error: unknown) => {
-      console.warn('[ads] Google Mobile Ads SDK initialization failed.', error);
-    });
-  }, []);
-
-  useEffect(() => {
     if (fontsLoaded || fontError) {
       SplashScreen.hideAsync();
     }
@@ -57,7 +63,11 @@ export default function RootLayout() {
         <QueryClientProvider client={queryClient}>
           <GestureHandlerRootView style={{ flex: 1 }}>
             <KeyboardProvider>
-              <RootLayoutNav />
+              <InternetProvider>
+                <RootLayoutNav />
+                <OnlineAdsBootstrap />
+                <InternetRequiredModal />
+              </InternetProvider>
             </KeyboardProvider>
           </GestureHandlerRootView>
         </QueryClientProvider>

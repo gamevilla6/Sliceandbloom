@@ -14,6 +14,7 @@ import { HARDCORE_LEVELS } from '@/lib/hardcoreLevels';
 import { GENESIS_LEVELS } from '@/lib/genesisLevels';
 import { levelTools } from '@/lib/levelTools';
 import { canSelectLevel } from '@/lib/levelGrid';
+import { useInternetAccess } from '@/components/InternetAccess';
 import { VOID_LEVELS } from '@/lib/voidLevels';
 import { useSound } from '@/lib/audio';
 import { setHapticsEnabled } from '@/lib/haptics';
@@ -28,7 +29,7 @@ import { createDailyRewardOffer, dailyStatus, formatCountdown, type DailyRewardO
 import { SINGULARITY_LEVELS } from '@/lib/singularityLevels';
 import type { RewardedAdReward } from 'react-native-google-mobile-ads';
 import { SafeAreaView, type Edge } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { usePathname, useRouter } from 'expo-router';
 
 type Sheet = 'none' | 'menu' | 'levels' | 'settings' | 'rewards';
 type RewardAction = HubRewardAction | 'retryInk' | 'hint';
@@ -36,6 +37,11 @@ type RewardAction = HubRewardAction | 'retryInk' | 'hint';
 export default function GameScreen() {
   'use no memo';
   const router = useRouter();
+  const internet = useInternetAccess();
+  const pathname = usePathname();
+  const routeRef = useRef(pathname);
+  routeRef.current = pathname;
+  const levelTransition = useRef(false);
   // Retry is an explicit useMemo dependency even though its factory only reads level.
   const classic = useProgress(LEVELS.length);
   const hard = useProgress(HARDCORE_LEVELS.length, 'cloud-garden:hardcore:v1');
@@ -172,11 +178,11 @@ export default function GameScreen() {
   // Hardcore failures retry themselves; an open sheet suspends that.
   useEffect(() => {
     const thermal = !!level.thermalZone && !!live?.fail.includes('Thermal');
-    if (!(hardcore || thermal) || status !== 'lost' || sheet !== 'none' || rewardAction === 'retryInk') return;
+    if (!internet.online || !(hardcore || thermal) || status !== 'lost' || sheet !== 'none' || rewardAction === 'retryInk') return;
     const t = setTimeout(() => resetRef.current(), 2500);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hardcore, status, sheet, tag, level, live?.fail, rewardAction]);
+  }, [hardcore, status, sheet, tag, level, live?.fail, rewardAction, internet.online]);
 
   const sheetRef = useRef(sheet);
   sheetRef.current = sheet;
@@ -197,40 +203,53 @@ export default function GameScreen() {
 
   const onHud = useCallback((h: Hud) => setHud(h), []);
 
-  const load = (i: number) => {
+  const load = async (i: number) => {
+    if (levelTransition.current) return;
     if (!ready || !canSelectLevel(i, levels.length, progress.unlocked,
       mode === 'genesis' ? appRewards.profile.genesisFastPasses : 0)) return;
-    if (adManager.getSnapshot().fullscreen || victoryTransition.current) return;
-    const fastPassTrial = mode === 'genesis' && i > progress.unlocked;
-    if (i > progress.unlocked && (!fastPassTrial || appRewards.profile.genesisFastPasses < 1)) return;
-    if (fastPassTrial && !appRewards.useFastPass()) return;
-    fastPassTrialRef.current = fastPassTrial;
-    setIdx(i);
-    setLast(i);
-    setAttempt((a) => a + 1);
-    setBonusInkFraction(0);
-    setRewardedHintUnlocked(false);
-    setHintPrompt(false);
-    setHintWatchRequested(false);
-    rewardActionRef.current = null;
-    setRewardAction(null);
-    setRewardMessage(undefined);
-    dispatchHint({ type: 'reset' });
-    setSheet('none');
-    setOverlay(false);
+    levelTransition.current = true;
+    try {
+      if (!await internet.check(true) || routeRef.current !== '/') return;
+      if (adManager.getSnapshot().fullscreen || victoryTransition.current) return;
+      const fastPassTrial = mode === 'genesis' && i > progress.unlocked;
+      if (i > progress.unlocked && (!fastPassTrial || appRewards.profile.genesisFastPasses < 1)) return;
+      if (fastPassTrial && !appRewards.useFastPass()) return;
+      fastPassTrialRef.current = fastPassTrial;
+      setIdx(i);
+      setLast(i);
+      setAttempt((a) => a + 1);
+      setBonusInkFraction(0);
+      setRewardedHintUnlocked(false);
+      setHintPrompt(false);
+      setHintWatchRequested(false);
+      rewardActionRef.current = null;
+      setRewardAction(null);
+      setRewardMessage(undefined);
+      dispatchHint({ type: 'reset' });
+      setSheet('none');
+      setOverlay(false);
+    } finally { levelTransition.current = false; }
   };
-  const reset = () => {
-    if (adManager.getSnapshot().fullscreen || victoryTransition.current) return;
-    setAttempt((a) => a + 1);
-    setBonusInkFraction(0);
-    setRewardedHintUnlocked(false);
-    setHintPrompt(false);
-    setHintWatchRequested(false);
-    rewardActionRef.current = null;
-    setRewardAction(null);
-    setRewardMessage(undefined);
-    dispatchHint({ type: 'reset' });
-    setOverlay(false);
+  const reset = async () => {
+    if (levelTransition.current) return;
+    levelTransition.current = true;
+    try {
+      if (!await internet.check(true) || routeRef.current !== '/') return;
+      if (adManager.getSnapshot().fullscreen || victoryTransition.current) return;
+      setAttempt((a) => a + 1);
+      setBonusInkFraction(0);
+      setRewardedHintUnlocked(false);
+      setHintPrompt(false);
+      setHintWatchRequested(false);
+      rewardActionRef.current = null;
+      setRewardAction(null);
+      setRewardMessage(undefined);
+      dispatchHint({ type: 'reset' });
+      setOverlay(false);
+    } finally { levelTransition.current = false; }
+  };
+  const continueGame = async () => {
+    if (await internet.check(true) && routeRef.current === '/') setSheet('none');
   };
   const retryWithBonusInk = useCallback(() => {
     setBonusInkFraction(0.5);
@@ -284,7 +303,7 @@ export default function GameScreen() {
     // game inventory, not the publisher's configured amount.
     void reward;
   }, [appRewards.grantHubAd, appRewards.recordHint, appRewards.recordInkRetry, retryWithBonusInk, playSound]);
-  const rewardedAd = useRewardedAd(!!rewardAction && canUsePendingReward, rewardAdRequest, onRewardAfterClose);
+  const rewardedAd = useRewardedAd(internet.online && !!rewardAction && canUsePendingReward, rewardAdRequest, onRewardAfterClose);
   // Watch Ad is explicit opt-in. A cold cache continues automatically once
   // loading succeeds; no second tap or synthetic browser reward is needed.
   useEffect(() => {
@@ -306,11 +325,12 @@ export default function GameScreen() {
   // The ghost path is guidance, never an automatic stroke or physics mutation.
   // It fades after 15 seconds; the earned unlock can re-display it this attempt.
   useEffect(() => {
-    if (!hint || puzzleDetails || sheet !== 'none') return;
+    if (!internet.online || !hint || puzzleDetails || sheet !== 'none') return;
     const timer = setTimeout(() => dispatchHint({ type: 'toggle' }), 15000);
     return () => clearTimeout(timer);
-  }, [hint, tag, puzzleDetails, sheet]);
+  }, [hint, tag, puzzleDetails, sheet, internet.online]);
   const requestRewardedAction = (action: RewardAction) => {
+    if (!internet.isOnline()) return;
     const watch = () => {
       dailyOfferRef.current = action === 'dailyBrush' ? createDailyRewardOffer(appRewards.profile, Date.now()) : undefined;
       if (action === 'dailyBrush' && !dailyOfferRef.current) return;
@@ -427,8 +447,8 @@ export default function GameScreen() {
       next();
     } finally { victoryTransition.current = false; }
   };
-  const release = () => engineRef.current?.release();
-  const undo = () => engineRef.current?.undo();
+  const release = () => { if (internet.isOnline()) engineRef.current?.release(); };
+  const undo = () => { if (internet.isOnline()) engineRef.current?.undo(); };
 
   // Read current navigation state without re-registering Android Back on every
   // physics HUD update. Native Modal handles its own onRequestClose as usual.
@@ -669,7 +689,7 @@ export default function GameScreen() {
         </PressScale>
       </View>
       {!landscape && <View style={styles.stageCounters}>{ink}{hudCore}</View>}
-      <GameBoard key={tag} modeKey={mode} engine={gameEngine} level={level} attempt={attempt} tool={tool} showHint={hint} hintStep={hintView.step} hintOverview={hintView.overview} guides={progress.settings.guides} paused={puzzleDetails || hintPrompt || sheet !== 'none' || !!adNexus.fullscreen || (rewardAction === 'retryInk' && canUsePendingReward && (rewardedAd.status === 'loading' || rewardedAd.status === 'ready'))} playSound={playSound} engineRef={engineRef} onHud={onHud} />
+      <GameBoard key={tag} modeKey={mode} engine={gameEngine} level={level} attempt={attempt} tool={tool} showHint={hint} hintStep={hintView.step} hintOverview={hintView.overview} guides={progress.settings.guides} paused={!internet.online || pathname !== '/' || puzzleDetails || hintPrompt || sheet !== 'none' || !!adNexus.fullscreen || (rewardAction === 'retryInk' && canUsePendingReward && (rewardedAd.status === 'loading' || rewardedAd.status === 'ready'))} playSound={playSound} engineRef={engineRef} onHud={onHud} />
     </View>
   );
 
@@ -707,10 +727,10 @@ export default function GameScreen() {
       )}
       </SafeAreaView>
 
-      {sheet === 'menu' && <MainMenu mode={mode} currentLevel={idx + 1} onContinue={() => setSheet('none')}
+      {sheet === 'menu' && <MainMenu mode={mode} currentLevel={idx + 1} onContinue={continueGame}
         onSelectMode={m => switchMode(m, 'levels')} onRewards={() => setSheet('rewards')} />}
 
-       {sheet === 'levels' && <LevelPicker deaths={vProg.deaths} badges={vProg.badges} title={isVoid ? 'Hardcore: The Void Protocol' : isGenesis ? 'The Genesis Gauntlet' : isSingularity ? 'Singularity Paradox' : hardcore ? 'Hardcore' : 'Garden beds'} noun={noun} levels={levels} unlocked={progress.unlocked} fastPasses={isGenesis ? appRewards.profile.genesisFastPasses : 0} stars={progress.stars} scores={hardcore ? arcade.progress.scores : undefined} bestTimes={hardcore ? arcade.progress.bestTimes : undefined} current={idx} onPick={load} onClose={() => setSheet('none')} onHome={() => setSheet('menu')} />}
+       {sheet === 'levels' && <LevelPicker deaths={vProg.deaths} badges={vProg.badges} title={isVoid ? 'Hardcore: The Void Protocol' : isGenesis ? 'The Genesis Gauntlet' : isSingularity ? 'Singularity Paradox' : hardcore ? 'Hardcore' : 'Garden beds'} noun={noun} levels={levels} unlocked={progress.unlocked} fastPasses={isGenesis ? appRewards.profile.genesisFastPasses : 0} stars={progress.stars} scores={hardcore ? arcade.progress.scores : undefined} bestTimes={hardcore ? arcade.progress.bestTimes : undefined} current={idx} onPick={load} onClose={continueGame} onHome={() => setSheet('menu')} />}
       {sheet === 'settings' && (
         <SettingsSheet
           dark={isVoid}

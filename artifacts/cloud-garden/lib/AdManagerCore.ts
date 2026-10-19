@@ -33,6 +33,7 @@ export class AdManagerCore {
   private seen: string[] = [];
   private dueAttempt: string | null = null;
   private active = true;
+  private online = true;
   private disposed = false;
   private earned: EarnedReward | null = null;
   private grant?: (reward: EarnedReward) => void;
@@ -73,6 +74,12 @@ export class AdManagerCore {
     this.active = active;
     if (active) { this.preload('rewarded'); this.preload('interstitial'); }
   };
+  /** Losing connectivity never clears a legitimate in-flight reward receipt. */
+  setOnline = (online: boolean) => {
+    const reconnecting = online && !this.online;
+    this.online = online;
+    if (reconnecting) { this.preload('rewarded', true); this.preload('interstitial', true); }
+  };
   private clear(kind: AdKind) {
     const slot = this.slots[kind];
     slot.generation++;
@@ -81,7 +88,7 @@ export class AdManagerCore {
     slot.ad?.destroy(); slot.ad = undefined;
   }
   preload = (kind: AdKind, manualRetry = false) => {
-    if (!this.adapter || !this.active || this.disposed) return;
+    if (!this.adapter || !this.active || !this.online || this.disposed) return;
     const slot = this.slots[kind], state = this.snapshot[kind];
     if (state === 'loading' || state === 'showing') return;
     if (state === 'ready' && this.now() - slot.loadedAt < AD_CACHE_MS) return;
@@ -142,7 +149,7 @@ export class AdManagerCore {
       slot.retry = setTimeout(() => this.preload(kind), 15000 * slot.failures);
   }
   private ready(kind: AdKind) {
-    if (!this.active || this.snapshot.fullscreen || this.snapshot[kind] !== 'ready') return false;
+    if (!this.active || !this.online || this.snapshot.fullscreen || this.snapshot[kind] !== 'ready') return false;
     if (this.now() - this.slots[kind].loadedAt >= AD_CACHE_MS) {
       this.preload(kind); return false;
     }

@@ -1,0 +1,48 @@
+SLICE & BLOOM — ONLINE-ONLY VERIFICATION
+Verified October 19, 2026
+
+AUTOMATED
+- TypeScript passes.
+- Complete validation suite: 975 tests passed, zero failures.
+- Tests cover fail-closed launch, rejected probes, bounded timeouts,
+  shared checks, a new check before starts, stale-response invalidation,
+  foreground/new-network replacement and nonflickering background checks.
+- Ad-manager tests cover cached-ad blocking offline, no reward without
+  earned-reward, earned credit only after close, preservation of an already
+  earned receipt across disconnect and reconnect preload recovery.
+- Android autolinking includes @react-native-community/netinfo,
+  @react-native-async-storage/async-storage and react-native-google-mobile-ads.
+- NetInfo 12.0.1 matches the installed Expo SDK bundled module version.
+- The native connectivity endpoint returned HTTP 204 from the build host.
+  This does not verify reachability from every Android device or region.
+
+BROWSER
+- App loaded with only connectivity HEAD probes rejected: exact
+  internet-required message appeared and Retry became available.
+- Retry while blocked remained gated. Escape, Drop water, draw gestures
+  and R did not bypass offline enforcement or reset the saved move state.
+- Privacy was accessible while gated; Back returned to the connection gate.
+- An HTTP 200 response to the current-page web probe restored access.
+- Selecting Campaign Level 1 generated fresh connectivity proofs.
+- A drawn ramp survived browser offline/reconnect with one move intact.
+- Releasing water after reconnect produced a genuine three-star Level 1 win.
+- Local storage retained unlocked:1, stars:{"0":3}, badges:{"0":"Gold"}.
+  Reload retained the save and showed two levels unlocked.
+- Probe failure while navigator.onLine remained true returned the gate
+  within the heartbeat window; restoring reachability and Retry recovered.
+- Offline dialogs were checked at 320x568 and 640x360, including scrolling
+  to Retry and Privacy in landscape.
+- No fatal browser errors. Expected simulated network errors and the
+  existing web Animated native-driver fallback warning were non-fatal.
+
+LIMITS AND BUILD STATUS
+- Continue and free-retry entry points were inspected in source but were not
+  independently exercised in the browser pass.
+- A minor fade/transition layering artifact was observed while opening Privacy;
+  it did not block the policy or connection gate.
+- Native Android network handoffs, physical-device layout, installed save
+  persistence and real Google SDK ad delivery were not tested here.
+- New native SDK compilation has not been performed for this change.
+- No production AAB or updated APK was generated. Production signing access
+  is unavailable locally, and no production keystore was reset or replaced.
+- No cloud saves, accounts or online leaderboards were added.

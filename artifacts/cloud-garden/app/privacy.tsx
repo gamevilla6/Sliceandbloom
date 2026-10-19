@@ -7,7 +7,7 @@ import { F, P, R } from '@/constants/theme';
 import appConfig from '../app.json';
 
 const { developerName, supportEmail } = appConfig.expo.extra;
-const lastUpdated = 'October 18, 2026';
+const lastUpdated = 'October 19, 2026';
 const GOOGLE_PRIVACY_URL = 'https://policies.google.com/privacy';
 
 function PolicySection({ title, children }: { title: string; children: React.ReactNode }) {
@@ -59,15 +59,23 @@ export default function PrivacyPolicyScreen() {
           </Text>
         </View>
 
+        <PolicySection title="Internet access required">
+          <Text style={styles.body}>
+            An active internet connection is required to start and continue gameplay. Connection loss pauses puzzles behind an internet-required message. Retry checks your connection again without erasing saved progress. This policy remains accessible without passing that check.
+          </Text>
+          <Text style={[styles.body, styles.paragraphGap]}>
+            The app checks network status at launch, before level starts and retries, when returning to the foreground, and periodically while active. Native builds make small requests to Google’s clients3.google.com/generate_204 connectivity endpoint; browsers check the game’s current host. No scores, progress or reward inventory are included. The receiving service can process ordinary connection information such as IP address, request headers and request time. No Wi-Fi network names or location permission are requested.
+          </Text>
+        </PolicySection>
         <PolicySection title="Game data stored on your device">
           <Text style={styles.body}>
-            Your level progress, stars, records, settings and in-game reward items are saved locally on your device or browser so they are available when you play again. The game does not require an account. This information is not uploaded to a Game Villa game server.
+            Your level progress, stars, records, settings and in-game reward items are saved locally on your device or browser so they are available when you play again. The game does not require an account. This information is not uploaded to a Game Villa game server. Internet access does not enable cloud saves, cross-device synchronization or an online leaderboard.
           </Text>
         </PolicySection>
 
         <PolicySection title="Advertising and consent">
           <Text style={styles.body}>
-            Where ads are available, the game uses Google Mobile Ads and Google’s consent tools. Ads may include banners, interstitials after eligible wins, and optional rewarded videos. Rewarded items are granted by the game only after the ad reports a completed reward.
+            Where ads are available, the game uses Google Mobile Ads and Google’s consent tools. Ads may include banners, interstitials after eligible wins, and optional rewarded videos. Rewarded items are granted only after the SDK reports an earned reward and the ad closes. Losing connectivity does not itself grant an item. An ad without an earned-reward callback grants nothing; a legitimate earned receipt can still be credited after close if the connection drops.
           </Text>
           <Text style={[styles.body, styles.paragraphGap]}>
             Ad requests are configured as non-personalized. Google may still process information such as device or advertising identifiers, IP address, consent choices, and ad or diagnostic events to provide, secure and measure its services. Google’s handling of that information is described in its own privacy policy.
@@ -90,7 +98,7 @@ export default function PrivacyPolicyScreen() {
 
         <PolicySection title="Your choices">
           <Text style={styles.body}>
-            You can play without choosing to watch a rewarded video. You can remove locally saved game data by clearing the app’s storage in your device or browser settings; this also removes local progress and rewards. Any consent choices offered by Google’s consent tools apply to ad requests on that device.
+            An internet connection is required even if you do not choose to watch a rewarded video. Ad availability is not guaranteed by connectivity. You can remove locally saved game data by clearing the app’s storage in your device or browser settings; this also removes local progress and rewards. Any consent choices offered by Google’s consent tools apply to ad requests on that device.
           </Text>
         </PolicySection>
 
