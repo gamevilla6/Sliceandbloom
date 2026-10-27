@@ -1,7 +1,6 @@
 import React, { createContext, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { ActivityIndicator, Animated, AppState, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import NetInfo from '@react-native-community/netinfo';
-import Constants from 'expo-constants';
 import { Ionicons } from '@expo/vector-icons';
 import { usePathname, useRouter } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -9,20 +8,7 @@ import { createInternetProbeTarget, InternetAccess, type InternetStatus } from '
 import { F, P, R } from '@/constants/theme';
 
 export const INTERNET_REQUIRED_MESSAGE = 'Internet connection required! Please connect to Wi-Fi or mobile data to play Slice & Bloom.';
-
-function getProbeTarget() {
-  const apiBaseUrl = process.env.EXPO_PUBLIC_API_BASE_URL?.trim()
-    || Constants.expoConfig?.extra?.apiBaseUrl;
-  const webOrigin = Platform.OS === 'web' && typeof window !== 'undefined'
-    ? window.location.origin
-    : undefined;
-  try {
-    return createInternetProbeTarget(apiBaseUrl, webOrigin);
-  } catch {
-    // Invalid runtime config fails closed instead of crashing the app startup.
-    return createInternetProbeTarget(undefined, webOrigin);
-  }
-}
+const getProbeTarget = createInternetProbeTarget;
 
 let netInfoConfigured = false;
 function configureNetworkMonitor() {
@@ -35,25 +21,29 @@ function configureNetworkMonitor() {
     reachabilityShortTimeout: 5000,
     reachabilityLongTimeout: 15000,
     reachabilityRequestTimeout: 6000,
-    reachabilityShouldRun: () => AppState.currentState === 'active' || AppState.currentState === null,
+    reachabilityShouldRun: () => Platform.OS !== 'web'
+      && (AppState.currentState === 'active' || AppState.currentState === null),
     shouldFetchWiFiSSID: false,
     useNativeReachability: false,
   });
   netInfoConfigured = true;
 }
 
-/** Check internet against the configured API health endpoint; no player data is sent. */
+/** Check internet against a small public reachability endpoint; no player data is sent. */
 async function probeInternet() {
   if (Platform.OS === 'web' && typeof navigator !== 'undefined' && navigator.onLine === false) return false;
   const target = getProbeTarget();
-  const url = new URL(target.url);
-  url.searchParams.set('online_check', String(Date.now()));
   const abort = new AbortController();
   const timer = setTimeout(() => abort.abort(), 6000);
   try {
-    const response = await fetch(url.toString(), {
-      method: 'GET', cache: 'no-store', redirect: 'error', signal: abort.signal,
+    const response = await fetch(target.url, {
+      method: 'GET',
+      cache: 'no-store',
+      redirect: Platform.OS === 'web' ? 'follow' : 'error',
+      signal: abort.signal,
+      ...(Platform.OS === 'web' ? { mode: 'no-cors' as RequestMode } : {}),
     });
+    if (Platform.OS === 'web' && response.type === 'opaque') return true;
     return response.status === target.expectedStatus;
   } catch {
     return false;
@@ -85,9 +75,9 @@ export function InternetProvider({ children }: { children: React.ReactNode }) {
         networkKey = nextKey;
         monitor.suspend(); // A proof from the previous network cannot permit play.
       }
-      if (state.isConnected === false) monitor.disconnect();
+      if (state.isConnected === false
+        || (Platform.OS !== 'web' && state.isInternetReachable === false)) monitor.disconnect();
       else {
-        if (state.isInternetReachable === false) monitor.disconnect();
         void monitor.check();
       }
     });

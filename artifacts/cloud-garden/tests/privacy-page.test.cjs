@@ -18,10 +18,12 @@ test('privacy page is routed from Settings and uses the configured support conta
   assert.ok(privacy.includes('const { developerName, supportEmail } = appConfig.expo.extra;'));
 });
 
-test('privacy disclosures describe the private cloud save, local cache, ad consent and Google data handling', () => {
+test('privacy disclosures describe local saves, optional cloud sync, ad consent and Google data handling', () => {
   for (const disclosure of [
-    'Settings, reward inventory and a local progress cache',
-    'high scores and best times are sent',
+    'Progress, settings and reward inventory are saved on your device',
+    'may sync level unlocks, stars, high scores and best times',
+    'Sync is optional and best-effort',
+    '404 does not erase local progress or block gameplay',
     'not a public leaderboard',
     'installation ID shown on this page',
     'Google Mobile Ads and Google’s consent tools',

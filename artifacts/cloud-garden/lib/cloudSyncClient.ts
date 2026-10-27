@@ -19,7 +19,7 @@ export class CloudSyncClient {
   private baseUrl: string;
   private readonly fetcher: typeof fetch;
   constructor(baseUrl: string | undefined, fetcher?: typeof fetch) {
-    this.baseUrl = baseUrl.replace(/\/+$/, "");
+    this.baseUrl = baseUrl?.replace(/\/+$/, "") ?? "";
     // Preserve the browser's Window receiver; unbound window.fetch throws
     // "Illegal invocation" in web previews.
     this.fetcher = fetcher ?? globalThis.fetch.bind(globalThis);

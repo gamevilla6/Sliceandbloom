@@ -1,23 +1,11 @@
 export type InternetStatus = 'checking' | 'online' | 'offline';
 export type InternetProbeTarget = { url: string; expectedStatus: number };
 
-const NATIVE_FALLBACK_PROBE = 'https://clients3.google.com/generate_204';
+const INTERNET_PROBE = 'https://clients3.google.com/generate_204';
 
-/** Prefer the configured game API so web project pages probe the correct host. */
-export function createInternetProbeTarget(apiBaseUrl?: string, webOrigin?: string): InternetProbeTarget {
-  const configured = apiBaseUrl?.trim();
-  const target = configured
-    ? new URL(configured)
-    : webOrigin
-      ? new URL('/api', webOrigin)
-      : null;
-  if (!target) return { url: NATIVE_FALLBACK_PROBE, expectedStatus: 204 };
-
-  target.search = '';
-  target.hash = '';
-  const basePath = target.pathname.replace(/\/+$/, '');
-  target.pathname = basePath.endsWith('/healthz') ? basePath : `${basePath}/healthz`;
-  return { url: target.toString(), expectedStatus: 200 };
+/** Check internet independently from the optional game-save API. */
+export function createInternetProbeTarget(): InternetProbeTarget {
+  return { url: INTERNET_PROBE, expectedStatus: 204 };
 }
 
 /** Fail-closed connectivity state, independent of React/native APIs for tests. */

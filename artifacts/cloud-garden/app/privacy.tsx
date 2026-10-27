@@ -66,7 +66,7 @@ export default function PrivacyPolicyScreen() {
             An active internet connection is required to start and continue gameplay. Connection loss pauses puzzles behind an internet-required message. Retry checks your connection again without erasing saved progress. This policy remains accessible without passing that check.
           </Text>
           <Text style={[styles.body, styles.paragraphGap]}>
-            The app checks network status at launch, before level starts and retries, when returning to the foreground, and periodically while active. It requests a small HTTPS health check from the configured game API. The game may also contact an optional private-save endpoint. These services can process ordinary connection information such as IP address, request headers and request time. No Wi-Fi network names or location permission are requested.
+            The app checks network status at launch, before level starts and retries, when returning to the foreground, and periodically while active. It requests a small HTTPS check from Google's clients3.google.com/generate_204 connectivity endpoint. The game may also contact an optional private-save endpoint. These services can process ordinary connection information such as IP address, request headers and request time. No Wi-Fi network names or location permission are requested.
           </Text>
         </PolicySection>
         <PolicySection title="Game data and optional private sync">

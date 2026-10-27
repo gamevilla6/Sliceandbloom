@@ -2,19 +2,10 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { createInternetProbeTarget, InternetAccess } = require('../.physics-test-build/internetAccess.js');
 
-test('reachability checks the configured game API instead of the Pages origin', () => {
-  const target = createInternetProbeTarget(
-    'https://cloud-to-plant-physics-puzzle.replit.app/api',
-    'https://gamevilla6.github.io',
-  );
-  assert.equal(target.url, 'https://cloud-to-plant-physics-puzzle.replit.app/api/healthz');
-  assert.equal(target.expectedStatus, 200);
-});
-
-test('web reachability falls back to the app API path when no API is configured', () => {
-  const target = createInternetProbeTarget(undefined, 'https://gamevilla6.github.io');
-  assert.equal(target.url, 'https://gamevilla6.github.io/api/healthz');
-  assert.equal(target.expectedStatus, 200);
+test('internet reachability stays independent from unavailable optional cloud routes', () => {
+  const target = createInternetProbeTarget();
+  assert.equal(target.url, 'https://clients3.google.com/generate_204');
+  assert.equal(target.expectedStatus, 204);
 });
 
 test('launch fails closed until a real reachability check succeeds', async () => {
