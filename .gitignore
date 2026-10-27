@@ -10,9 +10,34 @@ out-tsc
 *.tsbuildinfo
 .expo
 .expo-shared
+**/build/
+**/web-build/
+**/release/
+**/eas-build*/
+*.apk
+*.aab
+*.ipa
+*.dSYM/
+*.log
+
+# Expo prebuild output (this app uses the managed workflow)
+**/android/
+**/ios/
+.gradle/
 
 # dependencies
 node_modules
+
+# Local environment and signing credentials
+.env
+.env.*
+!.env.example
+!.env.sample
+*.keystore
+*.jks
+*.p12
+*.p8
+*.mobileprovision
 
 # IDEs and editors
 /.idea
