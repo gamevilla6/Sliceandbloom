@@ -1,0 +1,63 @@
+name: Deploy Slice & Bloom to GitHub Pages
+
+on:
+  push:
+    branches:
+      - Main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: github-pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    name: Build and publish web game
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    env:
+      CI: "1"
+      EXPO_PUBLIC_GITHUB_PAGES_BASE_URL: /Sliceandbloom
+      EXPO_PUBLIC_API_BASE_URL: https://cloud-to-plant-physics-puzzle.replit.app/api
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "24.13.0"
+
+      - name: Install locked dependencies
+        run: |
+          corepack enable
+          corepack prepare pnpm@10.26.1 --activate
+          pnpm install --frozen-lockfile
+
+      - name: Export the web game for the GitHub Pages subpath
+        run: |
+          pnpm --filter @workspace/cloud-garden run build:web
+          test -s artifacts/cloud-garden/web-build/index.html
+          touch artifacts/cloud-garden/web-build/.nojekyll
+
+      - name: Configure Pages
+        uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b # v5
+
+      - name: Upload static site
+        uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3
+        with:
+          path: artifacts/cloud-garden/web-build
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4
