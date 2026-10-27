@@ -1,6 +1,21 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { InternetAccess } = require('../.physics-test-build/internetAccess.js');
+const { createInternetProbeTarget, InternetAccess } = require('../.physics-test-build/internetAccess.js');
+
+test('reachability checks the configured game API instead of the Pages origin', () => {
+  const target = createInternetProbeTarget(
+    'https://cloud-to-plant-physics-puzzle.replit.app/api',
+    'https://gamevilla6.github.io',
+  );
+  assert.equal(target.url, 'https://cloud-to-plant-physics-puzzle.replit.app/api/healthz');
+  assert.equal(target.expectedStatus, 200);
+});
+
+test('web reachability falls back to the app API path when no API is configured', () => {
+  const target = createInternetProbeTarget(undefined, 'https://gamevilla6.github.io');
+  assert.equal(target.url, 'https://gamevilla6.github.io/api/healthz');
+  assert.equal(target.expectedStatus, 200);
+});
 
 test('launch fails closed until a real reachability check succeeds', async () => {
   let finish;
@@ -42,6 +57,21 @@ test('concurrent starts share one check and every fresh start checks again', asy
   assert.equal(calls, 1);
   await access.check(true);
   assert.equal(calls, 2);
+});
+
+test('Retry forces a fresh check and ignores an older in-flight result', async () => {
+  const finishes = [];
+  const access = new InternetAccess(() => new Promise(resolve => { finishes.push(resolve); }));
+  const background = access.check();
+  await Promise.resolve();
+  const retry = access.check(true, true);
+  await Promise.resolve();
+  assert.equal(finishes.length, 2);
+  finishes[1](true);
+  assert.equal(await retry, true);
+  finishes[0](false);
+  assert.equal(await background, false);
+  assert.equal(access.isOnline(), true);
 });
 
 test('disconnect invalidates an older successful response', async () => {

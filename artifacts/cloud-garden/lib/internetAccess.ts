@@ -1,4 +1,24 @@
 export type InternetStatus = 'checking' | 'online' | 'offline';
+export type InternetProbeTarget = { url: string; expectedStatus: number };
+
+const NATIVE_FALLBACK_PROBE = 'https://clients3.google.com/generate_204';
+
+/** Prefer the configured game API so web project pages probe the correct host. */
+export function createInternetProbeTarget(apiBaseUrl?: string, webOrigin?: string): InternetProbeTarget {
+  const configured = apiBaseUrl?.trim();
+  const target = configured
+    ? new URL(configured)
+    : webOrigin
+      ? new URL('/api', webOrigin)
+      : null;
+  if (!target) return { url: NATIVE_FALLBACK_PROBE, expectedStatus: 204 };
+
+  target.search = '';
+  target.hash = '';
+  const basePath = target.pathname.replace(/\/+$/, '');
+  target.pathname = basePath.endsWith('/healthz') ? basePath : `${basePath}/healthz`;
+  return { url: target.toString(), expectedStatus: 200 };
+}
 
 /** Fail-closed connectivity state, independent of React/native APIs for tests. */
 export class InternetAccess {
@@ -30,9 +50,9 @@ export class InternetAccess {
     this.setStatus('checking');
   };
   /** Explicit level starts block while checking; background checks do not flicker. */
-  check = (blocking = false): Promise<boolean> => {
+  check = (blocking = false, force = false): Promise<boolean> => {
     if (blocking || !this.isOnline()) this.setStatus('checking');
-    if (this.pending) return this.pending;
+    if (this.pending && !force) return this.pending;
     const generation = ++this.generation;
     let timer: ReturnType<typeof setTimeout>;
     const timeout = new Promise<boolean>(resolve => {
