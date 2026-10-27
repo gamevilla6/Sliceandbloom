@@ -129,7 +129,8 @@ export function CloudSyncProvider({ children }: { children: React.ReactNode }) {
 
   const value = useMemo<CloudContextValue>(() => ({
     ...snapshot,
-    playReady: internet.online && snapshot.status === "ready",
+    // Gameplay needs verified internet, not a successful optional cloud save.
+    playReady: internet.online,
     retry, syncMode, markModeReady,
   }), [snapshot, internet.online, retry, syncMode, markModeReady]);
   return <CloudContext.Provider value={value}>{children}</CloudContext.Provider>;

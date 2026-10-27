@@ -42,7 +42,7 @@ function configureNetworkMonitor() {
   netInfoConfigured = true;
 }
 
-/** Probe the same API required for private progress sync; no player data is sent. */
+/** Check internet against the configured API health endpoint; no player data is sent. */
 async function probeInternet() {
   if (Platform.OS === 'web' && typeof navigator !== 'undefined' && navigator.onLine === false) return false;
   const target = getProbeTarget();
@@ -115,12 +115,7 @@ export function useInternetAccess() {
   return context;
 }
 
-export function InternetRequiredModal({ cloudReady, cloudStatus, cloudError, retryCloud }: {
-  cloudReady: boolean;
-  cloudStatus: string;
-  cloudError?: string;
-  retryCloud: () => Promise<void>;
-}) {
+export function InternetRequiredModal() {
   const { status, check } = useInternetAccess();
   const pathname = usePathname();
   const router = useRouter();
@@ -130,8 +125,7 @@ export function InternetRequiredModal({ cloudReady, cloudStatus, cloudError, ret
   const [retrying, setRetrying] = useState(false);
   const retryShake = useRef(new Animated.Value(0)).current;
   const checking = status === 'checking';
-  const waitingForCloud = status === 'online' && !cloudReady;
-  const visible = (status !== 'online' || !cloudReady) && pathname !== '/privacy';
+  const visible = status !== 'online' && pathname !== '/privacy';
   const retryShakeX = retryShake.interpolate({
     inputRange: [-1, 0, 1],
     outputRange: [-6, 0, 6],
@@ -144,10 +138,7 @@ export function InternetRequiredModal({ cloudReady, cloudStatus, cloudError, ret
     setRetrying(true);
     setRetryFeedback(false);
     try {
-      if (await check(true, true)) {
-        await retryCloud();
-        return;
-      }
+      if (await check(true, true)) return;
     } catch {
       // The fail-closed status and retry feedback below handle probe failures.
     } finally {
@@ -171,26 +162,21 @@ export function InternetRequiredModal({ cloudReady, cloudStatus, cloudError, ret
           <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
             <Ionicons name="wifi" size={44} color={P.drop} />
             <Text accessibilityRole="header" style={styles.title}>
-              {checking ? 'Checking internet…' : waitingForCloud ? 'Syncing private save…' : 'Internet required'}
+              {checking ? 'Checking internet…' : 'Internet required'}
             </Text>
             <Text accessibilityLiveRegion="polite" style={styles.body}>
-              {checking ? 'Checking your connection before play…'
-                : waitingForCloud ? cloudStatus === 'error'
-                  ? cloudError ?? 'Cloud sync is unavailable. Please retry before playing.'
-                  : 'Syncing your private progress before play…'
-                : INTERNET_REQUIRED_MESSAGE}
+              {checking ? 'Checking your connection before play…' : INTERNET_REQUIRED_MESSAGE}
             </Text>
             {retryFeedback && status === 'offline' && <Text testID="internet-retry-feedback"
               accessibilityLiveRegion="polite" style={styles.retryFeedback}>
               Still offline. Check Wi-Fi or mobile data, then retry.
             </Text>}
-            {(checking || (waitingForCloud && cloudStatus !== 'error'))
-              && <ActivityIndicator color={P.drop} accessibilityLabel="Checking internet and syncing your private save" />}
+            {checking && <ActivityIndicator color={P.drop} accessibilityLabel="Checking internet connection" />}
             <Pressable accessibilityRole="button" accessibilityState={{ disabled: retrying }} disabled={retrying}
               testID="internet-retry" onPress={() => { void retry(); }} style={[styles.retry, retrying && { opacity: 0.6 }]}>
               <Text style={styles.retryText}>{retrying ? 'Checking…' : 'Retry'}</Text>
             </Pressable>
-            <Text style={styles.note}>Your scores and progress sync privately for this installation. No account is required.</Text>
+            <Text style={styles.note}>Your progress is saved on this device. Optional private sync may be unavailable.</Text>
             <Pressable accessibilityRole="link" testID="internet-privacy" onPress={() => router.push('/privacy')} style={styles.privacy}>
               <Text style={styles.link}>Privacy policy</Text>
             </Pressable>

@@ -1,5 +1,5 @@
 {
-  "include": ["../lib/gameData.ts", "../lib/internetAccess.ts", "../lib/cloudProgress.ts"],
+  "include": ["../lib/gameData.ts", "../lib/internetAccess.ts", "../lib/cloudProgress.ts", "../lib/cloudSyncConfig.ts"],
   "compilerOptions": {
     "target": "ES2022",
     "module": "Node16",

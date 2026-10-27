@@ -64,8 +64,9 @@ do not deliver this as a JavaScript-only update to an incompatible old binary.
    package, version, certificate, native dependencies and bundled assets.
 4. Test cold launch without internet, captive Wi-Fi, Wi-Fi/cellular handoffs,
    foreground resume and loss during a timed puzzle or rewarded ad.
-5. Confirm local saves persist after force-close/reopen and that cloud scores,
-   stars and unlocks hydrate on the same installation. Do not uninstall to test
-   persistence; reinstall can remove the private installation key.
+5. Confirm local saves persist after force-close/reopen. If the optional cloud
+   service is available, verify it can hydrate the same installation; its
+   failure must not block play or replace local progress. Do not uninstall to
+   test persistence; reinstall can remove the private installation key.
 6. Use the accurate store descriptions and updated privacy policy. Reconcile
    the Play Console Data safety form with SDK behavior before submission.

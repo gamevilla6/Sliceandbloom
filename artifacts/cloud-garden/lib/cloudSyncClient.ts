@@ -7,6 +7,7 @@ import {
   type CloudProgressBundle,
 } from "./cloudProgress";
 import { getInstallationCredentials, setInstallationCredentials, type InstallationCredentials } from "./installationCredentials";
+import { resolveCloudApiBaseUrl } from "./cloudSyncConfig";
 
 const REQUEST_TIMEOUT_MS = 8000;
 export type CloudSyncMode = "campaign" | "hardcore" | "genesis" | "void" | "singularity";
@@ -17,7 +18,7 @@ export class CloudSyncClient {
   private writes = new Map<CloudMode, Promise<unknown>>();
   private baseUrl: string;
   private readonly fetcher: typeof fetch;
-  constructor(baseUrl: string, fetcher?: typeof fetch) {
+  constructor(baseUrl: string | undefined, fetcher?: typeof fetch) {
     this.baseUrl = baseUrl.replace(/\/+$/, "");
     // Preserve the browser's Window receiver; unbound window.fetch throws
     // "Illegal invocation" in web previews.
@@ -40,6 +41,7 @@ export class CloudSyncClient {
     const abort = new AbortController();
     const timeout = setTimeout(() => abort.abort(), REQUEST_TIMEOUT_MS);
     try {
+      if (!this.baseUrl) throw new Error("Cloud sync is unavailable.");
       const credentials = authorized ? await this.getCredentials() : undefined;
       const response = await this.fetcher(`${this.baseUrl}${path}`, {
         ...init,
@@ -113,22 +115,27 @@ function validateCredentials(value: unknown): asserts value is InstallationCrede
 }
 
 function apiBaseUrl() {
-  const configuredValue = process.env.EXPO_PUBLIC_API_BASE_URL;
-  const configured = configuredValue ? configuredValue.trim() : "";
-  const published = Constants.expoConfig?.extra?.apiBaseUrl;
   const webOrigin = typeof window !== "undefined" && window.location?.origin
-    ? `${window.location.origin}/api`
+    ? window.location.origin
     : undefined;
-  const raw = configured || webOrigin || published;
-  if (typeof raw !== "string" || !raw) throw new Error("Private cloud sync is not configured.");
-  const url = new URL(raw);
-  if (!__DEV__ && url.protocol !== "https:") throw new Error("Cloud saves require a secure connection.");
-  if (url.username || url.password || url.search || url.hash) throw new Error("Private cloud URL is invalid.");
-  return url.toString().replace(/\/+$/, "");
+  return resolveCloudApiBaseUrl(
+    process.env.EXPO_PUBLIC_API_BASE_URL,
+    Constants.expoConfig?.extra?.apiBaseUrl,
+    webOrigin,
+    __DEV__,
+  );
 }
 
 let client: CloudSyncClient | undefined;
 export function getCloudSyncClient() {
-  if (!client) client = new CloudSyncClient(apiBaseUrl());
+  if (!client) {
+    let baseUrl: string | undefined;
+    try {
+      baseUrl = apiBaseUrl();
+    } catch {
+      // A missing optional sync configuration must not prevent local gameplay.
+    }
+    client = new CloudSyncClient(baseUrl);
+  }
   return client;
 }

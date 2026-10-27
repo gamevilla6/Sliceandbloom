@@ -17,12 +17,15 @@ receipts and daily streaks remain at `cloud-garden:app-rewards:v1`.
 adapter, key and typed profile. The existing profile readers sanitize loaded
 scores, stars, unlocks, completion times and reward counts.
 
-Progress fields (unlocks, stars, scores and best times) are also synchronized
-to a private anonymous server record for this installation. The server never
-receives the AsyncStorage key or the raw bearer token; the token is kept in
-Expo SecureStore on native devices. Local settings, death counts and reward
-inventory are intentionally excluded from the cloud record. A web browser uses
-localStorage for its per-install bearer token.
+AsyncStorage is the authoritative save for progress, settings and reward
+inventory. The game may best-effort sync unlocks, stars, scores and best times
+to a private anonymous server record for this installation when that service is
+available. A missing endpoint, 404 or timeout never replaces local data or
+blocks gameplay after the internet check succeeds. The server never receives
+the AsyncStorage key or the raw bearer token; the token is kept in Expo
+SecureStore on native devices. Local settings, death counts and reward inventory
+are excluded from the optional cloud record. A web browser uses localStorage
+for its per-install bearer token.
 
 - Load successfully before enabling profile changes.
 - Save immediately after each transition, in per-key order.
@@ -36,9 +39,9 @@ localStorage for its per-install bearer token.
   not `window.localStorage`.
 
 AsyncStorage is not encrypted storage. Do not store credentials or sensitive
-personal information there. Clearing app storage removes the local cache and
-secure token and can make the cloud record inaccessible. The cloud save does
-not restore across devices or after reinstall. Changing package identifiers
+personal information there. Clearing app storage removes the local save and
+secure token and can make an optional cloud record inaccessible. Cloud sync
+does not restore across devices or after reinstall. Changing package identifiers
 creates a different Android storage sandbox. A normal same-package,
 same-signature update preserves local saves. Web saves and the `.preview` APK
 do not automatically transfer to the store app.

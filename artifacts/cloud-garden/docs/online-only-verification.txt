@@ -45,4 +45,4 @@ LIMITS AND BUILD STATUS
 - New native SDK compilation has not been performed for this change.
 - No production AAB or updated APK was generated. Production signing access
   is unavailable locally, and no production keystore was reset or replaced.
-- No cloud saves, accounts or online leaderboards were added.
+- Cloud saves are optional and best-effort; no accounts or public online leaderboards were added.

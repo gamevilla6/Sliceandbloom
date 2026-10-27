@@ -6,7 +6,6 @@ import {
 } from 'react-native-google-mobile-ads';
 import { getBannerUnitId, initializeBannerSdk } from '@/lib/AdManager';
 import { useInternetAccess } from './InternetAccess';
-import { useCloudSync } from './CloudSyncProvider';
 import {
   BANNER_AD_RESERVED_HEIGHT,
   type BannerAdComponentProps,
@@ -15,8 +14,7 @@ import {
 /** Native-only adaptive banner; debug builds always use Google's test unit. */
 export function BannerAdComponent({ onHeightChange }: BannerAdComponentProps = {}) {
   const { online } = useInternetAccess();
-  const cloud = useCloudSync();
-  const adsReady = online && cloud.playReady;
+  const adsReady = online;
   const { width } = useWindowDimensions();
   const [sdkReady, setSdkReady] = useState(false);
   const [height, setHeight] = useState(BANNER_AD_RESERVED_HEIGHT);

@@ -47,8 +47,8 @@ migrate without losing brushes or fast-passes.
 ## Limits
 
 Reward inventory and receipt history are device-local, not a cloud backup or
-fraud-proof account ledger. Only level unlocks, stars, scores and best times are
-included in the private per-installation progress sync.
+fraud-proof account ledger. If the optional per-installation sync is available,
+only level unlocks, stars, scores and best times are included.
 Clearing app/browser data removes progress and rewards. Client clocks can be
 changed: backward daily claims are blocked, but trusted-time enforcement and
 cross-device recovery would require a server. Receipt history is bounded to

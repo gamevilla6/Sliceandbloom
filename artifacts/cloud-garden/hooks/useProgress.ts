@@ -43,14 +43,13 @@ export function useProgress(total: number, key = KEY, cloudMode?: CloudMode) {
   }, [cloudMode, cloud.status, cloud.syncMode, getCurrent, localUpdate]);
 
   const flushCloud = useCallback(async () => {
-    if (!cloudMode || !cloud.playReady) return false;
-    try {
-      await cloud.syncMode(cloudMode, toCloudProgress(getCurrent()));
-      return cloud.playReady;
-    } catch {
-      return false;
+    if (cloudMode && cloud.playReady && cloud.status === 'ready') {
+      // AsyncStorage is authoritative; an unavailable cloud endpoint must never
+      // delay navigation or turn a completed local save into a blocked action.
+      void cloud.syncMode(cloudMode, toCloudProgress(getCurrent())).catch(() => {});
     }
-  }, [cloudMode, cloud.playReady, cloud.syncMode, getCurrent]);
+    return true;
+  }, [cloudMode, cloud.playReady, cloud.status, cloud.syncMode, getCurrent]);
 
   const complete = useCallback(
     (idx: number, stars: number, result?: Completion) =>

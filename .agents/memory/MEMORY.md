@@ -2,7 +2,7 @@
 - [Visual direction](visual-direction.md) — Arcade Pop is the default; Void Protocol uses its own dark neon red/purple theme.
 - [Campaign expansion](campaign-expansion.md) — Campaign, Hardcore and Genesis have 100 levels each; Void Protocol is a separate 110-level mode.
 - [Browser verification](browser-verification.md) — seed once, batch countdown inputs, and finish UI checks before compiling the native QA APK.
-- [Online-only play](online-only-play.md) — internet and private per-install cloud sync are required; no accounts, public leaderboard or cross-device restore.
+- [Online-only play](online-only-play.md) — verified internet is required; AsyncStorage is authoritative and private cloud sync is optional.
 - [Reward economy](reward-economy.md) — free-only virtual wagers; review policy before adding paid stakes, cash-out or transferable prizes.
 - [Ad placement](ad-placement-policy.md) — milestone interstitials only after real wins; no forced ads in the failure/retry loop or active puzzles.
 - [Gameplay view](camera-policy.md) — the user removed cinematic Overview/Focus modes; keep the normal unzoomed full-level view.
